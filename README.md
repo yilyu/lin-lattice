@@ -99,6 +99,8 @@ The correspondence between the paper and the formal development is as follows:
 - **Section on the non-simulation result**  
   Formalized mainly in `HWQ-TSQ/NotSimLemmas.thy` and `HWQ-TSQ/NotSimProof.thy`.
 
-## Acknowledgments
+## Use of Generative AI Assistance
 
-During the conceptualization and development of the formal proofs, the authors utilized the web interfaces of several large language models, including Gemini, ChatGPT, and DeepSeek, to brainstorm verification strategies and explore tactical structures. All resulting proof scripts were mechanically verified by Isabelle/HOL to ensure strict mathematical correctness.
+During the conceptualization and development of the formal proofs, the authors used the web interfaces of several large language models, including Gemini, ChatGPT, and DeepSeek, to brainstorm verification strategies, discuss proof organization, and explore possible tactical structures.
+
+These systems were used only as heuristic aids. The authors retained full responsibility for all scientific claims, definitions, theorems, and proof scripts. All Isabelle/HOL proof scripts included in this artifact were reviewed by the authors and mechanically checked by Isabelle/HOL.
