@@ -103,4 +103,4 @@ The correspondence between the paper and the formal development is as follows:
 
 During the conceptualization and development of the formal proofs, the authors used the web interfaces of several large language models, including Gemini, ChatGPT, and DeepSeek, to brainstorm verification strategies, discuss proof organization, and explore possible tactical structures.
 
-These systems were used only as heuristic aids. The authors retained full responsibility for all scientific claims, definitions, theorems, and proof scripts. All Isabelle/HOL proof scripts included in this artifact were reviewed by the authors and mechanically checked by Isabelle/HOL.
+The authors retained full responsibility for all scientific claims, definitions, theorems, and proof scripts. All Isabelle/HOL proof scripts included in this artifact were reviewed by the authors and mechanically checked by Isabelle/HOL.
