@@ -1,11 +1,5 @@
 # lin-lattice
 
-Chao Wang (Southwest University), Ruijia Li (Southwest University), Yang Zhou (Southwest University), Peng Wu (Institute of Software, Chinese Academy of Sciences), Yi Lv (Institute of Software, Chinese Academy of Sciences), Jianwei Liao (Southwest University), Jim Woodcock (Southwest University; State Key Laboratory of Intelligent Vehicle Technology; Aarhus University; University of York), Zhiming Liu (Southwest University).
-
-Artifact package accompanying our CONCUR 2026 submission:
-
-**A Forward Simulation-Based Hierarchy of Linearizable Concurrent Objects**
-
 The formal proofs in this repository were co-developed by Yi Lv, Ruijia Li, Yang Zhou, and Chao Wang. For a detailed breakdown of individual contributions, please refer to the AUTHORS file.
 
 ## Introduction
