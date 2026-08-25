@@ -29,6 +29,14 @@ session "LinLattice" = HOL +
     D4Proof
     SysInvProof
     ULinProof
+    QueueSpecLemmas
+    QueueSpecTransfer
+    HistoryTransferLemmas
+    HistoryTransferProof
+    USpecMembershipLemmas
+    USpecMembership
+    HWQQueueLemmas
+    HWQQueueProof
     TSQModel
     SimLemmas
     SimProof

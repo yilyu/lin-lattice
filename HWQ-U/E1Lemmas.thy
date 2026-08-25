@@ -10,16 +10,12 @@ theory E1Lemmas
     EnqLib
 begin
 
-(* ========================================================== *)
-(* Preservation lemmas for the E1 transition                   *)
-(* ========================================================== *)
-
 (* ========================================================================= *)
-(* Step 1: Basic state-transition facts (Physical State Transition Facts for Sys_E1) *)
-(* We work directly with the primitive model definitions, without relying on update_state *)
+(* 1. physicalstate transitionbasicfact (Physical State Transition Facts for Sys_E1) *)
+(* : update_state, in original definition equivalenceextract *)
 (* ========================================================================= *)
 
-(* Bridge definitions used to unfold all system variables in one place *)
+(* Extract definition, in one unfoldall *)
 lemmas E1_bridge =
   program_counter_def X_var_def V_var_def Q_arr_def Qback_arr_def
   i_var_def j_var_def l_var_def x_var_def v_var_def s_var_def
@@ -34,17 +30,17 @@ lemma Sys_E1_history_unchanged:
   assumes "Sys_E1 p s s'"
   shows "his_seq s' = his_seq s"
   using assms unfolding Sys_E1_def C_E1_def Let_def E1_bridge
-  by (simp add: U_E2_def)
+  by simp
 
 lemma Sys_E1_lin_append:
   assumes "Sys_E1 p s s'"
-  shows "lin_seq s' = lin_seq s @ [mk_op enq (v_var s p) p (s_var s p)]"
-  using assms unfolding Sys_E1_def C_E1_def U_E2_def Let_def E1_bridge
+  shows "lin_seq s' = lin_seq s"
+  using assms unfolding Sys_E1_def C_E1_def Let_def E1_bridge
   by auto
 
 lemma Sys_E1_lin_last:
   assumes STEP: "Sys_E1 p s s'"
-  shows "lin_seq s' ! length (lin_seq s) = mk_op enq (v_var s p) p (s_var s p)"
+  shows "length (lin_seq s') = length (lin_seq s)"
   using Sys_E1_lin_append[OF STEP]
   by simp
 
@@ -105,15 +101,15 @@ lemma Sys_E1_uhis_eq:
 
 
 (* ========================================================================= *)
-(* Step 2: Preservation of logical-state and set-based invariants (Logical State & Set Invariants) *)
+(* 2. and set of mapping (Logical State & Set Invariants) *)
 (* ========================================================================= *)
 
 lemma Sys_E1_lin_nth_old:
   assumes STEP: "Sys_E1 p s s'"
   assumes K: "k < length (lin_seq s)"
   shows "lin_seq s' ! k = lin_seq s ! k"
-  using Sys_E1_lin_append[OF STEP] K
-  by (simp add: nth_append)
+  using Sys_E1_lin_append[OF STEP]
+  by simp
 
 
 lemma Sys_E1_QHas_eq:
@@ -182,91 +178,15 @@ lemma Sys_E1_HB_EnqRetCall_eq:
 
 lemma Sys_E1_TypeB_eq:
   assumes STEP: "Sys_E1 p s s'"
-  shows "TypeB s' a \<longleftrightarrow> TypeB s a \<or> a = v_var s p"
-proof
-  assume type_new: "TypeB s' a"
-  then have type_new_cases:
-    "QHas s' a \<or> (\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = a)"
-    unfolding TypeB_def by simp
-  then show "TypeB s a \<or> a = v_var s p"
-  proof
-    assume qhas_new: "QHas s' a"
-    have "QHas s a"
-      using qhas_new Sys_E1_QHas_eq[OF STEP, of a] by simp
-    then show "TypeB s a \<or> a = v_var s p"
-      unfolding TypeB_def by blast
-  next
-    assume ex_new: "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = a"
-    then obtain q where
-      q_pc_new: "program_counter s' q = ''E2''" and
-      q_v_new: "v_var s' q = a"
-      by blast
-    show "TypeB s a \<or> a = v_var s p"
-    proof (cases "q = p")
-      case True
-      then show ?thesis
-        using q_v_new Sys_E1_v_eq[OF STEP, of p] by simp
-    next
-      case False
-      have "program_counter s q = ''E2''"
-        using q_pc_new False Sys_E1_pc_eq[OF STEP, of q] by simp
-      moreover have "v_var s q = a"
-        using q_v_new False Sys_E1_v_eq[OF STEP, of q] by simp
-      ultimately have "TypeB s a"
-        unfolding TypeB_def by blast
-      then show ?thesis by blast
-    qed
-  qed
-next
-  assume type_old_or_new: "TypeB s a \<or> a = v_var s p"
-  from type_old_or_new show "TypeB s' a"
-  proof
-    assume type_old: "TypeB s a"
-    have type_old_cases:
-      "QHas s a \<or> (\<exists>q. program_counter s q = ''E2'' \<and> v_var s q = a)"
-      using type_old unfolding TypeB_def by simp
-    then show ?thesis
-    proof
-      assume qhas_old: "QHas s a"
-      have "QHas s' a"
-        using qhas_old Sys_E1_QHas_eq[OF STEP, of a] by simp
-      then show "TypeB s' a"
-        unfolding TypeB_def by blast
-    next
-      assume ex_old: "\<exists>q. program_counter s q = ''E2'' \<and> v_var s q = a"
-      then obtain q where
-        q_pc_old: "program_counter s q = ''E2''" and
-        q_v_old: "v_var s q = a"
-        by blast
-      have q_ne_p: "q \<noteq> p"
-      proof
-        assume "q = p"
-        then show False
-          using q_pc_old Sys_E1_pc_before[OF STEP] by simp
-      qed
-      have "program_counter s' q = ''E2''"
-        using q_pc_old q_ne_p Sys_E1_pc_eq[OF STEP, of q] by simp
-      moreover have "v_var s' q = a"
-        using q_v_old Sys_E1_v_eq[OF STEP, of q] by simp
-      ultimately show "TypeB s' a"
-        unfolding TypeB_def by blast
-    qed
-  next
-    assume a_eq: "a = v_var s p"
-    have "program_counter s' p = ''E2''"
-      using Sys_E1_pc_eq[OF STEP, of p] by simp
-    moreover have "v_var s' p = a"
-      using a_eq Sys_E1_v_eq[OF STEP, of p] by simp
-    ultimately show ?thesis
-      unfolding TypeB_def by blast
-  qed
-qed
+  shows "TypeB s' a \<longleftrightarrow> TypeB s a"
+  using Sys_E1_QHas_eq[OF STEP, of a]
+  unfolding TypeB_def by simp
 
 lemma Sys_E1_TypeB_eq_other:
   assumes STEP: "Sys_E1 p s s'"
   assumes A_NE: "a \<noteq> v_var s p"
   shows "TypeB s' a \<longleftrightarrow> TypeB s a"
-  using Sys_E1_TypeB_eq[OF STEP, of a] A_NE by blast
+  using Sys_E1_TypeB_eq[OF STEP, of a] by blast
 
 lemma Sys_E1_TypeBT_eq_other:
   assumes STEP: "Sys_E1 p s s'"
@@ -437,8 +357,8 @@ qed
 
 
 (* ========================================================================= *)
-(* Auxiliary lemma: E1 across the hI3_L0_E_Phase_Bounds preservation *)
-(* Key idea: the global history, V_var, the concrete queue, and the old v_var remain unchanged and can be transported directly *)
+(* Helper lemma: E1 state transition of hI3_L0_E_Phase_Bounds guardspreserve *)
+(* : globalhistoryrecord, dequeue V_var, physicalqueue and v_var definitely, precisetranslate *)
 (* ========================================================================= *)
 lemma hI3_L0_E_Phase_Bounds_E1_step:
   fixes s s' :: SysState and p :: nat
@@ -446,11 +366,11 @@ lemma hI3_L0_E_Phase_Bounds_E1_step:
   assumes STEP: "Sys_E1 p s s'"
   shows "hI3_L0_E_Phase_Bounds s'"
 proof -
-  (* Step 0: extract the invariants of the pre-state *)
+  (* 0. extract the old stateinvariant *)
   have hI3_L0_E_Phase_Bounds_s: "hI3_L0_E_Phase_Bounds s"
     using INV unfolding system_invariant_def by auto
 
-  (* Step 1: extract the key concrete facts of the E1 transition *)
+  (* 1. extract E1 of keyphysicalfact *)
   note bridge = program_counter_def X_var_def V_var_def Q_arr_def
                 Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
                 s_var_def lin_seq_def his_seq_def
@@ -464,22 +384,22 @@ proof -
     using STEP unfolding Sys_E1_def his_seq_def bridge
     using STEP Sys_E1_history_unchanged his_seq_def by auto
   have s_var_eq: "s_var s' = s_var s"
-    using STEP unfolding Sys_E1_def C_E1_def U_E2_def Let_def bridge by auto
+    using STEP unfolding Sys_E1_def C_E1_def Let_def bridge by auto
   have V_eq: "V_var s' = V_var s"
-    using STEP unfolding Sys_E1_def C_E1_def U_E2_def Let_def bridge by auto
+    using STEP unfolding Sys_E1_def C_E1_def Let_def bridge by auto
   have qback_eq: "Qback_arr s' = Qback_arr s"
-    using STEP unfolding Sys_E1_def C_E1_def U_E2_def Let_def bridge by auto
+    using STEP unfolding Sys_E1_def C_E1_def Let_def bridge by auto
 
   have pc_other: "\<And>q. q \<noteq> p \<Longrightarrow> program_counter s' q = program_counter s q"
     using STEP unfolding Sys_E1_def C_E1_def Let_def bridge by (auto simp: fun_eq_iff)
   have v_var_eq: "v_var s' = v_var s"
-    using STEP unfolding Sys_E1_def C_E1_def U_E2_def Let_def bridge by auto
+    using STEP unfolding Sys_E1_def C_E1_def Let_def bridge by auto
 
-  (* Step 2: prove the five conjuncts of hI3_L0_E_Phase_Bounds one by one *)
+  (* 2. one hI3_L0_E_Phase_Bounds of 5 *)
   show ?thesis
   proof (intro hI3_L0_E_Phase_BoundsI allI impI, goal_cases)
     case (1 q)
-    (* An L0 process has no pending enqueue. Since p moves to E2, any L0 witness must be some other process q, so the fact transports directly. *)
+    (* L0 processno Pending. p to E2, therefore L0 of necessarily is its process q, translate. *)
     have q_ne_p: "q \<noteq> p" using 1 pc_p_new by auto
     have old_L0: "program_counter s q = ''L0'' "
       using 1 q_ne_p pc_other by auto
@@ -497,7 +417,7 @@ proof -
 
   next
     case (2 q)
-    (* The dequeue-balance fact for L0 is handled in the same way: q must be a different process. *)
+    (* L0 processdequeuerecord. similarly, q is its process. *)
     have q_ne_p: "q \<noteq> p" using 2 pc_p_new by auto
     have old_L0: "program_counter s q = ''L0'' "
       using 2 q_ne_p pc_other by auto
@@ -510,7 +430,7 @@ proof -
 
   next
     case (3 q)
-    (* For processes in the enqueue phase, v_var stays strictly below V_var; p remains in the enqueue phase. *)
+    (* E phaseprocess of v_var strictly less than V_var. p in E phase. *)
     show ?case
     proof (cases "q = p")
       case True
@@ -528,7 +448,7 @@ proof -
 
   next
     case (4 k)
-    (* Call tickets in the history remain strictly below V_var, so the property is transported directly. *)
+    (* History in call event of ticketstrictly less than V_var. translate. *)
     have old_k: "k < length (his_seq s)"
       using 4 his_eq by simp
     show ?case
@@ -536,7 +456,7 @@ proof -
 
   next
     case (5 k)
-    (* Tickets stored in Qback_arr remain strictly below V_var, so the property is transported directly. *)
+    (* Qback_arr in of ticketstrictly less than V_var. translate. *)
     have "Qback_arr s' k = Qback_arr s k"
       using qback_eq by simp
     thus ?case
@@ -545,8 +465,8 @@ proof -
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for hI27_Pending_PC_Sync s' . *)
-(* Note: the proof script below is taken verbatim from the original file and only packaged as a separate lemma. *)
+(* : original hI27_Pending_PC_Sync s' of prove. *)
+(* Note: belowprove this from original moved verbatim, only outside as. *)
 lemma E1_pending_pc_sync:
   fixes s s' :: SysState and p :: nat
   assumes hI27_Pending_PC_Sync_s: "hI27_Pending_PC_Sync s"
@@ -631,8 +551,8 @@ next
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for hI29_E2_Scanner_Immunity s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original hI29_E2_Scanner_Immunity s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_e2_scanner_immune:
   fixes s s' :: SysState and p p_inv q :: nat and a v :: nat
   assumes INV: "system_invariant s"
@@ -729,14 +649,11 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for hI30_Ticket_HB_Immunity s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original hI30_Ticket_HB_Immunity s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_ticket_hb_immune:
-  fixes s s' :: SysState and p q :: nat and b v :: nat
+  fixes s s' :: SysState and p q :: nat and b :: nat
   assumes INV: "system_invariant s"
-    and TypeB_s'_v: "TypeB s' v"
-    and v_in_Val: "v \<in> Val"
-    and not_InQBack_v: "\<not> InQBack s v"
     and step_facts [simp]:
       "program_counter s p = ''E1''"
       "program_counter s' = (program_counter s)(p := ''E2'')"
@@ -826,8 +743,8 @@ proof (unfold hI30_Ticket_HB_Immunity_def, intro allI impI, goal_cases)
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for OP_B_enq_new . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original OP_B_enq_new of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_op_b_enq_new:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes his_eq: "his_seq s' = his_seq s"
@@ -899,8 +816,8 @@ next
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI2_Op_Cardinality_s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI2_Op_Cardinality_s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_op_cardinality:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
@@ -909,15 +826,11 @@ lemma E1_op_cardinality:
     and TypeB_s'_v: "TypeB s' v"
     and v_in_Val: "v \<in> Val"
     and not_InQBack_v: "\<not> InQBack s v"
-    and pc_p_E1: "program_counter s p = ''E1''"
-    and hI1_E_Phase_Pending_Enq_s: "hI1_E_Phase_Pending_Enq s"
-    and hI8_Val_Unique_s: "hI8_Val_Unique s"
     and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s"
     and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s"
     and lI1_Op_Sets_Equivalence_s: "lI1_Op_Sets_Equivalence s"
     and lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics s"
     and di_lin_s: "data_independent (lin_seq s)"
-    and call_p: "EnqCallInHis s p v (s_var s p)"
     and lin_eq [simp]: "lin_seq s' = lin_seq s @ [new_act]"
     and new_act_def: "new_act = mk_op enq v p (s_var s p)"
   shows "lI2_Op_Cardinality s'"
@@ -968,30 +881,14 @@ next
         have v_not_in_SetB_s: "v \<notin> SetB s"
         proof
           assume "v \<in> SetB s"
-          then have "TypeB s v" unfolding SetB_def by blast
-          thus False
-          proof (cases "QHas s v")
-            case True
-            then have "InQBack s v" using sI8_Q_Qback_Sync_s unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
-              by (metis sI1_Zero_Index_BOT_def sI1_Zero_Index_BOT_s)
-            thus ?thesis using not_InQBack_v by blast
-          next
-            case False
-            then obtain q where "program_counter s q = ''E2''" and "v_var s q = v"
-              using \<open>TypeB s v\<close> unfolding TypeB_def by blast
-            have "q \<noteq> p" using pc_p_E1 \<open>program_counter s q = ''E2''\<close> by auto
-            have "HasPendingEnq s q v" using hI1_E_Phase_Pending_Enq_s \<open>program_counter s q = ''E2''\<close> unfolding hI1_E_Phase_Pending_Enq_def
-              using \<open>Model.v_var s q = v\<close> by blast
-            then have "EnqCallInHis s q v (s_var s q)" unfolding HasPendingEnq_def
-              by metis
-            also have "EnqCallInHis s p v (s_var s p)" using call_p by simp
-            with hI8_Val_Unique_s have "q = p" unfolding hI8_Val_Unique_def
-              using EnqCallInHis_unique_pid calculation hI8_Val_Unique_s
-              by blast
-            with \<open>q \<noteq> p\<close> show False by contradiction
-          qed
+          then have "QHas s v" unfolding SetB_def TypeB_def by simp
+          then have "InQBack s v"
+            using sI8_Q_Qback_Sync_s sI1_Zero_Index_BOT_s
+            unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
+                      sI1_Zero_Index_BOT_def
+            by metis
+          then show False using not_InQBack_v by contradiction
         qed
-
         have v_fresh: "\<forall>i < length (lin_seq s). op_name (lin_seq s ! i) = enq \<longrightarrow> op_val (lin_seq s ! i) \<noteq> v"
         proof (intro allI impI)
           fix i assume i_lt: "i < length (lin_seq s)" and enq_i: "op_name (lin_seq s ! i) = enq"
@@ -1060,30 +957,14 @@ next
       have v_not_in_SetB_s: "v \<notin> SetB s"
       proof
         assume "v \<in> SetB s"
-        then have "TypeB s v" unfolding SetB_def by blast
-        thus False
-        proof (cases "QHas s v")
-          case True
-          then have "InQBack s v" using sI8_Q_Qback_Sync_s unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
-            by (metis sI1_Zero_Index_BOT_def sI1_Zero_Index_BOT_s)
-          thus ?thesis using not_InQBack_v by blast
-        next
-          case False
-          then obtain q where "program_counter s q = ''E2''" and "v_var s q = v"
-            using \<open>TypeB s v\<close> unfolding TypeB_def by blast
-          have "q \<noteq> p" using pc_p_E1 \<open>program_counter s q = ''E2''\<close> by auto
-          have "HasPendingEnq s q v" using hI1_E_Phase_Pending_Enq_s \<open>program_counter s q = ''E2''\<close> unfolding hI1_E_Phase_Pending_Enq_def
-            using \<open>Model.v_var s q = v\<close> by blast
-          then have "EnqCallInHis s q v (s_var s q)" unfolding HasPendingEnq_def
-            by meson
-          also have "EnqCallInHis s p v (s_var s p)" using call_p by simp
-          with hI8_Val_Unique_s have "q = p" unfolding hI8_Val_Unique_def
-            using EnqCallInHis_unique_pid calculation hI8_Val_Unique_s
-            by blast
-          with \<open>q \<noteq> p\<close> show False by contradiction
-        qed
+        then have "QHas s v" unfolding SetB_def TypeB_def by simp
+        then have "InQBack s v"
+          using sI8_Q_Qback_Sync_s sI1_Zero_Index_BOT_s
+          unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
+                    sI1_Zero_Index_BOT_def
+          by metis
+        then show False using not_InQBack_v by contradiction
       qed
-
       from lI2_Op_Cardinality_s b_in_s have enq_old: "card (EnqIdxs s b) = 1" and deq_old: "card (DeqIdxs s b) = 0"
         unfolding lI2_Op_Cardinality_def by blast+
       have "EnqIdxs s' b = EnqIdxs s b"
@@ -1098,8 +979,8 @@ next
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI3_HB_Ret_Lin_Sync s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI3_HB_Ret_Lin_Sync s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_hb_ret_lin_sync:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
@@ -1226,8 +1107,8 @@ next
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI4_FIFO_Semantics s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI4_FIFO_Semantics s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_fifo_semantics:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
@@ -1308,8 +1189,8 @@ proof (intro allI impI)
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI5_SA_Prefix s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI5_SA_Prefix s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_sa_prefix:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
@@ -1579,19 +1460,15 @@ proof (unfold lI5_SA_Prefix_def lI5_SA_Prefix_list_def, intro allI impI, goal_ca
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI7_D4_Deq_Deq_HB s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI7_D4_Deq_Deq_HB s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_d4_deq_deq_hb:
   fixes s s' :: SysState and p :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
     and step_facts [simp]:
-      "program_counter s p = ''E1''"
-      "program_counter s' = (program_counter s)(p := ''E2'')"
-      "i_var s' = (i_var s)(p := X_var s)"
-      "X_var s' = X_var s + 1"
-      "Q_arr s' = Q_arr s" "Qback_arr s' = Qback_arr s"
-      "x_var s' = x_var s" "j_var s' = j_var s" "l_var s' = l_var s"
-      "V_var s' = V_var s" "v_var s' = v_var s" "s_var s' = s_var s"
+      "program_counter s p = ''E2''"
+      "program_counter s' = (program_counter s)(p := ''E3'')"
+      "x_var s' = x_var s" "s_var s' = s_var s"
       "his_seq s' = his_seq s"
     and his_eq: "his_seq s' = his_seq s"
     and lin_eq [simp]: "lin_seq s' = lin_seq s @ [new_act]"
@@ -1615,7 +1492,7 @@ proof (unfold lI7_D4_Deq_Deq_HB_def lI7_D4_Deq_Deq_HB_list_def, intro allI impI,
   proof
     assume "q = p"
     hence "program_counter s' p = ''D4''" using pc_q by simp
-    moreover have "program_counter s' p = ''E2''" using step_facts by simp
+    moreover have "program_counter s' p = ''E3''" using step_facts by simp
     ultimately show False by simp
   qed
 
@@ -1670,19 +1547,15 @@ proof (unfold lI7_D4_Deq_Deq_HB_def lI7_D4_Deq_Deq_HB_list_def, intro allI impI,
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI10_D4_Enq_Deq_HB s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI10_D4_Enq_Deq_HB s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_d4_enq_deq_hb:
   fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
     and step_facts [simp]:
-      "program_counter s p = ''E1''"
-      "program_counter s' = (program_counter s)(p := ''E2'')"
-      "i_var s' = (i_var s)(p := X_var s)"
-      "X_var s' = X_var s + 1"
-      "Q_arr s' = Q_arr s" "Qback_arr s' = Qback_arr s"
-      "x_var s' = x_var s" "j_var s' = j_var s" "l_var s' = l_var s"
-      "V_var s' = V_var s" "v_var s' = v_var s" "s_var s' = s_var s"
+      "program_counter s p = ''E2''"
+      "program_counter s' = (program_counter s)(p := ''E3'')"
+      "x_var s' = x_var s" "s_var s' = s_var s"
       "his_seq s' = his_seq s"
     and his_eq: "his_seq s' = his_seq s"
     and lin_eq [simp]: "lin_seq s' = lin_seq s @ [new_act]"
@@ -1707,7 +1580,7 @@ proof (unfold lI10_D4_Enq_Deq_HB_def lI10_D4_Enq_Deq_HB_list_def, intro allI imp
   proof
     assume "q = p"
     hence "program_counter s' p = ''D4''" using pc_q by simp
-    moreover have "program_counter s' p = ''E2''" using step_facts by simp
+    moreover have "program_counter s' p = ''E3''" using step_facts by simp
     ultimately show False by simp
   qed
 
@@ -1797,19 +1670,15 @@ proof (unfold lI10_D4_Enq_Deq_HB_def lI10_D4_Enq_Deq_HB_list_def, intro allI imp
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for lI11_D4_Deq_Unique s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original lI11_D4_Deq_Unique s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_d4_deq_unique:
   fixes s s' :: SysState and p :: nat and new_act :: OpRec
   assumes INV: "system_invariant s"
     and step_facts [simp]:
-      "program_counter s p = ''E1''"
-      "program_counter s' = (program_counter s)(p := ''E2'')"
-      "i_var s' = (i_var s)(p := X_var s)"
-      "X_var s' = X_var s + 1"
-      "Q_arr s' = Q_arr s" "Qback_arr s' = Qback_arr s"
-      "x_var s' = x_var s" "j_var s' = j_var s" "l_var s' = l_var s"
-      "V_var s' = V_var s" "v_var s' = v_var s" "s_var s' = s_var s"
+      "program_counter s p = ''E2''"
+      "program_counter s' = (program_counter s)(p := ''E3'')"
+      "x_var s' = x_var s" "s_var s' = s_var s"
       "his_seq s' = his_seq s"
     and his_eq: "his_seq s' = his_seq s"
     and lin_eq [simp]: "lin_seq s' = lin_seq s @ [new_act]"
@@ -1883,64 +1752,28 @@ proof (unfold lI11_D4_Deq_Unique_def, intro allI impI, goal_cases)
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for data_independent (lin_seq s') . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original data_independent (lin_seq s') of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_data_independent:
-  fixes s s' :: SysState and p :: nat and v :: nat and new_act :: OpRec
+  fixes s :: SysState and p :: nat and v :: nat
   assumes not_InQBack_v: "\<not> InQBack s v"
     and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s"
     and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s"
-    and pc_p_E1: "program_counter s p = ''E1''"
-    and hI1_E_Phase_Pending_Enq_s: "hI1_E_Phase_Pending_Enq s"
-    and call_p: "EnqCallInHis s p v (s_var s p)"
-    and hI8_Val_Unique_s: "hI8_Val_Unique s"
     and lI1_Op_Sets_Equivalence_s: "lI1_Op_Sets_Equivalence s"
     and di_lin_s: "data_independent (lin_seq s)"
-    and TypeB_s'_v: "TypeB s' v"
-    and v_in_Val: "v \<in> Val"
-    and lin_eq [simp]: "lin_seq s' = lin_seq s @ [new_act]"
-    and new_act_def: "new_act = mk_op enq v p (s_var s p)"
-  shows "data_independent (lin_seq s')"
+  shows "data_independent (lin_seq s @ [mk_op enq v p (s_var s p)])"
 proof -
   have v_not_in_SetB_s: "v \<notin> SetB s"
   proof
     assume "v \<in> SetB s"
-    then have "TypeB s v" unfolding SetB_def by blast
-    thus False
-    proof (cases "QHas s v")
-      case True
-      then have "InQBack s v"
-        using sI8_Q_Qback_Sync_s unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
-        by (metis sI1_Zero_Index_BOT_def sI1_Zero_Index_BOT_s)
-      thus ?thesis using not_InQBack_v by blast
-    next
-      case False
-      then obtain q where "program_counter s q = ''E2''" and "v_var s q = v"
-        using \<open>TypeB s v\<close> unfolding TypeB_def by blast
-      have "q \<noteq> p" using pc_p_E1 \<open>program_counter s q = ''E2''\<close> by auto
-
-      have "HasPendingEnq s q v"
-        using hI1_E_Phase_Pending_Enq_s \<open>program_counter s q = ''E2''\<close> unfolding hI1_E_Phase_Pending_Enq_def
-        using \<open>v_var s q = v\<close> by blast
-      then have "EnqCallInHis s q v (s_var s q)"
-        unfolding HasPendingEnq_def by metis
-
-      have "EnqCallInHis s q v (s_var s q)"
-        using hI1_E_Phase_Pending_Enq_s \<open>program_counter s q = ''E2''\<close> unfolding hI1_E_Phase_Pending_Enq_def HasPendingEnq_def
-        using \<open>v_var s q = v\<close>
-        using \<open>EnqCallInHis s q v (s_var s q)\<close> by blast
-
-      moreover have "EnqCallInHis s p v (s_var s p)"
-        using call_p by simp
-
-      ultimately have "q = p"
-        using hI8_Val_Unique_s unfolding hI8_Val_Unique_def
-        using EnqCallInHis_unique_pid hI8_Val_Unique_s by auto
-
-      with \<open>q \<noteq> p\<close> show False by contradiction
-    qed
+    then have "QHas s v" unfolding SetB_def TypeB_def by simp
+    then have "InQBack s v"
+      using sI8_Q_Qback_Sync_s sI1_Zero_Index_BOT_s
+      unfolding QHas_def InQBack_def sI8_Q_Qback_Sync_def
+                sI1_Zero_Index_BOT_def
+      by metis
+    then show False using not_InQBack_v by contradiction
   qed
-
   have v_fresh: "\<forall>i < length (lin_seq s). op_name (lin_seq s ! i) = enq \<longrightarrow> op_val (lin_seq s ! i) \<noteq> v"
   proof (intro allI impI, goal_cases)
     case (1 i)
@@ -1965,13 +1798,86 @@ proof -
 
   show ?thesis
     using data_independent_append_enq_fresh[OF di_lin_s v_fresh, of p "s_var s p"]
-    using lin_eq
-    unfolding new_act_def by (simp add: new_act_def)
+    by simp
+qed
+
+lemma all_lin_called_from_lI1:
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  shows "\<forall>a\<in>set (lin_seq s). OpCalledInHis (his_seq s) a"
+proof
+  fix a
+  assume a_in: "a \<in> set (lin_seq s)"
+  have a_oplin: "a \<in> OPLin s"
+    using a_in unfolding OPLin_def by simp
+  have cases:
+    "a \<in> OP_A_enq s \<or> a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    using LI1 a_oplin unfolding lI1_Op_Sets_Equivalence_def by blast
+  then show "OpCalledInHis (his_seq s) a"
+  proof
+    assume "a \<in> OP_A_enq s"
+    then obtain q v sn where a_eq: "a = mk_op enq v q sn"
+      and call: "EnqCallInHis s q v sn"
+      unfolding OP_A_enq_def by blast
+    then obtain e where e_in: "e \<in> set (his_seq s)"
+      and e_props: "act_pid e = q \<and> act_ssn e = sn \<and>
+        act_name e = enq \<and> act_cr e = call \<and> act_val e = v"
+      unfolding EnqCallInHis_def by blast
+    then obtain k where k_lt: "k < length (his_seq s)"
+      and e_eq: "his_seq s ! k = e"
+      by (meson in_set_conv_nth)
+    have called: "match_call (his_seq s) k (mk_op enq v q sn)"
+      using k_lt e_eq e_props unfolding match_call_def Let_def
+      by (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+    show ?thesis
+      using called unfolding OpCalledInHis_def a_eq by blast
+  next
+    assume rest: "a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    then show ?thesis
+    proof
+      assume "a \<in> OP_A_deq s"
+      then have name: "op_name a = deq"
+        and call: "DeqCallInHis s (op_pid a) (op_ssn a)"
+        unfolding OP_A_deq_def by auto
+      have a_eq: "mk_op deq (op_val a) (op_pid a) (op_ssn a) = a"
+        using name by (cases a)
+          (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+      obtain e where e_in: "e \<in> set (his_seq s)"
+        and e_props: "act_pid e = op_pid a \<and> act_ssn e = op_ssn a \<and>
+          act_name e = deq \<and> act_cr e = call \<and> act_val e = BOT"
+        using call unfolding DeqCallInHis_def by blast
+      then obtain k where k_lt: "k < length (his_seq s)"
+        and e_eq: "his_seq s ! k = e"
+        by (meson in_set_conv_nth)
+      have called: "match_call (his_seq s) k
+          (mk_op deq (op_val a) (op_pid a) (op_ssn a))"
+        using k_lt e_eq e_props unfolding match_call_def Let_def
+        by (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+      then show ?thesis
+        unfolding OpCalledInHis_def a_eq by blast
+    next
+      assume "a \<in> OP_B_enq s"
+      then obtain q v sn where a_eq: "a = mk_op enq v q sn"
+        and call: "EnqCallInHis s q v sn"
+        unfolding OP_B_enq_def by blast
+      then obtain e where e_in: "e \<in> set (his_seq s)"
+        and e_props: "act_pid e = q \<and> act_ssn e = sn \<and>
+          act_name e = enq \<and> act_cr e = call \<and> act_val e = v"
+        unfolding EnqCallInHis_def by blast
+      then obtain k where k_lt: "k < length (his_seq s)"
+        and e_eq: "his_seq s ! k = e"
+        by (meson in_set_conv_nth)
+      have called: "match_call (his_seq s) k (mk_op enq v q sn)"
+        using k_lt e_eq e_props unfolding match_call_def Let_def
+        by (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+      show ?thesis
+        using called unfolding OpCalledInHis_def a_eq by blast
+    qed
+  qed
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for sI3_E2_Slot_Exclusive s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original sI3_E2_Slot_Exclusive s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_e2_slot_exclusive:
   fixes s s' :: SysState and p :: nat
   assumes sI3_E2_Slot_Exclusive_s: "sI3_E2_Slot_Exclusive s"
@@ -2059,8 +1965,8 @@ proof (unfold sI3_E2_Slot_Exclusive_def, intro allI impI)
 qed
 
 (* Source: E1Proof.thy / E1_preserves_invariant *)
-(* Original location: the long proof block for hI19_Scanner_Catches_Later_Enq s' . *)
-(* Note: the proof script below is taken verbatim from the original file, without changing the proof logic. *)
+(* : original hI19_Scanner_Catches_Later_Enq s' of prove. *)
+(* Note: the proof script below was moved verbatim from the original file; the proof logic was not changed. *)
 lemma E1_scanner_catches_later_enq:
   fixes s s' :: SysState and p v :: nat
   assumes hI19_Scanner_Catches_Later_Enq_s: "hI19_Scanner_Catches_Later_Enq s"

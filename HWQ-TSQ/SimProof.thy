@@ -2928,10 +2928,11 @@ qed
           have k_val: "act_val (his_seq (cs, us) ! k) = v_val"
             using k_eq e_val by simp
 
-          have "v_val \<in> Val"
+          have v_val_valid: "v_val \<in> Val"
             using hi12 k_lt k_oper k_val
             unfolding hI20_Enq_Val_Valid_def by auto
-          hence "v_val \<noteq> BOT"
+          have v_val_nonbot: "v_val \<noteq> BOT"
+            using v_val_valid
             unfolding Val_def BOT_def by auto
 
           have inq_new: "InQBack (cs', us) v_val"
@@ -2966,36 +2967,6 @@ qed
               using sI3_E2_Slot_Exclusive pc_E2
               unfolding sI3_E2_Slot_Exclusive_def program_counter_def Model.i_var_def Model.Qback_arr_def
               by auto
-
-            have v_val_nonbot: "v_val \<noteq> BOT"
-            proof -
-              have hi2: "hI10_Enq_Call_Existence (cs, us)"
-                using inv_sys unfolding system_invariant_def by simp
-              have hi12: "hI20_Enq_Val_Valid (cs, us)"
-                using inv_sys unfolding system_invariant_def by simp
-              from inq obtain k where
-                k_inq: "Qback_arr (cs, us) k = v_val"
-                unfolding InQBack_def by blast
-              from hi2 k_inq obtain q0 sn0 where
-                call_in_his: "EnqCallInHis (cs, us) q0 v_val sn0"
-                unfolding hI10_Enq_Call_Existence_def by blast
-              then obtain e where
-                e_in: "e \<in> set (his_seq (cs, us))"
-                and e_op: "act_name e = enq"
-                and e_val: "act_val e = v_val"
-                unfolding EnqCallInHis_def by blast
-              have "\<exists>k < length (his_seq (cs, us)). his_seq (cs, us) ! k = e"
-                using e_in by (simp add: in_set_conv_nth)
-              then obtain k where
-                k_lt: "k < length (his_seq (cs, us))"
-                and k_eq: "his_seq (cs, us) ! k = e"
-                by blast
-              have "v_val \<in> Val"
-                using hi12 k_lt e_op k_eq e_val
-                unfolding hI20_Enq_Val_Valid_def by auto
-              thus ?thesis
-                unfolding Val_def BOT_def by auto
-            qed
 
             have k_pos_neq: "k_pos \<noteq> CState.i_var cs p"
             proof
@@ -3156,33 +3127,6 @@ qed
                     using sI3_E2_Slot_Exclusive pc_E2
                     unfolding sI3_E2_Slot_Exclusive_def program_counter_def Model.i_var_def Model.Qback_arr_def
                     by auto
-
-                  have hi2: "hI10_Enq_Call_Existence (cs, us)"
-                    using inv_sys unfolding system_invariant_def by simp
-                  have hi12: "hI20_Enq_Val_Valid (cs, us)"
-                    using inv_sys unfolding system_invariant_def by simp
-                  from inq obtain k0 where
-                    k0_inq: "Qback_arr (cs, us) k0 = v_val"
-                    unfolding InQBack_def by blast
-                  from hi2 k0_inq obtain q0 sn0 where
-                    call_in_his: "EnqCallInHis (cs, us) q0 v_val sn0"
-                    unfolding hI10_Enq_Call_Existence_def by blast
-                  then obtain e where
-                    e_in: "e \<in> set (his_seq (cs, us))"
-                    and e_op: "act_name e = enq"
-                    and e_val2: "act_val e = v_val"
-                    unfolding EnqCallInHis_def by blast
-                  have "\<exists>k < length (his_seq (cs, us)). his_seq (cs, us) ! k = e"
-                    using e_in by (simp add: in_set_conv_nth)
-                  then obtain k where
-                    k_lt: "k < length (his_seq (cs, us))"
-                    and k_eq: "his_seq (cs, us) ! k = e"
-                    by blast
-                  have "v_val \<in> Val"
-                    using hi12 k_lt e_op k_eq e_val2
-                    unfolding hI20_Enq_Val_Valid_def by auto
-                  hence v_val_nonbot: "v_val \<noteq> BOT"
-                    unfolding Val_def BOT_def by auto
 
                   from atk True have hit_old: "CState.Qback_arr cs (CState.i_var cs p) = v_val"
                     unfolding AtIdx_def Qback_arr_def by simp
@@ -7227,137 +7171,128 @@ proof -
 
    next
     (* ====================================================== *)
-    (* Proof note. *)
+    (* E1: reserve the HWQ slot; the abstract U-state stutters. *)
     (* ====================================================== *)
     assume step: "Sys_E1 p s s'"
-    
-    (* Proof step. *)
+
     obtain cs us where s_eq: "s = (cs, us)" by (cases s)
     obtain cs' us' where s'_eq: "s' = (cs', us')" by (cases s')
-    
-    (* Proof step. *)
-    have inv: "Simulation_Inv (cs, us) ts" using assms(1) s_eq by simp
-    have c_step: "C_E1 p cs cs'" using step s_eq s'_eq unfolding Sys_E1_def by auto
-    have v_eq: "CState.v_var cs p = t_v ts p" 
+
+    have inv: "Simulation_Inv (cs, us) ts"
+      using assms(1) s_eq by simp
+    have c_step: "C_E1 p cs cs'"
+      using step s_eq s'_eq unfolding Sys_E1_def by auto
+    have v_eq: "CState.v_var cs p = t_v ts p"
       using assms(1) s_eq step
       unfolding Simulation_Inv_def Simulation_R_def Let_def Sys_E1_def C_E1_def
       by auto
-      
-    (* Proof step. *)
-    from Simulation_R_E1[OF inv c_step v_eq] obtain ts' where 
-      t_step: "T_E1 p ts ts'" and sim_mid: "Simulation_R (cs', us) ts'" by blast
-      
-       (* Proof step. *)
-    have us'_eq_upd: "us' = us\<lparr> 
-      u_program_counter := (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x),
-      u_lin_seq := u_lin_seq us @ [mk_op enq (CState.v_var cs p) p (s_var (cs, us) p)] \<rparr>"
-    proof -
-      have us'_raw:
-        "us' = us\<lparr> 
-          u_program_counter := (\<lambda>x. if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x),
-          u_lin_seq := u_lin_seq us @ [mk_op enq (CState.v_var cs p) p (s_var (cs, us) p)] \<rparr>"
-        using step s_eq s'_eq
-        unfolding Sys_E1_def U_E2_def
-        by (auto simp: s_var_def)
 
-      have pc_fun_eq:
-        "(\<lambda>x. if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x) =
-         (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x)"
-      proof
-        fix x
-        show "(if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x) =
-              (if x = p then ''UE3'' else u_program_counter us x)"
-          by simp
-      qed
+    from Simulation_R_E1[OF inv c_step v_eq] obtain ts' where
+      t_step: "T_E1 p ts ts'" and
+      sim_mid: "Simulation_R (cs', us) ts'"
+      by blast
 
-      from us'_raw show ?thesis
-        using pc_fun_eq
-        by simp
-    qed
+    have us'_eq: "us' = us"
+      using step s_eq s'_eq
+      unfolding Sys_E1_def
+      by auto
 
-       (* Proof note. *)
-    have "Simulation_R s' ts'" 
-    proof -
-      have us'_eq_upd: "us' = us\<lparr> 
-        u_program_counter := (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x),
-        u_lin_seq := u_lin_seq us @ [mk_op enq (CState.v_var cs p) p (s_var (cs, us) p)] \<rparr>"
-      proof -
-        have us'_raw:
-          "us' = us\<lparr> 
-            u_program_counter := (\<lambda>x. if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x),
-            u_lin_seq := u_lin_seq us @ [mk_op enq (CState.v_var cs p) p (s_var (cs, us) p)] \<rparr>"
-          using step s_eq s'_eq
-          unfolding Sys_E1_def U_E2_def
-          by (auto simp: s_var_def)
+    have sim_final: "Simulation_R s' ts'"
+      using sim_mid us'_eq s'_eq
+      by simp
 
-        have pc_fun_eq:
-          "(\<lambda>x. if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x) =
-           (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x)"
-        proof
-          fix x
-          show "(if x = p then ''UE3'' else u_program_counter (snd (cs, us)) x) =
-                (if x = p then ''UE3'' else u_program_counter us x)"
-            by simp
-        qed
-
-        from us'_raw show ?thesis
-          using pc_fun_eq
-          by simp
-      qed
-        
-      have sim_eq:
-        "Simulation_R (cs', us') ts' = Simulation_R (cs', us) ts'"
-        unfolding Simulation_R_def Let_def EnqCallInHis_def his_seq_def InQBack_def Idx_def AtIdx_def Model.Qback_arr_def s_var_def
-        using us'_eq_upd
-        by simp
-        
-      thus ?thesis
-        using sim_mid s'_eq
-        by simp
-    qed
-    thus ?thesis
-      using t_step p_in
+    show ?thesis
+      using t_step sim_final p_in
       unfolding T_Next_def
       by blast
 
   next
     (* ====================================================== *)
-    (* Proof note. *)
+    (* E2: publish Q[i] and perform the abstract enqueue effect. *)
     (* ====================================================== *)
     assume step: "Sys_E2 p s s'"
     obtain cs us where s_eq: "s = (cs, us)" by (cases s)
     obtain cs' us' where s'_eq: "s' = (cs', us')" by (cases s')
-    
-    have inv: "Simulation_Inv (cs, us) ts" using assms(1) s_eq by simp
-    have c_step: "C_E2 p cs cs'" using step s_eq s'_eq unfolding Sys_E2_def by auto
-    
-    (* Proof note. *)
-    have ts_not_top: "t_ts ts p \<noteq> TOP" 
+
+    have inv: "Simulation_Inv (cs, us) ts"
+      using assms(1) s_eq by simp
+    have c_step: "C_E2 p cs cs'"
+      using step s_eq s'_eq unfolding Sys_E2_def by auto
+
+    have ts_not_top: "t_ts ts p \<noteq> TOP"
     proof -
-      (* Proof step. *)
-      have "t_pc ts p = ''TE2''" 
-        using inv c_step unfolding Simulation_Inv_def Simulation_R_def Let_def C_E2_def by auto
-      
-      (* Proof step. *)
-      moreover have "TSQ_State_Inv ts" 
+      have "t_pc ts p = ''TE2''"
+        using inv c_step
+        unfolding Simulation_Inv_def Simulation_R_def Let_def C_E2_def
+        by auto
+      moreover have "TSQ_State_Inv ts"
         using inv unfolding Simulation_Inv_def by simp
-        
-      (* Proof step. *)
-      ultimately show ?thesis 
+      ultimately show ?thesis
         unfolding TSQ_State_Inv_def by auto
     qed
-      
-    from Simulation_R_E2[OF inv c_step ts_not_top p_in] obtain ts' where 
-      t_step: "T_E2 p ts ts'" and sim_mid: "Simulation_R (cs', us) ts'" by blast
-      
-    (* Proof step. *)
-    have "Simulation_R s' ts'" 
+
+    from Simulation_R_E2[OF inv c_step ts_not_top p_in] obtain ts' where
+      t_step: "T_E2 p ts ts'" and
+      sim_mid: "Simulation_R (cs', us) ts'"
+      by blast
+
+    have u_step:
+      "U_E2 p (CState.v_var cs p) (s_var (cs, us) p) us us'"
+      using step s_eq s'_eq
+      unfolding Sys_E2_def
+      by auto
+
+    have us'_eq_upd:
+      "us' = us\<lparr>
+        u_program_counter :=
+          (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x),
+        u_lin_seq :=
+          u_lin_seq us @
+            [mk_op enq
+               (CState.v_var cs p)
+               p
+               (s_var (cs, us) p)],
+        u_eff_ops :=
+          insert
+            (mk_op enq
+               (CState.v_var cs p)
+               p
+               (s_var (cs, us) p))
+            (u_eff_ops us)
+      \<rparr>"
+      using u_step
+      unfolding U_E2_def
+      by auto
+
+    have sim_eq:
+      "Simulation_R (cs', us') ts' =
+       Simulation_R (cs', us) ts'"
+      unfolding Simulation_R_def
+                Let_def
+                EnqCallInHis_def
+                his_seq_def
+                InQBack_def
+                Idx_def
+                AtIdx_def
+                Model.Qback_arr_def
+                s_var_def
+      using us'_eq_upd
+      by simp
+
+    have sim_final: "Simulation_R s' ts'"
     proof -
-      have "us' = us"
-        using step s_eq s'_eq unfolding Sys_E2_def by auto
-      thus ?thesis using sim_mid s'_eq by simp
+      have "Simulation_R (cs', us') ts'"
+        using sim_mid sim_eq
+        by simp
+      thus ?thesis
+        using s'_eq
+        by simp
     qed
-    thus ?thesis using t_step p_in unfolding T_Next_def by blast
+
+    show ?thesis
+      using t_step sim_final p_in
+      unfolding T_Next_def
+      by blast
 
   next
     (* ====================================================== *)
@@ -7371,12 +7306,16 @@ proof -
     have c_step: "C_E3 p cs cs'" using step s_eq s'_eq unfolding Sys_E3_def by auto
 
      (* Proof note. *)
-    from step s_eq s'_eq have "\<exists>us_mid. U_E3 p (CState.v_var cs p) (s_var (cs, us) p) us us_mid \<and> U_E4 p us_mid us'"
+    from step s_eq s'_eq have "\<exists>us_mid us_ret.
+        U_E3 p (CState.v_var cs p) (s_var (cs, us) p) us us_mid \<and>
+        U_E4 p us_mid us_ret \<and>
+        U_E5 p us_ret us'"
       unfolding Sys_E3_def
       by (auto simp: s_var_def)
-    then obtain us_mid where 
-      u3: "U_E3 p (CState.v_var cs p) (s_var (cs, us) p) us us_mid" and 
-      u4: "U_E4 p us_mid us'"
+    then obtain us_mid us_ret where
+      u3: "U_E3 p (CState.v_var cs p) (s_var (cs, us) p) us us_mid" and
+      u4: "U_E4 p us_mid us_ret" and
+      u5: "U_E5 p us_ret us'"
       by blast
 
     (* Proof step. *)
@@ -7398,14 +7337,20 @@ proof -
         unfolding U_E3_def
         by (simp add: fun_eq_iff s_var_def split: if_splits)
 
-      have us'_eq: "us' = us_mid\<lparr> 
-          u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us_mid x),
+      have us_ret_eq: "us_ret = us_mid\<lparr>
+          u_program_counter := (\<lambda>x. if x = p then ''UE5'' else u_program_counter us_mid x),
           S_var := (\<lambda>x. if x = p then S_var us_mid p + 1 else S_var us_mid x) \<rparr>"
         using u4
         unfolding U_E4_def
         by (simp add: fun_eq_iff split: if_splits)
 
-      from us'_eq us_mid_eq show ?thesis
+      have us'_eq: "us' = us_ret\<lparr>
+          u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us_ret x) \<rparr>"
+        using u5
+        unfolding U_E5_def
+        by (simp add: fun_eq_iff split: if_splits)
+
+      from us'_eq us_ret_eq us_mid_eq show ?thesis
         by (simp add: fun_eq_iff s_var_def)
     qed
 
@@ -7689,9 +7634,10 @@ from Simulation_R_D3[OF inv c_step E2_in_ProcSet_cs] obtain ts' where
     have inv: "Simulation_Inv (cs, us) ts" using assms(1) s_eq by simp
     have c_step: "C_D4 p cs cs'" using step s_eq s'_eq unfolding Sys_D4_def by auto
 
-    from step s_eq s'_eq obtain us_mid where 
-      u3: "U_D3 p (CState.x_var cs p) (s_var (cs, us) p) us us_mid" and 
-      u4: "U_D4 p us_mid us'"
+    from step s_eq s'_eq obtain us_mid us_ret where
+      u3: "U_D3 p (CState.x_var cs p) (s_var (cs, us) p) us us_mid" and
+      u4: "U_D4 p us_mid us_ret" and
+      u5: "U_D5 p us_ret us'"
       unfolding Sys_D4_def by (auto simp: s_var_def)
 
     from Simulation_R_D4[OF inv c_step] obtain ts' where 
@@ -7709,18 +7655,21 @@ from Simulation_R_D3[OF inv c_step E2_in_ProcSet_cs] obtain ts' where
         unfolding U_D3_def
         by (simp add: fun_eq_iff s_var_def split: if_splits)
 
-      have us'_eq: "us' = us_mid\<lparr> 
-          u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us_mid x),
+      have us_ret_eq: "us_ret = us_mid\<lparr>
+          u_program_counter := (\<lambda>x. if x = p then ''UD5'' else u_program_counter us_mid x),
           S_var := (\<lambda>x. if x = p then S_var us_mid p + 1 else S_var us_mid x) \<rparr>"
         using u4
         unfolding U_D4_def
         by (simp add: fun_eq_iff split: if_splits)
 
-      have pc_mid_neq: "\<And>x. x \<noteq> p \<Longrightarrow> u_program_counter us_mid x = u_program_counter us x"
-        using us_mid_eq by simp
+      have us'_eq: "us' = us_ret\<lparr>
+          u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us_ret x) \<rparr>"
+        using u5
+        unfolding U_D5_def
+        by (simp add: fun_eq_iff split: if_splits)
 
       show ?thesis
-        using us'_eq us_mid_eq pc_mid_neq
+        using us'_eq us_ret_eq us_mid_eq
         by (simp add: fun_eq_iff s_var_def)
     qed
 

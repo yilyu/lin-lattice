@@ -16,14 +16,14 @@ proof -
     and PC: "program_counter (fst s, snd s) P1 = ''D3''"
     using E1_HWQ_shapeD[OF SH] by auto
   show ?thesis
-   
+
     using D3_has_pending_deq[OF INV PC] by auto
 qed
 
 
 
 text \<open>
- 
+
    Helper lemmas required by Scheme A.
 \<close>
 lemma C_Path_snocE:
@@ -44,7 +44,7 @@ next
   case (Cons a xs)
   have P': "C_Path s (a # (xs @ [x])) t"
     using Cons.prems by simp
-  
+
   then obtain s1 where M0: "C_Match s a s1" and P1: "C_Path s1 (xs @ [x]) t"
     by (cases) auto
   from Cons.IH[OF P1] obtain u where PX: "C_Path s1 xs u" and MX: "C_Match u x t"
@@ -58,8 +58,8 @@ qed
 
 lemma C_Match_someE:
   assumes "C_Match s (Some a) t"
-  shows "\<exists>u v. C_Tau_Star s u \<and> C_StepCR u (Some a) v \<and> 
-  C_Tau_Star v 
+  shows "\<exists>u v. C_Tau_Star s u \<and> C_StepCR u (Some a) v \<and>
+  C_Tau_Star v
   t"
   using assms by (cases rule: C_Match.cases) auto
 
@@ -73,7 +73,7 @@ lemma C_Match_noneE:
 
 
 lemma C_Path_appendE:
-  assumes P: "C_Path s (xs @ ys) 
+  assumes P: "C_Path s (xs @ ys)
   t"
   shows "\<exists>u.
   C_Path s xs u \<and> C_Path u ys t"
@@ -81,26 +81,26 @@ lemma C_Path_appendE:
 proof (induction xs arbitrary: s)
   case Nil
   (* xs, xs @ ys ys, path *)
-  have "C_Path s [] s" 
+  have "C_Path s [] s"
     using C_Path.nil .
   then show ?case
     using Nil.prems
-    by fastforce 
+    by fastforce
 next
   case (Cons a xs')
   (* prefixunfold, a # (xs' @ ys) *)
   have "C_Path s (a # (xs' @ ys)) t"
     using Cons.prems by simp
-    
-  (*  cases 
-   (Inversion)， 
+
+  (*  cases
+   (Inversion)，
   M  P_rest *)
   then obtain s1 where M: "C_Match s a s1" and P_rest: "C_Path s1 (xs' @ ys) t"
     by cases auto
 
   (* path induction hypothesis, state u *)
-  from Cons.IH[OF P_rest] obtain u where 
-      P_xs': "C_Path s1 xs' u" 
+  from Cons.IH[OF P_rest] obtain u where
+      P_xs': "C_Path s1 xs' u"
     and P_ys: "C_Path u ys t"
     by blast
 
@@ -109,8 +109,8 @@ next
     using C_Path.cons[OF M P_xs'] .
 
   (* Comment. *)
-  with P_ys show 
-  
+  with P_ys show
+
   ?case
     by blast
 qed
@@ -119,7 +119,7 @@ qed
 
 lemma hwq_p1_deq_call_extract_local_state:
   assumes MCALL: "C_Match s_before (Some (mk_obs deq BOT P1 call)) s_aftercall"
-  shows "\<exists>u_call 
+  shows "\<exists>u_call
   v_call.
            C_Tau_Star s_before u_call \<and>
            C_StepCR u_call (Some (mk_obs deq BOT P1 call)) v_call \<and>
@@ -132,7 +132,7 @@ proof -
     and TAU2: "C_Tau_Star v_call s_aftercall"
     using C_Match_someE[OF MCALL] by blast
 
-  
+
   from STEP obtain p where
       PIN: "p \<in> ProcSet"
     and SL0: "Sys_L0 p u_call v_call"
@@ -147,7 +147,7 @@ proof -
     using PC pP1 by simp
 
   show ?thesis
-    using TAU1 STEP 
+    using TAU1 STEP
   TAU2 PCP1 by blast
 qed
 
@@ -159,29 +159,57 @@ lemma C_Tau_preserves_his_and_s_var:
   assumes "C_Tau s s'"
   shows "his_seq s' = his_seq s" and "s_var s' p = s_var s p"
 proof -
-  from assms have "C_StepCR s None s'" unfolding C_Tau_def by simp
-  then obtain q where PIN: "q \<in> ProcSet" and STEP:
-    "Sys_E1 q s s' \<or> Sys_E2 q s s' \<or> Sys_D1 q s s' \<or> Sys_D2 q s s' \<or> Sys_D3 q s s'"
-   
+  from assms have "C_StepCR s None s'"
+    unfolding C_Tau_def by simp
+  then obtain q where
+      PIN: "q \<in> ProcSet"
+    and STEP:
+      "Sys_E1 q s s' \<or> Sys_E2 q s s' \<or> Sys_D1 q s s' \<or> Sys_D2 q s s' \<or> Sys_D3 q s s'"
     by cases auto
-    
+
+  have ghost_unchanged:
+    "u_his_seq (snd s') = u_his_seq (snd s) \<and>
+     UState.S_var (snd s') = UState.S_var (snd s)"
+    using STEP
+  proof (elim disjE)
+    assume H: "Sys_E1 q s s'"
+    then have "snd s' = snd s"
+      unfolding Sys_E1_def by blast
+    then show ?thesis by simp
+  next
+    assume H: "Sys_E2 q s s'"
+    then have UE2:
+      "U_E2 q (CState.v_var (fst s) q) (s_var s q) (snd s) (snd s')"
+      unfolding Sys_E2_def by blast
+    then show ?thesis
+      unfolding U_E2_def by simp
+  next
+    assume H: "Sys_D1 q s s'"
+    then have "snd s' = snd s"
+      unfolding Sys_D1_def by blast
+    then show ?thesis by simp
+  next
+    assume H: "Sys_D2 q s s'"
+    then have "snd s' = snd s"
+      unfolding Sys_D2_def by blast
+    then show ?thesis by simp
+  next
+    assume H: "Sys_D3 q s s'"
+    then have ABS:
+      "(let q_val = CState.Q_arr (fst s) (CState.j_var (fst s) q) in
+        if q_val = BOT then snd s' = snd s
+        else U_D2 q q_val (s_var s q) (snd s) (snd s'))"
+      unfolding Sys_D3_def by blast
+    from ABS show ?thesis
+      unfolding U_D2_def Let_def
+      by (auto split: if_splits)
+  qed
+
   show "his_seq s' = his_seq s"
-    using STEP
-    by (elim disjE) (auto simp: Sys_E1_def Sys_E2_def Sys_D1_def Sys_D2_def Sys_D3_def 
-                                C_E1_def C_E2_def C_D1_def C_D2_def C_D3_def 
-                           
-    U_E2_def U_D2_def his_seq_def
-                                T_D2_EnterLoop_def Let_def split: if_splits)
-                                
+    using ghost_unchanged unfolding his_seq_def by simp
+
   show "s_var s' p = s_var s p"
-    using STEP
-    by (elim disjE) (auto simp: Sys_E1_def 
-  Sys_E2_def Sys_D1_def Sys_D2_def Sys_D3_def 
- 
-                                C_E1_def C_E2_def C_D1_def C_D2_def C_D3_def 
-                                U_E2_def U_D2_def s_var_def
-                        
-    T_D2_EnterLoop_def Let_def split: if_splits)
+    using ghost_unchanged unfolding s_var_def by simp
 qed
 
 
@@ -201,7 +229,7 @@ next
   have "l = None" using cons.prems by simp
   with cons.hyps(1) have T1: "C_Tau_Star s s1" using C_Match_noneE by simp
   have T2: "C_Tau_Star s1 s2" using cons.IH cons.prems by simp
-  show 
+  show
   ?case using C_Tau_Star_trans[OF T1 T2] .
 qed
 
@@ -581,7 +609,7 @@ next
   (* , auto C_Tau_impossible_if_P1P2_L0 automatic *)
   then show ?case
     using C_Tau_impossible_if_P1P2_L0[OF N2]
-    by blast 
+    by blast
 qed
 
 (* Auxiliary lemma. *)
@@ -810,20 +838,54 @@ proof -
 
   have CASE_D1: "Sys_D1 P1 s t \<Longrightarrow> ?thesis"
     using P1_STATE PC2 X4 Q1 VNB
-    unfolding Sys_D1_def C_D1_def program_counter_def j_var_def X_var_def Q_arr_def x_var_def Let_def 
+    unfolding Sys_D1_def C_D1_def program_counter_def j_var_def X_var_def Q_arr_def x_var_def Let_def
     by (auto split: if_splits)
 
   have CASE_D2: "Sys_D2 P1 s t \<Longrightarrow> ?thesis"
     using P1_STATE PC2 X4 Q1 VNB
-    unfolding Sys_D2_def C_D2_def program_counter_def j_var_def X_var_def Q_arr_def x_var_def T_D2_EnterLoop_def Let_def 
+    unfolding Sys_D2_def C_D2_def program_counter_def j_var_def X_var_def Q_arr_def x_var_def T_D2_EnterLoop_def Let_def
     by (auto split: if_splits)
 
   have CASE_D3: "Sys_D3 P1 s t \<Longrightarrow> ?thesis"
-    using P1_STATE PC2 X4 Q1 VNB
-    unfolding Sys_D3_def C_D3_def program_counter_def j_var_def X_var_def Q_arr_def x_var_def Let_def BOT_def 
-    by (auto split: if_splits)
+  proof -
+    assume SD3: "Sys_D3 P1 s t"
 
-  from STEP_P1 CASE_E1 CASE_E2 CASE_D1 CASE_D2 CASE_D3 show ?thesis 
+    have CD3: "C_D3 P1 (fst s) (fst t)"
+      using SD3
+      unfolding Sys_D3_def
+      by blast
+
+    have PCD3: "program_counter s P1 = ''D3''"
+      using CD3
+      unfolding C_D3_def program_counter_def
+      by simp
+
+    from P1_STATE PCD3 have Q2V: "Q_arr s 2 = V"
+      and J12: "j_var s P1 \<in> {1, 2}"
+      by auto
+
+    have J_CASES: "j_var s P1 = 1 \<or> j_var s P1 = 2"
+      using J12 by auto
+
+    from J_CASES show ?thesis
+    proof
+      assume J1: "j_var s P1 = 1"
+      show ?thesis
+        using CD3 PC2 X4 Q1 Q2V VNB J1
+        unfolding C_D3_def program_counter_def j_var_def
+                  X_var_def Q_arr_def x_var_def Let_def
+        by (auto split: if_splits)
+    next
+      assume J2: "j_var s P1 = 2"
+      show ?thesis
+        using CD3 PC2 X4 Q1 Q2V VNB J2
+        unfolding C_D3_def program_counter_def j_var_def
+                  X_var_def Q_arr_def x_var_def Let_def
+        by auto
+    qed
+  qed
+
+  from STEP_P1 CASE_E1 CASE_E2 CASE_D1 CASE_D2 CASE_D3 show ?thesis
     by blast
 qed
 
@@ -1067,7 +1129,7 @@ proof -
 
     have REVERSED2: "Q_arr sk0 2 = A3"
       using Q23 NOT_EXACT
-      by (simp add: doubleton_eq_iff) 
+      by (simp add: doubleton_eq_iff)
 
     from SNAP1 have
         PC1_r1: "program_counter s_ret1 P1 = ''L0''"
@@ -1098,8 +1160,8 @@ lemma collapse_quantum_to_relaxed:
       and SHQ: "E1_HWQ_quantum_shape sk0"
       and E2MATCH: "C_Path sk0 e2_labels s2"
   shows "E1_HWQ_relaxed_shape sk0"
-  using assms hwq_e2_forces_exact_shape 
-  unfolding E1_HWQ_quantum_shape_def E1_HWQ_relaxed_shape_def 
+  using assms hwq_e2_forces_exact_shape
+  unfolding E1_HWQ_quantum_shape_def E1_HWQ_relaxed_shape_def
   by auto
 
 
@@ -1126,8 +1188,8 @@ proof -
   have M_new: "C_Match s0 l u"
   proof (cases l)
     case None
-   
-  
+
+
      then have T: "C_Tau_Star s1 u"
       using M C_Match_noneE by auto
     have "C_Tau_Star s0 u"
@@ -1143,8 +1205,8 @@ proof -
       and T2: "C_Tau_Star v2 u"
       by blast
     have "C_Tau_Star s0 v1"
-      using C_Tau_Star_trans[OF 
-  
+      using C_Tau_Star_trans[OF
+
   TAU T1] .
     then show ?thesis
       using STEP T2 Some by (auto intro: C_Match.match_vis)
@@ -1158,7 +1220,7 @@ subsection \<open>Relaxed Endpoint Shapes and Closures\<close>
 
 text \<open>
   These two shapes map exactly to the physics of the weak matching endpoint.
-  During the trailing tau sequence before P2 returns, P1 may remain scanning 
+  During the trailing tau sequence before P2 returns, P1 may remain scanning
   in {D1,D2,D3}, or it may cross into D4 and commit to returning A1.
   \<close>
 
@@ -1171,7 +1233,7 @@ text \<open>New Bridge Lemmas\<close>
 
 lemma scanning_D3_j1_implies_old_shape:
   assumes SH: "E1_HWQ_relaxed_shape sk0"
-   
+
       and D3J1: "Q_arr sk0 1 = A1 \<and> program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 = 1"
   shows "E1_HWQ_shape sk0"
 proof -
@@ -1180,16 +1242,16 @@ proof -
     and X4:  "X_var sk0 = 4"
     and Q2:  "Q_arr sk0 2 = A2"
     and Q3:  "Q_arr sk0 3 = A3"
-    
+
   and PCP2: "program_counter sk0 P2 = ''L0''"
     unfolding E1_HWQ_relaxed_shape_def
     by auto
-  from D3J1 have Q1: "Q_arr sk0 1 = 
+  from D3J1 have Q1: "Q_arr sk0 1 =
   A1"
     and PCP1: "program_counter sk0 P1 = ''D3''"
     and J1: "j_var sk0 P1 = 1"
     by auto
-  
+
   have J_IN: "j_var sk0 P1 \<in> {1,2,3}"
     using J1 by simp
 
@@ -1224,7 +1286,7 @@ lemma e3_before_last_split_ret:
 
 
 (* ========================================================================= *)
-(* 2.                 
+(* 2.
                                       *)
 (* ========================================================================= *)
 
@@ -1237,7 +1299,7 @@ proof -
     and P2L0: "program_counter sk0 P2 = ''L0''"
     and Q2: "Q_arr sk0 2 = A2"
     and Q3: "Q_arr sk0 3 = A3"
-  
+
     unfolding E1_HWQ_relaxed_shape_def by auto
   from SH P12 have Q1: "Q_arr sk0 1 = A1"
     unfolding E1_HWQ_relaxed_shape_def by auto
@@ -1254,17 +1316,17 @@ lemma envelope_transition_at_p2_ret:
   shows "E3_Post_Ret_Envelope s'"
 proof -
   from ENV have INV: "system_invariant s"
-    and P1_PC: "program_counter s 
+    and P1_PC: "program_counter s
   P1 \<in> {''D1'',''D2'',''D3'',''D4''}"
     and P1_D3: "program_counter s P1 = ''D3'' \<longrightarrow> j_var s P1 \<in> {1,2}"
     and P1_D4: "program_counter s P1 = ''D4'' \<longrightarrow> x_var s P1 \<in> {A1,A2}"
     and Q1_IFF: "Q_arr s 1 = BOT \<longleftrightarrow> (program_counter s P1 = ''D4'' \<and> x_var s P1 = A1) \<or>
-                                      (program_counter s P2 = ''D4'' 
+                                      (program_counter s P2 = ''D4''
   \<and> x_var s P2 = A1)"
     and Q2_IFF: "Q_arr s 2 = BOT \<longleftrightarrow> (program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or>
                                       (program_counter s P2 = ''D4'' \<and> x_var s P2 = A2)"
     and Q2_VAL: "Q_arr s 2 \<noteq> BOT \<longrightarrow> Q_arr s 2 = A2"
-    and Q3_A3: "Q_arr s 
+    and Q3_A3: "Q_arr s
   3 = A3"
     unfolding E3_Pre_Ret_Envelope_def by auto
 
@@ -1281,7 +1343,7 @@ proof -
     have P1_PC_eq: "program_counter s' P1 = program_counter s P1"
      and P1_J_eq:  "j_var s' P1 = j_var s P1"
      and P1_X_eq:  "x_var s' P1 = x_var s P1"
-     and P2_PC_new: 
+     and P2_PC_new:
   "program_counter s' P2 = ''L0''" (* P2 return L0 *)
      and Q1_eq:    "Q_arr s' 1 = Q_arr s 1"
      and Q2_eq:    "Q_arr s' 2 = Q_arr s 2"
@@ -1291,14 +1353,14 @@ proof -
 
     (* Proof step. *)
     have Q1_BOT_new: "Q_arr s' 1 = BOT"
- 
+
      proof -
       have "program_counter s P2 = ''D4'' \<and> x_var s P2 = A1"
         using C_Sys_D4_vis pP2 xA1 unfolding Sys_D4_def C_D4_def program_counter_def by auto
-      hence "(program_counter s P1 = ''D4'' \<and> x_var s P1 = A1) \<or> 
+      hence "(program_counter s P1 = ''D4'' \<and> x_var s P1 = A1) \<or>
              (program_counter s P2 = ''D4'' \<and> x_var s P2 = A1)" by blast
       with Q1_IFF have "Q_arr s 1 = BOT" by simp
-   
+
       with Q1_eq show "Q_arr s' 1 = BOT" by simp
     qed
 
@@ -1307,19 +1369,19 @@ proof -
       assume "Q_arr s' 2 = BOT"
       with Q2_eq have "Q_arr s 2 = BOT" by simp
       with Q2_IFF have "(program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or>
-            
+
               (program_counter s P2 = ''D4'' \<and> x_var s P2 = A2)" by simp
       moreover have "x_var s P2 = A1" using xA1 pP2 by simp
       ultimately have "program_counter s P1 = ''D4'' \<and> x_var s P1 = A2" by auto
       with P1_PC_eq P1_X_eq show "program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A2" by simp
     next
-      assume "program_counter s' P1 = ''D4'' \<and> 
+      assume "program_counter s' P1 = ''D4'' \<and>
   x_var s' P1 = A2"
       with P1_PC_eq P1_X_eq have "program_counter s P1 = ''D4'' \<and> x_var s P1 = A2" by simp
-      hence "(program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or> 
+      hence "(program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or>
              (program_counter s P2 = ''D4'' \<and> x_var s P2 = A2)" by blast
       with Q2_IFF have "Q_arr s 2 = BOT" by simp
-      with Q2_eq show "Q_arr s' 2 = BOT" by 
+      with Q2_eq show "Q_arr s' 2 = BOT" by
   simp
     qed
 
@@ -1334,7 +1396,7 @@ proof -
 qed
 
 (* ========================================================================= *)
-(* 3.  tau （）                     
+(* 3.  tau （）
                   *)
 (* ========================================================================= *)
 
@@ -1362,7 +1424,7 @@ proof -
     assume pP1: "p = P1"
     from STEP show ?thesis
     proof (elim disjE)
-   
+
       assume H: "Sys_E1 p s s'"
       have False using H pP1 ENV unfolding Sys_E1_def C_E1_def E3_Pre_Ret_Envelope_def program_counter_def by auto
       then show ?thesis ..
@@ -1372,54 +1434,54 @@ proof -
       then show ?thesis ..
     next
       assume H: "Sys_D1 p s s'"
-      show ?thesis 
+      show ?thesis
   using H pP1 N2 ENV INV' unfolding E3_Pre_Ret_Envelope_def Sys_D1_def C_D1_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def by (auto split: if_splits)
     next
       assume H: "Sys_D2 p s s'"
       show ?thesis using H pP1 N2 ENV INV' unfolding E3_Pre_Ret_Envelope_def Sys_D2_def C_D2_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def by (auto split: if_splits)
     next
       assume H: "Sys_D3 p s s'"
-      have J_cases: "j_var s P1 = 1 \<or> j_var s P1 = 2" 
-     
+      have J_cases: "j_var s P1 = 1 \<or> j_var s P1 = 2"
+
        using H pP1 ENV unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def by auto
       from J_cases show ?thesis
       proof
         assume J1: "j_var s P1 = 1"
         have Q1_cases: "Q_arr s 1 = BOT \<or> Q_arr s 1 = A1" using ENV unfolding E3_Pre_Ret_Envelope_def
-          by fastforce 
+          by fastforce
         from Q1_cases show ?thesis
         proof
-   
+
           assume Q1_BOT: "Q_arr s 1 = BOT"
-          show ?thesis using H pP1 J1 Q1_BOT N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+          show ?thesis using H pP1 J1 Q1_BOT N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         next
           assume Q1_A1: "Q_arr s 1 = A1"
-      
-      show ?thesis using H pP1 J1 Q1_A1 N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+
+      show ?thesis using H pP1 J1 Q1_A1 N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         qed
       next
         assume J2: "j_var s P1 = 2"
-        have Q2_cases: "Q_arr s 2 = BOT \<or> Q_arr s 2 = A2" 
+        have Q2_cases: "Q_arr s 2 = BOT \<or> Q_arr s 2 = A2"
   using ENV unfolding E3_Pre_Ret_Envelope_def
           by meson
         from Q2_cases show ?thesis
         proof
           assume Q2_BOT: "Q_arr s 2 = BOT"
-          show ?thesis using H pP1 J2 Q2_BOT N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
-         
+          show ?thesis using H pP1 J2 Q2_BOT N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
+
            by (auto split: if_splits)
         next
           assume Q2_A2: "Q_arr s 2 = A2"
-          show ?thesis using H pP1 J2 Q2_A2 N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+          show ?thesis using H pP1 J2 Q2_A2 N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         qed
-     
+
     qed
     qed
   next
@@ -1432,7 +1494,7 @@ proof -
       then show ?thesis ..
     next
       assume H: "Sys_E2 p s s'"
-      have False using H 
+      have False using H
   pP2 ENV unfolding Sys_E2_def C_E2_def E3_Pre_Ret_Envelope_def program_counter_def by auto
       then show ?thesis ..
     next
@@ -1440,31 +1502,31 @@ proof -
       show ?thesis using H pP2 N2 ENV INV' unfolding E3_Pre_Ret_Envelope_def Sys_D1_def C_D1_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def by (auto split: if_splits)
     next
       assume H: "Sys_D2 p s s'"
-      show ?thesis using H pP2 N2 ENV INV' unfolding E3_Pre_Ret_Envelope_def Sys_D2_def C_D2_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def by (auto 
+      show ?thesis using H pP2 N2 ENV INV' unfolding E3_Pre_Ret_Envelope_def Sys_D2_def C_D2_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def by (auto
   split: if_splits)
     next
       assume H: "Sys_D3 p s s'"
       (* Symmetric: P1, P2 j_var 1 2 *)
-      have J_cases: "j_var s P2 = 1 \<or> j_var s P2 = 2" 
+      have J_cases: "j_var s P2 = 1 \<or> j_var s P2 = 2"
         using H pP2 ENV unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def by auto
       from J_cases show ?thesis
       proof
         assume J1: "j_var s P2 = 1"
- 
+
          have Q1_cases: "Q_arr s 1 = BOT \<or> Q_arr s 1 = A1" using ENV unfolding E3_Pre_Ret_Envelope_def
-          by meson 
+          by meson
         from Q1_cases show ?thesis
         proof
           assume Q1_BOT: "Q_arr s 1 = BOT"
-          show ?thesis using H pP2 J1 Q1_BOT N2 ENV INV' 
-          
-    unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+          show ?thesis using H pP2 J1 Q1_BOT N2 ENV INV'
+
+    unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         next
           assume Q1_A1: "Q_arr s 1 = A1"
-          show ?thesis using H pP2 J1 Q1_A1 N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
-       
+          show ?thesis using H pP2 J1 Q1_A1 N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
+
             by (auto split: if_splits)
         qed
       next
@@ -1473,15 +1535,15 @@ proof -
         from Q2_cases show ?thesis
         proof
           assume Q2_BOT: "Q_arr s 2 = BOT"
-   
-         show ?thesis using H pP2 J2 Q2_BOT N2 ENV INV' 
-            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+
+         show ?thesis using H pP2 J2 Q2_BOT N2 ENV INV'
+            unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         next
           assume Q2_A2: "Q_arr s 2 = A2"
-          show ?thesis using H pP2 J2 Q2_A2 N2 ENV INV' 
-  
-             unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def 
+          show ?thesis using H pP2 J2 Q2_A2 N2 ENV INV'
+
+             unfolding E3_Pre_Ret_Envelope_def Sys_D3_def C_D3_def program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
             by (auto split: if_splits)
         qed
       qed
@@ -1497,7 +1559,7 @@ lemma post_ret_envelope_preserved_by_tau:
   shows "E3_Post_Ret_Envelope s'"
 proof -
   from ENV have INV: "system_invariant s"
-    and P2L0: "program_counter 
+    and P2L0: "program_counter
   s P2 = ''L0''"
     and Q1BOT: "Q_arr s 1 = BOT"
     and P1PC: "program_counter s P1 \<in> {''D1'',''D2'',''D3'',''D4''}"
@@ -1505,7 +1567,7 @@ proof -
     and P1D4: "program_counter s P1 = ''D4'' \<longrightarrow> x_var s P1 \<in> {A1,A2}"
     and Q2IFF: "Q_arr s 2 = BOT \<longleftrightarrow> program_counter s P1 = ''D4'' \<and> x_var s P1 = A2"
     and Q2VAL: "Q_arr s 2 \<noteq> BOT \<longrightarrow> Q_arr s 2 = A2"
-    and Q3A3: "Q_arr 
+    and Q3A3: "Q_arr
   s 3 = A3"
     unfolding E3_Post_Ret_Envelope_def by auto
 
@@ -1520,7 +1582,7 @@ proof -
   have pP1: "p = P1"
   proof -
     have "p = P1 \<or> p = P2"
-  
+
       using PIN N2 by auto
     then show ?thesis
     proof
@@ -1536,7 +1598,7 @@ proof -
       next
         assume H: "Sys_E2 p s s'"
         with pP2 P2L0 show ?thesis
-  
+
           unfolding Sys_E2_def C_E2_def program_counter_def by auto
       next
         assume H: "Sys_D1 p s s'"
@@ -1545,7 +1607,7 @@ proof -
       next
         assume H: "Sys_D2 p s s'"
         with pP2 P2L0 show ?thesis
-          
+
   unfolding Sys_D2_def C_D2_def program_counter_def Let_def by auto
       next
         assume H: "Sys_D3 p s s'"
@@ -1558,7 +1620,7 @@ proof -
   have STEP1: "Sys_D1 P1 s s' \<or> Sys_D2 P1 s s' \<or> Sys_D3 P1 s s'"
     using STEP pP1 P1PC
     unfolding Sys_E1_def C_E1_def Sys_E2_def C_E2_def program_counter_def
-  
+
     by auto
 
   have NXT: "Next s s'"
@@ -1576,7 +1638,7 @@ proof -
   have Q1BOT': "Q_arr s' 1 = BOT"
     using STEP1 Q1BOT P1D3
     unfolding Sys_D1_def C_D1_def
-       
+
          Sys_D2_def C_D2_def
               Sys_D3_def C_D3_def
               Q_arr_def program_counter_def j_var_def Let_def
@@ -1586,7 +1648,7 @@ proof -
     using STEP1 P1PC P1D3 Q1BOT Q2IFF Q2VAL
     unfolding Sys_D1_def C_D1_def
               Sys_D2_def C_D2_def
-            
+
     Sys_D3_def C_D3_def
               program_counter_def Q_arr_def j_var_def x_var_def Let_def
     by (elim disjE) (auto split: if_splits)
@@ -1598,7 +1660,7 @@ proof -
     proof
       assume H: "Sys_D1 P1 s s'"
       with PCP1' show ?thesis
-        unfolding 
+        unfolding
   Sys_D1_def C_D1_def program_counter_def by auto
     next
       assume H: "Sys_D2 P1 s s' \<or> Sys_D3 P1 s s'"
@@ -1609,25 +1671,53 @@ proof -
           unfolding Sys_D2_def C_D2_def program_counter_def j_var_def Let_def
           by (auto split: if_splits)
       next
-    
-       assume D3: "Sys_D3 P1 s s'"
+
+        assume D3: "Sys_D3 P1 s s'"
+
+        have CD3: "C_D3 P1 (fst s) (fst s')"
+          using D3
+          unfolding Sys_D3_def
+          by blast
+
+        have PCD3: "program_counter s P1 = ''D3''"
+          using CD3
+          unfolding C_D3_def program_counter_def
+          by simp
+
         have Jold: "j_var s P1 \<in> {1,2}"
-          using P1D3 D3 unfolding Sys_D3_def C_D3_def program_counter_def by auto
+          using P1D3 PCD3
+          by blast
+
         have Q2notBOT: "Q_arr s 2 \<noteq> BOT"
         proof
-          assume "Q_arr s 2 = BOT"
-          with Q2IFF have "program_counter s P1 = ''D4'' \<and> x_var s P1 
-  = A2"
+          assume Q2B: "Q_arr s 2 = BOT"
+          from Q2IFF Q2B
+          have "program_counter s P1 = ''D4'' \<and> x_var s P1 = A2"
+            by blast
+          with PCD3 show False
             by simp
-          with D3 show False
-            unfolding Sys_D3_def C_D3_def program_counter_def by auto
         qed
-        (* Core fix: precondition using from *)
-        from PCP1' D3 Jold Q1BOT Q2notBOT Q2VAL show ?thesis
-          unfolding Sys_D3_def C_D3_def
-       
-               program_counter_def j_var_def x_var_def Q_arr_def Let_def BOT_def
-          by (auto split: if_splits)
+
+        have Jcases: "j_var s P1 = 1 \<or> j_var s P1 = 2"
+          using Jold by auto
+
+        from Jcases show ?thesis
+        proof
+          assume J1: "j_var s P1 = 1"
+          show ?thesis
+            using CD3 J1 Q1BOT
+            unfolding C_D3_def j_var_def Q_arr_def Let_def
+            by (auto split: if_splits)
+        next
+          assume J2: "j_var s P1 = 2"
+          have False
+            using CD3 J2 Q2notBOT PCP1'
+            unfolding C_D3_def
+                      program_counter_def j_var_def Q_arr_def Let_def
+            by auto
+          then show ?thesis
+            by simp
+        qed
       qed
     qed
   qed
@@ -1638,7 +1728,7 @@ proof -
     from STEP1 show "x_var s' P1 \<in> {A1,A2}"
     proof
       assume H: "Sys_D1 P1 s s'"
-     
+
     with PCP1' show ?thesis
         unfolding Sys_D1_def C_D1_def program_counter_def by auto
     next
@@ -1649,28 +1739,28 @@ proof -
         with PCP1' show ?thesis
           unfolding Sys_D2_def C_D2_def program_counter_def by (auto split: if_splits)
       next
-  
+
          assume D3: "Sys_D3 P1 s s'"
         have Jold: "j_var s P1 \<in> {1,2}"
           using P1D3 D3 unfolding Sys_D3_def C_D3_def program_counter_def by auto
         have XoldBOTorA2:
           "j_var s P1 = 1 \<longrightarrow> x_var s' P1 = BOT" and
           "j_var s P1 = 2 \<longrightarrow> x_var s' P1 = A2"
-       
+
     proof -
           show "j_var s P1 = 1 \<longrightarrow> x_var s' P1 = BOT"
             using D3 Q1BOT
             unfolding Sys_D3_def C_D3_def x_var_def Q_arr_def j_var_def program_counter_def Let_def BOT_def
             by (auto split: if_splits)
           show "j_var s P1 = 2 \<longrightarrow> x_var s' P1 = A2"
-       
+
              using D3 Q2IFF Q2VAL
             unfolding Sys_D3_def C_D3_def x_var_def Q_arr_def j_var_def program_counter_def Let_def
             by (auto split: if_splits)
         qed
         from PCP1' D3 Jold Q1BOT Q2IFF Q2VAL show ?thesis
           unfolding Sys_D3_def C_D3_def
-                    program_counter_def x_var_def 
+                    program_counter_def x_var_def
   Q_arr_def j_var_def Let_def
           by (auto split: if_splits)
       qed
@@ -1683,7 +1773,7 @@ proof -
     from STEP1 show "program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A2"
     proof
       assume H: "Sys_D1 P1 s s'"
-      with Q2B Q2IFF 
+      with Q2B Q2IFF
   show ?thesis
         unfolding Sys_D1_def C_D1_def Q_arr_def program_counter_def x_var_def by auto
     next
@@ -1693,7 +1783,7 @@ proof -
         assume D2: "Sys_D2 P1 s s'"
         with Q2B Q2IFF show ?thesis
           unfolding Sys_D2_def C_D2_def Q_arr_def program_counter_def x_var_def Let_def by (auto split: if_splits)
-     
+
     next
         assume D3: "Sys_D3 P1 s s'"
         with Q2B Q1BOT Q2IFF Q2VAL show ?thesis
@@ -1703,7 +1793,7 @@ proof -
       qed
     qed
   next
-    assume H: "program_counter s' P1 = ''D4'' 
+    assume H: "program_counter s' P1 = ''D4''
   \<and> x_var s' P1 = A2"
     then show "Q_arr s' 2 = BOT"
       using STEP1 Q1BOT Q2IFF Q2VAL P1D3
@@ -1711,7 +1801,7 @@ proof -
                 Sys_D2_def C_D2_def
                 Sys_D3_def C_D3_def
                 Q_arr_def program_counter_def x_var_def j_var_def Let_def BOT_def
-      by (elim disjE) (auto split: 
+      by (elim disjE) (auto split:
   if_splits)
   qed
 
@@ -1725,7 +1815,7 @@ proof -
         using Q2NB Q2VAL
         unfolding Sys_D1_def C_D1_def Q_arr_def by auto
     next
-      assume H: "Sys_D2 P1 s 
+      assume H: "Sys_D2 P1 s
   s' \<or> Sys_D3 P1 s s'"
       then show ?thesis
       proof
@@ -1735,23 +1825,121 @@ proof -
           unfolding Sys_D2_def C_D2_def Q_arr_def Let_def  by (auto split: if_splits)
       next
         assume D3: "Sys_D3 P1 s s'"
-        
-  with Q2NB Q1BOT Q2IFF Q2VAL show ?thesis
-          unfolding Sys_D3_def C_D3_def
-                    Q_arr_def program_counter_def x_var_def j_var_def Let_def
-          by (auto split: if_splits)
+
+        have CD3: "C_D3 P1 (fst s) (fst s')"
+          using D3
+          unfolding Sys_D3_def
+          by blast
+
+        have PCD3: "program_counter s P1 = ''D3''"
+          using CD3
+          unfolding C_D3_def program_counter_def
+          by simp
+
+        have Jold: "j_var s P1 \<in> {1,2}"
+          using P1D3 PCD3
+          by blast
+
+        have Q2oldNB: "Q_arr s 2 \<noteq> BOT"
+        proof
+          assume Q2B: "Q_arr s 2 = BOT"
+          from Q2IFF Q2B
+          have "program_counter s P1 = ''D4'' \<and> x_var s P1 = A2"
+            by blast
+          with PCD3 show False
+            by simp
+        qed
+
+        have Q2oldA2: "Q_arr s 2 = A2"
+          using Q2VAL Q2oldNB
+          by blast
+
+        have Jcases: "j_var s P1 = 1 \<or> j_var s P1 = 2"
+          using Jold by auto
+
+        from Jcases show ?thesis
+        proof
+          assume J1: "j_var s P1 = 1"
+          show ?thesis
+            using CD3 J1 Q2oldA2
+            unfolding C_D3_def Q_arr_def j_var_def Let_def
+            by auto
+        next
+          assume J2: "j_var s P1 = 2"
+          have Q2newBOT: "Q_arr s' 2 = BOT"
+            using CD3 J2
+            unfolding C_D3_def Q_arr_def j_var_def Let_def
+            by auto
+          with Q2NB show ?thesis
+            by simp
+        qed
       qed
     qed
   qed
 
   have Q3A3': "Q_arr s' 3 = A3"
-    using STEP1 Q3A3 P1D3
-    unfolding Sys_D1_def C_D1_def
-            
-    Sys_D2_def C_D2_def
-              Sys_D3_def C_D3_def
-              Q_arr_def j_var_def program_counter_def Let_def
-    by (elim disjE) (auto split: if_splits)
+  proof -
+    from STEP1 show ?thesis
+    proof
+      assume D1: "Sys_D1 P1 s s'"
+      have CD1: "C_D1 P1 (fst s) (fst s')"
+        using D1
+        unfolding Sys_D1_def
+        by blast
+      show ?thesis
+        using CD1 Q3A3
+        unfolding C_D1_def Q_arr_def
+        by auto
+    next
+      assume H: "Sys_D2 P1 s s' \<or> Sys_D3 P1 s s'"
+      then show ?thesis
+      proof
+        assume D2: "Sys_D2 P1 s s'"
+        have CD2: "C_D2 P1 (fst s) (fst s')"
+          using D2
+          unfolding Sys_D2_def
+          by blast
+        show ?thesis
+          using CD2 Q3A3
+          unfolding C_D2_def Q_arr_def Let_def
+          by (auto split: if_splits)
+      next
+        assume D3: "Sys_D3 P1 s s'"
+
+        have CD3: "C_D3 P1 (fst s) (fst s')"
+          using D3
+          unfolding Sys_D3_def
+          by blast
+
+        have PCD3: "program_counter s P1 = ''D3''"
+          using CD3
+          unfolding C_D3_def program_counter_def
+          by simp
+
+        have Jold: "j_var s P1 \<in> {1,2}"
+          using P1D3 PCD3
+          by blast
+
+        have Jcases: "j_var s P1 = 1 \<or> j_var s P1 = 2"
+          using Jold by auto
+
+        from Jcases show ?thesis
+        proof
+          assume J1: "j_var s P1 = 1"
+          show ?thesis
+            using CD3 Q3A3 J1
+            unfolding C_D3_def Q_arr_def j_var_def Let_def
+            by auto
+        next
+          assume J2: "j_var s P1 = 2"
+          show ?thesis
+            using CD3 Q3A3 J2
+            unfolding C_D3_def Q_arr_def j_var_def Let_def
+            by auto
+        qed
+      qed
+    qed
+  qed
 
   show ?thesis
     unfolding E3_Post_Ret_Envelope_def
@@ -1760,7 +1948,7 @@ proof -
 qed
 
 (* ========================================================================= *)
-(* 4.  e3  Post-Envelope                       
+(* 4.  e3  Post-Envelope
                       *)
 (* ========================================================================= *)
 
@@ -1808,25 +1996,25 @@ proof -
     and P2_PC: "program_counter s P2 \<in> {''L0'',''D1'',''D2'',''D3'',''D4''}"
     and P1_D3: "program_counter s P1 = ''D3'' \<longrightarrow> j_var s P1 \<in> {1,2}"
     and P2_D3: "program_counter s P2 = ''D3'' \<longrightarrow> j_var s P2 \<in> {1,2}"
-    and 
+    and
   P1_D4: "program_counter s P1 = ''D4'' \<longrightarrow> x_var s P1 \<in> {A1,A2}"
     and P2_D4: "program_counter s P2 = ''D4'' \<longrightarrow> x_var s P2 \<in> {A1,A2}"
     and Q1_IFF: "Q_arr s 1 = BOT \<longleftrightarrow>
                    (program_counter s P1 = ''D4'' \<and> x_var s P1 = A1) \<or>
                    (program_counter s P2 = ''D4'' \<and> x_var s P2 = A1)"
-   
+
     and Q2_IFF: "Q_arr s 2 = BOT \<longleftrightarrow>
                    (program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or>
                    (program_counter s P2 = ''D4'' \<and> x_var s P2 = A2)"
     and Q1_VAL: "Q_arr s 1 \<noteq> BOT \<longrightarrow> Q_arr s 1 = A1"
     and Q2_VAL: "Q_arr s 2 \<noteq> BOT \<longrightarrow> Q_arr s 2 = A2"
- 
+
      and Q3_A3: "Q_arr s 3 = A3"
     (* Extract the new historical tracking and mutex rules *)
     and HIST1: "program_counter s P1 = ''D3'' \<and> j_var s P1 = 2 \<longrightarrow> Q_arr s 1 = BOT"
     and HIST2: "program_counter s P2 = ''D3'' \<and> j_var s P2 = 2 \<longrightarrow> Q_arr s 1 = BOT"
     and MUTEX1: "\<not>(program_counter s P1 = ''D4'' \<and> x_var s P1 = A1 \<and> program_counter s P2 = ''D4'' \<and> x_var s P2 = A1)"
-    and MUTEX2: 
+    and MUTEX2:
   "\<not>(program_counter s P1 = ''D4'' \<and> x_var s P1 = A2 \<and> program_counter s P2 = ''D4'' \<and> x_var s P2 = A2)"
     unfolding E3_Pre_Ret_Envelope_def by auto
 
@@ -1847,7 +2035,7 @@ proof -
     have P1_PC_eq: "program_counter s' P1 = program_counter s P1"
       using C_Sys_L0_deq_vis pneq
       unfolding Sys_L0_def C_L0_def program_counter_def Let_def
-    
+
     by (auto split: if_splits)
     have P1_J_eq: "j_var s' P1 = j_var s P1"
       using C_Sys_L0_deq_vis pneq
@@ -1857,8 +2045,8 @@ proof -
       using C_Sys_L0_deq_vis pneq
       unfolding Sys_L0_def C_L0_def x_var_def Let_def
       by (auto split: if_splits)
-    
-    (* We also need P2's local variables, which are 
+
+    (* We also need P2's local variables, which are
   untouched by Sys_L0 *)
     have P2_J_eq: "j_var s' P2 = j_var s P2"
       using C_Sys_L0_deq_vis pP2
@@ -1870,7 +2058,7 @@ proof -
       by (auto split: if_splits)
 
     have Q1_eq: "Q_arr s' 1 = Q_arr s 1"
-      using 
+      using
   C_Sys_L0_deq_vis pneq
       unfolding Sys_L0_def C_L0_def Q_arr_def Let_def
       by (auto split: if_splits)
@@ -1883,7 +2071,7 @@ proof -
       unfolding Sys_L0_def C_L0_def Q_arr_def Let_def
       by (auto split: if_splits)
 
-have P2_old_L0: 
+have P2_old_L0:
   "program_counter s P2 = ''L0''"
   using C_Sys_L0_deq_vis pP2
   unfolding Sys_L0_def C_L0_def program_counter_def
@@ -1903,7 +2091,7 @@ have Q1_IFF': "(Q_arr s' 1 = BOT) \<longleftrightarrow>
   (program_counter s' P2 = ''D4'' \<and> x_var s' P2 = A1)"
 proof -
   have "(Q_arr s' 1 = BOT) \<longleftrightarrow> (Q_arr s 1 = BOT)"
-    using 
+    using
   Q1_eq by simp
   also have "... \<longleftrightarrow>
       ((program_counter s P1 = ''D4'' \<and> x_var s P1 = A1) \<or>
@@ -1913,7 +2101,7 @@ proof -
     using P2_old_not_D4 by auto
   also have "... \<longleftrightarrow> (program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A1)"
     using P1_PC_eq P1_X_eq by auto
-  also have "... 
+  also have "...
   \<longleftrightarrow>
       ((program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A1) \<or>
        (program_counter s' P2 = ''D4'' \<and> x_var s' P2 = A1))"
@@ -1931,7 +2119,7 @@ proof -
       ((program_counter s P1 = ''D4'' \<and> x_var s P1 = A2) \<or>
        (program_counter s P2 = ''D4'' \<and> x_var s P2 = A2))"
     using Q2_IFF by simp
- 
+
    also have "... \<longleftrightarrow> (program_counter s P1 = ''D4'' \<and> x_var s P1 = A2)"
     using P2_old_not_D4 by auto
   also have "... \<longleftrightarrow> (program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A2)"
@@ -1956,7 +2144,7 @@ have HIST2': "program_counter s' P2 = ''D3'' \<and> j_var s' P2 = 2 \<longrighta
   using P2_new_not_D3 by auto
 
 have MUTEX1': "\<not> (program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A1 \<and>
- 
+
                   program_counter s' P2 = ''D4'' \<and> x_var s' P2 = A1)"
   using P2_new_not_D4 by auto
 
@@ -1977,7 +2165,7 @@ proof (unfold E3_Pre_Ret_Envelope_def, intro conjI)
   show "program_counter s' P2 = ''D3'' \<longrightarrow> j_var s' P2 \<in> {1, 2}"
     using P2_new_not_D3 by auto
   show "program_counter s' P1 = ''D4'' \<longrightarrow> x_var s' P1 \<in> {A1, A2}"
-    using P1_D4 P1_PC_eq P1_X_eq 
+    using P1_D4 P1_PC_eq P1_X_eq
   by auto
   show "program_counter s' P2 = ''D4'' \<longrightarrow> x_var s' P2 \<in> {A1, A2}"
     using P2_new_not_D4 by auto
@@ -2024,7 +2212,7 @@ next
   have lNone: "l = None"
     using cons.prems(2) by auto
   have TAUS: "C_Tau_Star s s1"
-    using cons.hyps(1) lNone C_Match_noneE by 
+    using cons.hyps(1) lNone C_Match_noneE by
   simp
   have ENV1: "E3_Pre_Ret_Envelope s1"
     using pre_ret_envelope_preserved_by_tau_star[OF N2 cons.prems(1) TAUS] .
@@ -2050,7 +2238,7 @@ next
     using cons.prems(2) by auto
   have TAUS: "C_Tau_Star s s1"
     using cons.hyps(1) lNone C_Match_noneE by simp
-  have ENV1: "E3_Post_Ret_Envelope 
+  have ENV1: "E3_Post_Ret_Envelope
   s1"
     using post_ret_envelope_preserved_by_tau_star[OF N2 cons.prems(1) TAUS] .
   have NOls: "set ls \<subseteq> {None}"
@@ -2272,7 +2460,7 @@ lemma hwq_scanning_D1D2_impossible:
   assumes N2: "N_Procs = 2"
       and SH: "E1_HWQ_relaxed_shape sk0"
       and Q1: "Q_arr sk0 1 = A1"
-      and P12: "program_counter 
+      and P12: "program_counter
   sk0 P1 \<in> {''D1'', ''D2''}"
       and E2MATCH: "C_Path sk0 e2_labels s2"
       and E3MATCH: "C_Path sk0 e3_labels s3"
@@ -2286,7 +2474,7 @@ proof -
 
   obtain m where
       PREF_BEF: "C_Path sk0 e3_before_p2_ret_labels m"
-    and REST: "C_Path m ([Some (mk_obs deq A1 P2 ret)] @ e3_after_p2_ret_before_last_labels) 
+    and REST: "C_Path m ([Some (mk_obs deq A1 P2 ret)] @ e3_after_p2_ret_before_last_labels)
   u"
     using C_Path_appendE[OF PREF[unfolded e3_before_last_split_ret]]
     by blast
@@ -2302,7 +2490,7 @@ proof -
     and T2: "C_Tau_Star v0 s3"
     using C_Match_someE[OF LAST] by blast
 
-  from STEP obtain p 
+  from STEP obtain p
   where
       PIN: "p \<in> ProcSet"
     and SD4: "Sys_D4 p u0 v0"
@@ -2316,7 +2504,7 @@ proof -
     using SD4 pP1 unfolding Sys_D4_def C_D4_def program_counter_def by auto
 
   have ENV: "E3_Post_Ret_Envelope u0"
-    using hwq_e3_prefix_guarantees_post_envelope[OF N2 
+    using hwq_e3_prefix_guarantees_post_envelope[OF N2
   SH P12 PREF_BEF RET_ACT PREF_AFT T1] .
 
   from ENV PCu0 XRET show False
@@ -2328,9 +2516,9 @@ lemma hwq_scanning_branch_impossible:
   assumes N2: "N_Procs = 2"
       and SH: "E1_HWQ_relaxed_shape sk0"
       and SCAN: "Q_arr sk0 1 = A1 \<and>
-                 (program_counter sk0 P1 
+                 (program_counter sk0 P1
   \<in> {''D1'', ''D2''} \<or>
-                  (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 
+                  (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1
   = 1))"
       and E2MATCH: "C_Path sk0 e2_labels s2"
       and E3MATCH: "C_Path sk0 e3_labels s3"
@@ -2339,26 +2527,26 @@ proof -
   from SCAN have Q1: "Q_arr sk0 1 = A1"
     and PCS:
       "program_counter sk0 P1 \<in> {''D1'', ''D2''} \<or>
-       (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 
+       (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1
   = 1)"
     by auto
 
   from PCS show False
   proof (elim disjE) (* Core fix: elim disjE cases PCS *)
-    assume 
+    assume
   P12: "program_counter sk0 P1 \<in> {''D1'', ''D2''}"
     then show False
       using hwq_scanning_D1D2_impossible[OF N2 SH Q1 P12 E2MATCH E3MATCH]
-      by simp 
+      by simp
   next
     assume D3J1: "program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 = 1"
     have OLD: "E1_HWQ_shape sk0"
       using scanning_D3_j1_implies_old_shape[OF SH] Q1 D3J1 by auto
-   
+
      have J1: "j_var sk0 P1 = 1"
       using D3J1 by auto
     show False
-  
+
       using hwq_case_j1_impossible[OF N2 OLD J1 E3MATCH] .
   qed
 qed
@@ -2373,8 +2561,8 @@ proof -
     unfolding C_Tau_def by simp
   from STEP0 obtain p where PIN: "p \<in> ProcSet"
     and STEP:
-      "Sys_E1 p s s' \<or> Sys_E2 p s s' \<or> Sys_D1 p s s' \<or> Sys_D2 
-  
+      "Sys_E1 p s s' \<or> Sys_E2 p s s' \<or> Sys_D1 p s s' \<or> Sys_D2
+
   p s s' \<or> Sys_D3 p s s'"
     by (cases rule: C_StepCR.cases) auto
 
@@ -2389,8 +2577,8 @@ proof -
     assume H: "Sys_E2 p s s'"
     then show ?thesis
       using PC XV
-  
-    
+
+
       unfolding Sys_E2_def C_E2_def program_counter_def x_var_def Let_def
       by (cases "p = P1") (auto split: if_splits)
   next
@@ -2402,7 +2590,7 @@ proof -
   next
     assume H: "Sys_D2 p s s'"
     then show ?thesis
-      using PC 
+      using PC
   XV
       unfolding Sys_D2_def C_D2_def program_counter_def x_var_def Let_def
       by (cases "p = P1") (auto split: if_splits)
@@ -2418,7 +2606,7 @@ qed
 
 lemma C_Tau_Star_preserves_D4_x_P1:
   assumes TAUS: "C_Tau_Star s s'"
- 
+
        and PC:   "program_counter s P1 = ''D4''"
       and XV:   "x_var s P1 = A1"
   shows "program_counter s' P1 = ''D4'' \<and> x_var s' P1 = A1"
@@ -2445,8 +2633,8 @@ proof -
   proof cases
     case (C_Sys_L0_enq_vis p)
     have pneq: "p \<noteq> P1"
-  
-  
+
+
       using OTHER C_Sys_L0_enq_vis unfolding mk_obs_def by auto
     then show ?thesis
       using C_Sys_L0_enq_vis PC XV
@@ -2458,9 +2646,9 @@ proof -
       using OTHER C_Sys_L0_deq_vis unfolding mk_obs_def by auto
     then show ?thesis
       using C_Sys_L0_deq_vis PC XV
-      unfolding Sys_L0_def C_L0_def program_counter_def 
+      unfolding Sys_L0_def C_L0_def program_counter_def
   x_var_def Let_def
- 
+
        by (auto split: if_splits)
   next
     case (C_Sys_E3_vis p)
@@ -2473,9 +2661,9 @@ proof -
   next
     case (C_Sys_D4_vis p)
     have pneq: "p \<noteq> P1"
-      using OTHER C_Sys_D4_vis 
+      using OTHER C_Sys_D4_vis
   unfolding mk_obs_def by auto
- 
+
      then show ?thesis
       using C_Sys_D4_vis PC XV
       unfolding Sys_D4_def C_D4_def program_counter_def x_var_def Let_def
@@ -2512,8 +2700,8 @@ next
   next
     case (match_vis u0 a v0)
     have UV: "program_counter u0 P1 = ''D4'' \<and> x_var u0 P1 = A1"
-      using C_Tau_Star_preserves_D4_x_P1[OF match_vis(2) 
-  
+      using C_Tau_Star_preserves_D4_x_P1[OF match_vis(2)
+
   cons.prems(2) cons.prems(3)] .
     have a_not_P1: "fst (snd (snd a)) \<noteq> P1"
       using Lcond match_vis(1) by auto
@@ -2583,28 +2771,28 @@ qed
 lemma hwq_no_common_match_from_e1:
   assumes N2: "N_Procs = 2"
       and SH_RELAXED: "E1_HWQ_relaxed_shape sk0"
-      and E2MATCH: 
+      and E2MATCH:
   "C_Path sk0 e2_labels s2"
-      and E3MATCH: "C_Path sk0 e3_labels 
+      and E3MATCH: "C_Path sk0 e3_labels
   s3"
   shows False
 proof -
   (* Step 1. *)
-  from SH_RELAXED have 
-    "(Q_arr sk0 1 = A1 \<and> (program_counter sk0 P1 \<in> {''D1'', ''D2''} \<or> (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 = 1))) \<or> 
+  from SH_RELAXED have
+    "(Q_arr sk0 1 = A1 \<and> (program_counter sk0 P1 \<in> {''D1'', ''D2''} \<or> (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 = 1))) \<or>
      (Q_arr sk0 1 = BOT \<and> program_counter sk0 P1 = ''D4'' \<and> x_var sk0 P1 = A1)"
     unfolding E1_HWQ_relaxed_shape_def by auto
   then show False
   proof (elim disjE)
     (* Branch 1. *)
-    assume SCAN: "Q_arr sk0 1 = A1 \<and> (program_counter sk0 
+    assume SCAN: "Q_arr sk0 1 = A1 \<and> (program_counter sk0
   P1 \<in> {''D1'', ''D2''} \<or> (program_counter sk0 P1 = ''D3'' \<and> j_var sk0 P1 = 1))"
-    show False 
+    show False
       using hwq_scanning_branch_impossible[OF N2 SH_RELAXED SCAN E2MATCH E3MATCH] .
   next
     (* Branch 2. *)
     assume COMMITTED: "Q_arr sk0 1 = BOT \<and> program_counter sk0 P1 = ''D4'' \<and> x_var sk0 P1 = A1"
-    show False 
+    show False
       using hwq_committed_D4_impossible[OF SH_RELAXED COMMITTED E3MATCH] .
   qed
 qed
@@ -2690,8 +2878,8 @@ lemma hwq_other_proc_preserves_pc:
       and NEQ: "p \<noteq> q"
   shows "program_counter s' p = program_counter s p"
   using MOVED NEQ
-  unfolding Sys_E1_def C_E1_def Sys_E2_def C_E2_def Sys_D1_def C_D1_def 
-            Sys_D2_def C_D2_def Sys_D3_def C_D3_def 
+  unfolding Sys_E1_def C_E1_def Sys_E2_def C_E2_def Sys_D1_def C_D1_def
+            Sys_D2_def C_D2_def Sys_D3_def C_D3_def
             program_counter_def Let_def T_D2_EnterLoop_def
   by (auto split: if_splits)
 
@@ -2743,13 +2931,13 @@ next
     (* E1:, direct induction hypothesis mid ->* t *)
     have "\<exists>u v. C_Tau_Star mid u \<and> C_Tau u v \<and> Sys_E1 p u v \<and> C_Tau_Star v t"
       using IH[OF True PC_T] .
-    then obtain u v where 
+    then obtain u v where
       "C_Tau_Star mid u" "C_Tau u v" "Sys_E1 p u v" "C_Tau_Star v t" by blast
-    
+
     (* :, induction step, s -> mid *)
     moreover have "C_Tau_Star s u"
       using C_Tau_Star.step[OF TAU_S_MID `C_Tau_Star mid u`] .
-    
+
     ultimately show ?thesis by blast
   next
     case False
@@ -2762,7 +2950,7 @@ next
         using C_Tau_no_E1_preserves_E1[OF N2 TAU_S_MID PC_S] by simp
       with False show False by contradiction
     qed
-    
+
     (* : u s, v mid *)
     have "C_Tau_Star s s" by (simp add: C_Tau_Star.refl)
     moreover have "C_Tau s mid" using TAU_S_MID .
@@ -2882,10 +3070,10 @@ lemma C_StepCR_X_var_effect:
   assumes "C_StepCR s l t"
   shows "X_var t = X_var s \<or> (\<exists>p. Sys_E1 p s t \<and> X_var t = X_var s + 1)"
   using assms
-  by (cases rule: C_StepCR.cases) 
-     (auto simp: Sys_E1_def C_E1_def Sys_E2_def C_E2_def Sys_E3_def C_E3_def 
-                 Sys_D1_def C_D1_def Sys_D2_def C_D2_def Sys_D3_def C_D3_def 
-                 Sys_D4_def C_D4_def Sys_L0_def C_L0_def X_var_def Let_def 
+  by (cases rule: C_StepCR.cases)
+     (auto simp: Sys_E1_def C_E1_def Sys_E2_def C_E2_def Sys_E3_def C_E3_def
+                 Sys_D1_def C_D1_def Sys_D2_def C_D2_def Sys_D3_def C_D3_def
+                 Sys_D4_def C_D4_def Sys_L0_def C_L0_def X_var_def Let_def
                  T_D2_EnterLoop_def
            split: if_splits)
 
@@ -2929,25 +3117,25 @@ lemma C_StepCR_P1_vis_preserves_P2_E1:
 (* ------------------------------------------------------------------------- *)
 lemma C_Path_mid_preserves_P2_E1_if_no_P2_E1:
   assumes N2: "N_Procs = 2"
-      and PATH: "C_Path s [None, Some (mk_obs enq A3 P1 call), None, None, 
-                           Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call), 
+      and PATH: "C_Path s [None, Some (mk_obs enq A3 P1 call), None, None,
+                           Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call),
                            None, None, None, None] t"
       and PC: "program_counter s P2 = ''E1''"
       and NOE1_TAU: "\<And>s' t'. C_Tau s' t' \<Longrightarrow> \<not> Sys_E1 P2 s' t'"
   shows "program_counter t P2 = ''E1''"
 proof -
   (* 1: None *)
-  obtain s1 where M1: "C_Match s None s1" 
+  obtain s1 where M1: "C_Match s None s1"
     and P1: "C_Path s1 [Some (mk_obs enq A3 P1 call), None, None, Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call), None, None, None, None] t"
     using my_C_Path_ConsE[OF PATH] .
   have T1: "C_Tau_Star s s1" using my_C_Match_NoneE[OF M1] .
   have PC1: "program_counter s1 P2 = ''E1''" using C_Tau_Star_no_P2_E1_preserves_E1[OF N2 T1 PC NOE1_TAU] .
 
   (* 2: A3 call *)
-  obtain s2 where M2: "C_Match s1 (Some (mk_obs enq A3 P1 call)) s2" 
+  obtain s2 where M2: "C_Match s1 (Some (mk_obs enq A3 P1 call)) s2"
     and P2: "C_Path s2 [None, None, Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call), None, None, None, None] t"
     using my_C_Path_ConsE[OF P1] .
-  obtain u2 v2 where T2a: "C_Tau_Star s1 u2" and V2: "C_StepCR u2 (Some (mk_obs enq A3 P1 call)) v2" and T2b: "C_Tau_Star v2 s2" 
+  obtain u2 v2 where T2a: "C_Tau_Star s1 u2" and V2: "C_StepCR u2 (Some (mk_obs enq A3 P1 call)) v2" and T2b: "C_Tau_Star v2 s2"
     using my_C_Match_SomeE[OF M2] .
   have PC_u2: "program_counter u2 P2 = ''E1''" using C_Tau_Star_no_P2_E1_preserves_E1[OF N2 T2a PC1 NOE1_TAU] .
   have PC_v2: "program_counter v2 P2 = ''E1''" using C_StepCR_P1_vis_preserves_P2_E1[OF V2 _ PC_u2] by (auto simp: mk_obs_def)
@@ -2967,7 +3155,7 @@ proof -
   (* 4: A3 ret *)
   obtain s5 where M5: "C_Match s4 (Some (mk_obs enq A3 P1 ret)) s5" and P5: "C_Path s5 [Some (mk_obs deq BOT P1 call), None, None, None, None] t"
     using my_C_Path_ConsE[OF P4] .
-  obtain u5 v5 where T5a: "C_Tau_Star s4 u5" and V5: "C_StepCR u5 (Some (mk_obs enq A3 P1 ret)) v5" and T5b: "C_Tau_Star v5 s5" 
+  obtain u5 v5 where T5a: "C_Tau_Star s4 u5" and V5: "C_StepCR u5 (Some (mk_obs enq A3 P1 ret)) v5" and T5b: "C_Tau_Star v5 s5"
     using my_C_Match_SomeE[OF M5] .
   have PC_u5: "program_counter u5 P2 = ''E1''" using C_Tau_Star_no_P2_E1_preserves_E1[OF N2 T5a PC4 NOE1_TAU] .
   have PC_v5: "program_counter v5 P2 = ''E1''" using C_StepCR_P1_vis_preserves_P2_E1[OF V5 _ PC_u5] by (auto simp: mk_obs_def)
@@ -2976,7 +3164,7 @@ proof -
   (* 5: deq BOT call *)
   obtain s6 where M6: "C_Match s5 (Some (mk_obs deq BOT P1 call)) s6" and P6: "C_Path s6 [None, None, None, None] t"
     using my_C_Path_ConsE[OF P5] .
-  obtain u6 v6 where T6a: "C_Tau_Star s5 u6" and V6: "C_StepCR u6 (Some (mk_obs deq BOT P1 call)) v6" and T6b: "C_Tau_Star v6 s6" 
+  obtain u6 v6 where T6a: "C_Tau_Star s5 u6" and V6: "C_StepCR u6 (Some (mk_obs deq BOT P1 call)) v6" and T6b: "C_Tau_Star v6 s6"
     using my_C_Match_SomeE[OF M6] .
   have PC_u6: "program_counter u6 P2 = ''E1''" using C_Tau_Star_no_P2_E1_preserves_E1[OF N2 T6a PC5 NOE1_TAU] .
   have PC_v6: "program_counter v6 P2 = ''E1''" using C_StepCR_P1_vis_preserves_P2_E1[OF V6 _ PC_u6] by (auto simp: mk_obs_def)
@@ -3018,18 +3206,18 @@ proof (rule ccontr)
     show "\<not> Sys_E1 P1 s' t'" using NOE1 by blast
   qed
 
-  have SPLIT: "e1_labels = [Some (mk_obs enq A1 P1 call), None, None, Some (mk_obs enq A1 P1 ret)] @ 
-                           [Some (mk_obs enq A2 P2 call), None, Some (mk_obs enq A3 P1 call), None, None, 
-                            Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call), None, None, None, None, 
+  have SPLIT: "e1_labels = [Some (mk_obs enq A1 P1 call), None, None, Some (mk_obs enq A1 P1 ret)] @
+                           [Some (mk_obs enq A2 P2 call), None, Some (mk_obs enq A3 P1 call), None, None,
+                            Some (mk_obs enq A3 P1 ret), Some (mk_obs deq BOT P1 call), None, None, None, None,
                             Some (mk_obs enq A2 P2 ret)]"
     unfolding e1_labels_def by simp
 
-  obtain s_a1_ret where 
+  obtain s_a1_ret where
     P_A1_SEG: "C_Path s0 [Some (mk_obs enq A1 P1 call), None, None, Some (mk_obs enq A1 P1 ret)] s_a1_ret"
     using C_Path_appendE[OF E1FULL[unfolded SPLIT]] by blast
 
   (* precondition: peel off call *)
-  obtain s1 where 
+  obtain s1 where
     M_CALL: "C_Match s0 (Some (mk_obs enq A1 P1 call)) s1" and
     P_REST: "C_Path s1 [None, None, Some (mk_obs enq A1 P1 ret)] s_a1_ret"
     using my_C_Path_ConsE[OF P_A1_SEG] .
@@ -3065,13 +3253,13 @@ proof (rule ccontr)
   have P_REST_APP: "C_Path s1 ([None, None] @ [Some (mk_obs enq A1 P1 ret)]) s_a1_ret"
     using P_REST by simp
 
-  obtain s3 where 
-    P_NONES: "C_Path s1 [None, None] s3" and 
+  obtain s3 where
+    P_NONES: "C_Path s1 [None, None] s3" and
     M_RET: "C_Match s3 (Some (mk_obs enq A1 P1 ret)) s_a1_ret"
     using C_Path_snocE[OF P_REST_APP] by blast
 
   (* middle segment: ConsE extract None *)
-  obtain s2 where 
+  obtain s2 where
     M_N1: "C_Match s1 None s2" and P_N2: "C_Path s2 [None] s3"
     using my_C_Path_ConsE[OF P_NONES] .
 
@@ -3394,7 +3582,7 @@ next
   (* Step 1.1.2. *)
   have PC_S2: "program_counter s2 p \<noteq> ''E1''"
     using C_Tau_not_E1_preserves[OF step.hyps(1) step.prems] .
-    
+
   (* Step 2.2.3. *)
   then show ?case
     using step.IH by simp
@@ -3458,7 +3646,7 @@ proof (cases rule: C_StepCR.cases)
   case (C_Sys_L0_enq_vis p)
   have p_cases: "p = P1 \<or> p = P2"
     using C_Sys_L0_enq_vis N2 unfolding ProcSet_def by auto
-  then show ?thesis 
+  then show ?thesis
     using C_Sys_L0_enq_vis
     unfolding Sys_L0_def C_L0_def E1_credit_def X_var_def program_counter_def is_enq_call_cr_def mk_obs_def Let_def
     by (auto split: if_splits)
@@ -3474,7 +3662,7 @@ next
   case (C_Sys_D4_vis p)
   have p_cases: "p = P1 \<or> p = P2" using C_Sys_D4_vis N2 unfolding ProcSet_def by auto
   then show ?thesis using C_Sys_D4_vis unfolding Sys_D4_def C_D4_def E1_credit_def X_var_def program_counter_def is_enq_call_cr_def mk_obs_def Let_def by (auto split: if_splits)
-qed 
+qed
 
 (* Step 3. *)
 lemma C_Match_potential_eq:
@@ -3546,13 +3734,13 @@ proof -
     and M_RET: "C_Match s_deq_post (Some (mk_obs enq A2 P2 ret)) sk0"
     using C_Path_snocE[OF assms] by blast
 
-  obtain s1 where M_DEQ: "C_Match s_before_deq (Some (mk_obs deq BOT P1 call)) s1" 
+  obtain s1 where M_DEQ: "C_Match s_before_deq (Some (mk_obs deq BOT P1 call)) s1"
     and P_N4: "C_Path s1 [None, None, None, None] s_deq_post"
     using my_C_Path_ConsE[OF P_DEQ] .
-    
+
   obtain u_deq_pre u_deq_post where "C_Tau_Star s_before_deq u_deq_pre"
     and STEP_DEQ: "C_StepCR u_deq_pre (Some (mk_obs deq BOT P1 call)) u_deq_post"
-    and T_DEQ_POST: "C_Tau_Star u_deq_post s1" 
+    and T_DEQ_POST: "C_Tau_Star u_deq_post s1"
     using my_C_Match_SomeE[OF M_DEQ] .
 
   (* Core1: deq call, P1 D1, E1 *)
@@ -3570,8 +3758,8 @@ proof -
   have S5_EQ: "s5 = s_deq_post" using P_N0 by (cases rule: C_Path.cases) auto
 
   have T_N_ALL: "C_Tau_Star s1 s_deq_post"
-    using C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N1] 
-          C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N2] 
+    using C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N1]
+          C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N2]
           C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N3] my_C_Match_NoneE[OF M_N4]]]] S5_EQ by simp
 
   have PC_P1_DEQ_POST: "program_counter s_deq_post P1 \<noteq> ''E1''"
@@ -3580,7 +3768,7 @@ proof -
   (* Core3: P2 visible step *)
   obtain u_ret_pre u_ret_post where T_RET_PRE: "C_Tau_Star s_deq_post u_ret_pre"
     and STEP_RET: "C_StepCR u_ret_pre (Some (mk_obs enq A2 P2 ret)) u_ret_post"
-    and T_RET_POST: "C_Tau_Star u_ret_post sk0" 
+    and T_RET_POST: "C_Tau_Star u_ret_post sk0"
     using my_C_Match_SomeE[OF M_RET] .
 
   have PC_P1_RET_PRE: "program_counter u_ret_pre P1 \<noteq> ''E1''"
@@ -3603,7 +3791,7 @@ proof -
   (* Step 1. *)
   have X0: "X_var s0 = 1"
     using INIT unfolding Init_def X_var_def by auto
-  
+
   have CREDIT0: "E1_credit s0 = 0"
     using INIT unfolding Init_def E1_credit_def program_counter_def by auto
 
@@ -3670,13 +3858,13 @@ lemma C_Tau_preserves_D_phase_P1:
   shows "program_counter t P1 \<in> {''D1'', ''D2'', ''D3'', ''D4''}"
 proof -
   from \<open>C_Tau s t\<close> have "C_StepCR s None t" unfolding C_Tau_def by simp
-  then obtain p where "p \<in> ProcSet" 
+  then obtain p where "p \<in> ProcSet"
     and "Sys_E1 p s t \<or> Sys_E2 p s t \<or> Sys_D1 p s t \<or> Sys_D2 p s t \<or> Sys_D3 p s t"
     by (cases rule: C_StepCR.cases) auto
   then show ?thesis
     using assms(2)
-    unfolding Sys_E1_def C_E1_def Sys_E2_def C_E2_def 
-              Sys_D1_def C_D1_def Sys_D2_def C_D2_def Sys_D3_def C_D3_def 
+    unfolding Sys_E1_def C_E1_def Sys_E2_def C_E2_def
+              Sys_D1_def C_D1_def Sys_D2_def C_D2_def Sys_D3_def C_D3_def
               program_counter_def Let_def BOT_def
     by (auto split: if_splits)
 qed
@@ -3705,13 +3893,13 @@ proof -
     and M_RET: "C_Match s_deq_post (Some (mk_obs enq A2 P2 ret)) sk0"
     using C_Path_snocE[OF SUFFIX] by blast
 
-  obtain s1 where M_DEQ: "C_Match s_before_deq (Some (mk_obs deq BOT P1 call)) s1" 
+  obtain s1 where M_DEQ: "C_Match s_before_deq (Some (mk_obs deq BOT P1 call)) s1"
     and P_N4: "C_Path s1 [None, None, None, None] s_deq_post"
     using my_C_Path_ConsE[OF P_DEQ] .
-    
+
   obtain u_deq_pre u_deq_post where "C_Tau_Star s_before_deq u_deq_pre"
     and STEP_DEQ: "C_StepCR u_deq_pre (Some (mk_obs deq BOT P1 call)) u_deq_post"
-    and T_DEQ_POST: "C_Tau_Star u_deq_post s1" 
+    and T_DEQ_POST: "C_Tau_Star u_deq_post s1"
     using my_C_Match_SomeE[OF M_DEQ] .
 
   (* Step 2.1.1. *)
@@ -3731,8 +3919,8 @@ proof -
   have S5_EQ: "s5 = s_deq_post" using P_N0 by (cases rule: C_Path.cases) auto
 
   have T_N_ALL: "C_Tau_Star s1 s_deq_post"
-    using C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N1] 
-          C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N2] 
+    using C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N1]
+          C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N2]
           C_Tau_Star_trans[OF my_C_Match_NoneE[OF M_N3] my_C_Match_NoneE[OF M_N4]]]] S5_EQ by simp
 
   have IN_D_deq_post: "program_counter s_deq_post P1 \<in> {''D1'', ''D2'', ''D3'', ''D4''}"
@@ -3741,7 +3929,7 @@ proof -
   (* Step 5.2. *)
   obtain u_ret_pre u_ret_post where T_RET_PRE: "C_Tau_Star s_deq_post u_ret_pre"
     and STEP_RET: "C_StepCR u_ret_pre (Some (mk_obs enq A2 P2 ret)) u_ret_post"
-    and T_RET_POST: "C_Tau_Star u_ret_post sk0" 
+    and T_RET_POST: "C_Tau_Star u_ret_post sk0"
     using my_C_Match_SomeE[OF M_RET] .
 
   have IN_D_ret_pre: "program_counter u_ret_pre P1 \<in> {''D1'', ''D2'', ''D3'', ''D4''}"
@@ -3766,9 +3954,9 @@ lemma hwq_full_e1_pending_deq_P1:
       and X4: "X_var sk0 = 4"
   shows "HasPendingDeq sk0 P1"
 proof -
-  have SPLIT: "e1_labels = 
+  have SPLIT: "e1_labels =
       ([Some (mk_obs enq A1 P1 call), None, None, Some (mk_obs enq A1 P1 ret),
-        Some (mk_obs enq A2 P2 call), None, Some (mk_obs enq A3 P1 call), None, None, Some (mk_obs enq A3 P1 ret)]) @ 
+        Some (mk_obs enq A2 P2 call), None, Some (mk_obs enq A3 P1 call), None, None, Some (mk_obs enq A3 P1 ret)]) @
       ([Some (mk_obs deq BOT P1 call), None, None, None, None] @ [Some (mk_obs enq A2 P2 ret)])"
     unfolding e1_labels_def by simp
 
@@ -4499,7 +4687,7 @@ proof -
           using H pP2 P1L0_1 Q1_1 XNZ_1
           unfolding Sys_E1_def C_E1_def
                     program_counter_def X_var_def i_var_def Q_arr_def Let_def
-          by (simp add: Model.X_var_def Val_def 
+          by (simp add: Model.X_var_def Val_def
                p_not_P1 sI2_X_var_Upper_Bound_def
               system_invariant_def)
       next
@@ -5324,7 +5512,7 @@ next
       case (C_Sys_L0_enq_vis p)
       then have "l = Some (mk_obs enq (v_var u p) p call)"
         using L_EQ
-        by (simp add: NO_HEAD) 
+        by (simp add: NO_HEAD)
       with NO_HEAD show ?thesis
         by auto
     next
@@ -5332,12 +5520,12 @@ next
       have L0_rel: "L0 p u v"
         using C_Sys_L0_deq_vis unfolding L0_def by auto
       have PCD1: "program_counter v p = ''D1''"
-        using C_Sys_L0_deq_vis unfolding Sys_L0_def C_L0_def program_counter_def Let_def 
+        using C_Sys_L0_deq_vis unfolding Sys_L0_def C_L0_def program_counter_def Let_def
         by (auto split: if_splits)
-        
+
       have HIS: "his_seq v = his_seq u @ [mk_act deq BOT p (s_var u p) call]"
         using L0_D1_history_append[OF L0_rel PCD1] .
-        
+
       have NON: "act_name (mk_act deq BOT p (s_var u p) call) \<noteq> enq
                  \<or> act_cr (mk_act deq BOT p (s_var u p) call) \<noteq> call"
         by (simp add: mk_act_def act_name_def act_cr_def)
@@ -5345,14 +5533,16 @@ next
         using EnqCallInHis_append_non_enq_call_iff[OF HIS NON] .
     next
       case (C_Sys_E3_vis p)
-      obtain us_mid where
+      obtain us_mid us_ret where
           U3: "U_E3 p (CState.v_var (fst u) p) (s_var u p) (snd u) us_mid"
-        and U4: "U_E4 p us_mid (snd v)"
-        using C_Sys_E3_vis(2) unfolding Sys_E3_def
-        using Sys_E3_def local.C_Sys_E3_vis(3) by blast
+        and U4: "U_E4 p us_mid us_ret"
+        and U5: "U_E5 p us_ret (snd v)"
+        using C_Sys_E3_vis(3)
+        unfolding Sys_E3_def
+        by blast
       have HIS: "his_seq v = his_seq u @ [mk_act enq (v_var u p) p (s_var u p) ret]"
-        using U3 U4
-        unfolding his_seq_def v_var_def s_var_def U_E3_def U_E4_def
+        using U3 U4 U5
+        unfolding his_seq_def v_var_def s_var_def U_E3_def U_E4_def U_E5_def
         by auto
       have NON: "act_name (mk_act enq (v_var u p) p (s_var u p) ret) \<noteq> enq
                  \<or> act_cr (mk_act enq (v_var u p) p (s_var u p) ret) \<noteq> call"
@@ -5361,14 +5551,16 @@ next
         using EnqCallInHis_append_non_enq_call_iff[OF HIS NON] .
     next
       case (C_Sys_D4_vis p)
-      obtain us_mid where
+      obtain us_mid us_ret where
           U3: "U_D3 p (CState.x_var (fst u) p) (s_var u p) (snd u) us_mid"
-        and U4: "U_D4 p us_mid (snd v)"
-        using C_Sys_D4_vis(2) unfolding Sys_D4_def
-        using Sys_D4_def local.C_Sys_D4_vis(3) by auto 
+        and U4: "U_D4 p us_mid us_ret"
+        and U5: "U_D5 p us_ret (snd v)"
+        using C_Sys_D4_vis(3)
+        unfolding Sys_D4_def
+        by blast
       have HIS: "his_seq v = his_seq u @ [mk_act deq (x_var u p) p (s_var u p) ret]"
-        using U3 U4
-        unfolding his_seq_def x_var_def s_var_def U_D3_def U_D4_def
+        using U3 U4 U5
+        unfolding his_seq_def x_var_def s_var_def U_D3_def U_D4_def U_D5_def
         by auto
       have NON: "act_name (mk_act deq (x_var u p) p (s_var u p) ret) \<noteq> enq
                  \<or> act_cr (mk_act deq (x_var u p) p (s_var u p) ret) \<noteq> call"
@@ -5455,16 +5647,16 @@ proof -
         using C_Sys_L0_enq_vis unfolding mk_obs_def by auto
       have L0STEP: "L0 p u v"
         using C_Sys_L0_enq_vis p0_eq unfolding L0_def by auto
-        
+
       (* Core: explicitunfoldstate definition, extract PC_E1 *)
       have PC_E1: "program_counter v p = ''E1''"
-        using C_Sys_L0_enq_vis p0_eq 
-        unfolding Sys_L0_def C_L0_def program_counter_def Let_def 
+        using C_Sys_L0_enq_vis p0_eq
+        unfolding Sys_L0_def C_L0_def program_counter_def Let_def
         by (auto split: if_splits)
-        
+
       have HIS: "his_seq v = his_seq u @ [mk_act enq (V_var u) p (s_var u p) call]"
         using L0_E1_history_append[OF L0STEP PC_E1] .
-        
+
       with a_eq show ?thesis by simp
     qed (auto simp: mk_obs_def)
   qed
@@ -5747,12 +5939,12 @@ proof -
     next
       assume D2: "Sys_D2 P1 s s'"
       thus ?thesis using P2SAFE
-        unfolding Sys_D2_def C_D2_def program_counter_def X_var_def i_var_def Let_def T_D2_EnterLoop_def 
+        unfolding Sys_D2_def C_D2_def program_counter_def X_var_def i_var_def Let_def T_D2_EnterLoop_def
         by (auto split: if_splits)
     next
       assume D3: "Sys_D3 P1 s s'"
       thus ?thesis using P2SAFE
-        unfolding Sys_D3_def C_D3_def program_counter_def X_var_def i_var_def Let_def 
+        unfolding Sys_D3_def C_D3_def program_counter_def X_var_def i_var_def Let_def
         by (auto split: if_splits)
     qed
 
@@ -5809,7 +6001,7 @@ proof -
           then have PCD3: "program_counter s P1 = ''D3''"
             and J1: "j_var s P1 = 1"
             by auto
-          
+
           have "Q_arr s' 1 = BOT"
             using D3 Q1 PCD3 J1
             unfolding Sys_D3_def C_D3_def Q_arr_def program_counter_def j_var_def x_var_def Let_def BOT_def
@@ -7199,8 +7391,8 @@ proof -
     proof (cases rule: C_StepCR.cases)
       case (C_Sys_E3_vis p)
       (* unfold mk_obs v_var definition, directalignment, unfoldstate *)
-      thus ?thesis 
-        unfolding mk_obs_def v_var_def 
+      thus ?thesis
+        unfolding mk_obs_def v_var_def
         by auto
     qed (auto simp: mk_obs_def)
   qed
@@ -7244,8 +7436,8 @@ proof -
       proof (cases rule: C_StepCR.cases)
         case (C_Sys_E3_vis p)
         then have pP1: "p = P1" unfolding mk_obs_def by auto
-        with C_Sys_E3_vis show ?thesis 
-          unfolding Sys_E3_def C_E3_def program_counter_def Let_def 
+        with C_Sys_E3_vis show ?thesis
+          unfolding Sys_E3_def C_E3_def program_counter_def Let_def
           by (auto split: if_splits)
       qed (auto simp: mk_obs_def)
     qed
@@ -7426,13 +7618,17 @@ next
       using DeqRetInHis_append_non_deq_ret_iff[OF HIS NON] .
   next
     case (C_Sys_E3_vis p)
-    obtain us_mid where
+    obtain us_mid us_ret where
         U3: "U_E3 p (CState.v_var (fst u) p) (s_var u p) (snd u) us_mid"
-      and U4: "U_E4 p us_mid (snd v)"
-      using C_Sys_E3_vis(2) unfolding Sys_E3_def
-      using Sys_E3_def local.C_Sys_E3_vis(3) by blast 
+      and U4: "U_E4 p us_mid us_ret"
+      and U5: "U_E5 p us_ret (snd v)"
+      using C_Sys_E3_vis(3)
+      unfolding Sys_E3_def
+      by blast
     have HIS: "his_seq v = his_seq u @ [mk_act enq (v_var u p) p (s_var u p) ret]"
-      using U3 U4 unfolding his_seq_def v_var_def s_var_def U_E3_def U_E4_def by auto
+      using U3 U4 U5
+      unfolding his_seq_def v_var_def s_var_def U_E3_def U_E4_def U_E5_def
+      by auto
     have NON: "act_name (mk_act enq (v_var u p) p (s_var u p) ret) \<noteq> deq \<or>
                act_cr (mk_act enq (v_var u p) p (s_var u p) ret) \<noteq> ret"
       by (simp add: mk_act_def act_name_def act_cr_def)
@@ -7557,12 +7753,13 @@ proof -
   have P1L0: "program_counter s_before_deq P1 = ''L0''"
     using hwq_full_e1_pre_deq_p1_l0_shape[OF N2 INIT PREFIX] .
 
+  have P2SAFE0: "P2_pending_A2_safe s_before_deq"
+    using hwq_full_e1_pre_deq_p2_safe_shape[OF N2 INIT PREFIX] .
+
   have P2SAFE:
     "program_counter s_before_deq P2 \<in> {''E1'', ''E2'', ''E3''}"
-    using hwq_full_e1_pre_deq_p2_safe_shape[OF N2 INIT PREFIX]
-    using INIT Init_no_EnqCallInHis
-      hI10_Enq_Call_Existence_def
-      system_invariant_Init system_invariant_def
+    using P2SAFE0
+    unfolding P2_pending_A2_safe_def
     by blast
 
 
@@ -7670,7 +7867,7 @@ proof -
      (program_counter s_before_deq P2 = ''E1'' \<longrightarrow> X_var s_before_deq \<noteq> 1) \<and>
      (program_counter s_before_deq P2 \<in> {''E2'', ''E3''} \<longrightarrow> i_var s_before_deq P2 \<noteq> 1)"
     using hwq_full_e1_pre_deq_p2_safe_shape[OF N2 INIT PREFIX]
-    using P2_pending_A2_safe_def by blast 
+    using P2_pending_A2_safe_def by blast
 
   obtain k where
       K23: "k \<in> {2,3}"
@@ -7787,8 +7984,14 @@ proof -
         by metis
 
       (* 1: EnqCallInHis3_def, direct blast extract *)
-      obtain p_id sn_num where CALL: "EnqCallInHis s_before_deq p_id x sn_num"
-        using H10 QBK
+      have XVAL: "x \<in> Val"
+        using False
+        unfolding Val_def BOT_def
+        by auto
+
+      obtain p_id sn_num where CALL:
+        "EnqCallInHis s_before_deq p_id x sn_num"
+        using H10 XVAL QBK
         unfolding hI10_Enq_Call_Existence_def
         by blast
 
@@ -8068,13 +8271,13 @@ proof -
       have PC_D3: "program_counter s P1 = ''D3''" using H pP1 unfolding Sys_D3_def C_D3_def program_counter_def Let_def by auto
       have J1: "j_var s P1 = 1" using SAFE PC_D3 by auto
       have Q1: "Q_arr s 1 = A1" using SAFE PC_D3 by auto
-      
+
       have UNCHANGED: "P2_pending_A2_safe t" "Slots23_seed t"
         using H pP1 J1 SAFE SEED unfolding P2_pending_A2_safe_def Slots23_seed_def Sys_D3_def C_D3_def Q_arr_def j_var_def v_var_def X_var_def i_var_def program_counter_def Let_def by (auto split: if_splits)
-        
+
       (* Branch 1.3. *)
-      show ?thesis using H pP1 SAFE UNCHANGED J1 Q1 
-        unfolding Sys_D3_def C_D3_def program_counter_def Q_arr_def j_var_def x_var_def Let_def BOT_def 
+      show ?thesis using H pP1 SAFE UNCHANGED J1 Q1
+        unfolding Sys_D3_def C_D3_def program_counter_def Q_arr_def j_var_def x_var_def Let_def BOT_def
         by (auto split: if_splits)
     qed
   next
@@ -8123,7 +8326,7 @@ next
   case (step s1 s2 s3)
   have NXT: "Next s1 s2" using C_StepCR_into_Next[OF step.hyps(1)[unfolded C_Tau_def, simplified]] .
   have INV2: "system_invariant s2" using Sys_Inv_Step[OF step.prems(1) NXT] .
-  have STEP2: "Slots23_seed s2 \<and> P2_pending_A2_safe s2 \<and> 
+  have STEP2: "Slots23_seed s2 \<and> P2_pending_A2_safe s2 \<and>
                ((Q_arr s2 1 = A1 \<and> program_counter s2 P1 \<in> {''L0'', ''D1'', ''D2''}) \<or>
                 (Q_arr s2 1 = A1 \<and> program_counter s2 P1 = ''D3'' \<and> j_var s2 P1 = 1) \<or>
                 (Q_arr s2 1 = BOT \<and> program_counter s2 P1 = ''D4'' \<and> x_var s2 P1 = A1))"
@@ -8138,7 +8341,7 @@ lemma StepCR_deq_call_preserves_Slots23_seed:
   shows "Slots23_seed t"
 proof -
   from assms(1) have "Q_arr t 2 = Q_arr s 2 \<and> Q_arr t 3 = Q_arr s 3"
-    by (cases rule: C_StepCR.cases) 
+    by (cases rule: C_StepCR.cases)
        (auto simp: mk_obs_def Sys_L0_def C_L0_def Q_arr_def Let_def split: if_splits)
   then show ?thesis using assms(2) unfolding Slots23_seed_def by simp
 qed
@@ -8198,7 +8401,7 @@ proof -
              (program_counter u_deq_pre P2 = ''E1'' \<longrightarrow> X_var u_deq_pre \<noteq> 1) \<and>
              (program_counter u_deq_pre P2 \<in> {''E2'', ''E3''} \<longrightarrow> i_var u_deq_pre P2 \<noteq> 1)"
       using hwq_p2_pending_tau_preserves_q1_weak[OF N2 T_DEQ_PRE PC1_0 P2_PARTS(1) P2_PARTS(2) P2_PARTS(3) PREQ1]
-      by auto 
+      by auto
 
     have 2: "v_var u_deq_pre P2 = A2"
       using C_Tau_Star_preserves_v_var[OF T_DEQ_PRE] P2_PARTS(4) by auto
@@ -8404,13 +8607,13 @@ proof -
         (program_counter u_ret_pre P1 = ''D3'' \<and> j_var u_ret_pre P1 = 1)))
      \<or>
      ((Q_arr u_ret_pre 1 = BOT) \<and> program_counter u_ret_pre P1 = ''D4'' \<and> x_var u_ret_pre P1 = A1)"
-    using Tau_Star_preserves_P1_branch_P2_pending_safe[OF N2 INV_s_deq_post P1_BRANCH_SAFE OLD_P2_SAFE T_RET_PRE] 
+    using Tau_Star_preserves_P1_branch_P2_pending_safe[OF N2 INV_s_deq_post P1_BRANCH_SAFE OLD_P2_SAFE T_RET_PRE]
     by blast
 
   (* ----------------------------------------------------------------- *)
   (* Step 3.2. *)
   (* ----------------------------------------------------------------- *)
-  have SEED_HELPER_INPUT: 
+  have SEED_HELPER_INPUT:
     "P2_pending_A2_safe s_deq_post \<and>
      ((Q_arr s_deq_post 1 = A1 \<and> program_counter s_deq_post P1 \<in> {''L0'', ''D1'', ''D2''}) \<or>
       (Q_arr s_deq_post 1 = A1 \<and> program_counter s_deq_post P1 = ''D3'' \<and> j_var s_deq_post P1 = 1) \<or>
@@ -8419,25 +8622,25 @@ proof -
 
   have SEED_AND_P2_SAFE_POST:
     "Slots23_seed u_ret_pre \<and> P2_pending_A2_safe u_ret_pre"
-    using Tau_Star_preserves_Slots23_seed_pending[OF N2 INV_s_deq_post T_RET_PRE SEED_HELPER_INPUT SEED_deq_post] 
+    using Tau_Star_preserves_Slots23_seed_pending[OF N2 INV_s_deq_post T_RET_PRE SEED_HELPER_INPUT SEED_deq_post]
     by blast
 
   (* ----------------------------------------------------------------- *)
   (* Step 4. *)
   (* ----------------------------------------------------------------- *)
-  show "system_invariant u_ret_pre" 
+  show "system_invariant u_ret_pre"
     using INV_u_ret_pre .
-    
+
   show "((Q_arr u_ret_pre 1 = A1) \<and>
            ((program_counter u_ret_pre P1 \<in> {''D1'', ''D2''}) \<or>
             (program_counter u_ret_pre P1 = ''D3'' \<and> j_var u_ret_pre P1 = 1)))
          \<or>
          ((Q_arr u_ret_pre 1 = BOT) \<and> program_counter u_ret_pre P1 = ''D4'' \<and> x_var u_ret_pre P1 = A1)"
     using STRICT_P1_BRANCH_POST .
-    
+
   show "P2_pending_A2_safe u_ret_pre"
     using SEED_AND_P2_SAFE_POST by blast
-    
+
   show "Slots23_seed u_ret_pre"
     using SEED_AND_P2_SAFE_POST by blast
 qed
@@ -8594,7 +8797,7 @@ proof -
     using Reachable_nonL0_in_ProcSet[OF RS] PD4 by auto
   thus ?thesis
     using N2
-    unfolding ProcSet_def 
+    unfolding ProcSet_def
     by auto
 qed
 

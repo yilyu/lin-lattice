@@ -1,9 +1,7 @@
-(* ========================================================== *)
-(* Preservation of the system invariant for the E3 transition *)
-(* ========================================================== *)
+(* Prove the required intermediate property. Related symbols: E3. *)
 theory E3Proof
-  imports 
-    Main 
+  imports
+    Main
     "HOL-Library.Multiset"
     Model
     PureLib
@@ -18,37 +16,37 @@ lemma E3_preserves_invariant:
   assumes STEP: "Sys_E3 p s s'"
   shows "system_invariant s'"
 proof -
-  (* ========================================================== *)
-  (* 0. Bridge definitions and proof setup                     *)
-  (* ========================================================== *)
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
-                     Qback_arr_def i_var_def j_var_def l_var_def 
+  (* ========================================================================= *)
+  (* Step 0 of the proof. *)
+  (* ========================================================================= *)
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
+                     Qback_arr_def i_var_def j_var_def l_var_def
                      x_var_def v_var_def s_var_def lin_seq_def his_seq_def
 
-  (* ========== 1. Extract the pre-state invariant package ========== *)
-  have TypeOK_s: "TypeOK s" and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s" and sI2_X_var_Upper_Bound_s: "sI2_X_var_Upper_Bound s" 
-   and sI3_E2_Slot_Exclusive_s: "sI3_E2_Slot_Exclusive s" and sI4_E3_Qback_Written_s: "sI4_E3_Qback_Written s" and sI5_D2_Local_Bound_s: "sI5_D2_Local_Bound s" 
+  (* Step 1: extract the required facts. *)
+  have TypeOK_s: "TypeOK s" and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s" and sI2_X_var_Upper_Bound_s: "sI2_X_var_Upper_Bound s"
+   and sI3_E2_Slot_Exclusive_s: "sI3_E2_Slot_Exclusive s" and sI4_E3_Qback_Written_s: "sI4_E3_Qback_Written s" and sI5_D2_Local_Bound_s: "sI5_D2_Local_Bound s"
    and sI6_D3_Scan_Pointers_s: "sI6_D3_Scan_Pointers s" and sI7_D4_Deq_Result_s: "sI7_D4_Deq_Result s" and hI3_L0_E_Phase_Bounds_s: "hI3_L0_E_Phase_Bounds s" and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s"
-   and sI9_Qback_Discrepancy_E3_s: "sI9_Qback_Discrepancy_E3 s" and sI10_Qback_Unique_Vals_s: "sI10_Qback_Unique_Vals s" and hI2_SSN_Bounds_s: "hI2_SSN_Bounds s" 
+   and sI9_Qback_Discrepancy_E3_s: "sI9_Qback_Discrepancy_E3 s" and sI10_Qback_Unique_Vals_s: "sI10_Qback_Unique_Vals s" and hI2_SSN_Bounds_s: "hI2_SSN_Bounds s"
    and sI11_x_var_Scope_s: "sI11_x_var_Scope s" and hI1_E_Phase_Pending_Enq_s: "hI1_E_Phase_Pending_Enq s" and sI12_D3_Scanned_Prefix_s: "sI12_D3_Scanned_Prefix s" and hI4_X_var_Lin_Sync_s: "hI4_X_var_Lin_Sync s"
    and hI7_His_WF_s: "hI7_His_WF s" and hI8_Val_Unique_s: "hI8_Val_Unique s"
    and hI5_SSN_Unique_s: "hI5_SSN_Unique s" and hI6_SSN_Order_s: "hI6_SSN_Order s"
-   and hI9_Deq_Ret_Unique_s: "hI9_Deq_Ret_Unique s" and hI10_Enq_Call_Existence_s: "hI10_Enq_Call_Existence s" and hI11_Enq_Ret_Existence_s: "hI11_Enq_Ret_Existence s" 
-   and hI12_D_Phase_Pending_Deq_s: "hI12_D_Phase_Pending_Deq s" and hI13_Qback_Deq_Sync_s: "hI13_Qback_Deq_Sync s" and hI14_Pending_Enq_Qback_Exclusivity_s: "hI14_Pending_Enq_Qback_Exclusivity s" 
-   and hI15_Deq_Result_Exclusivity_s: "hI15_Deq_Result_Exclusivity s" and hI16_BO_BT_No_HB_s: "hI16_BO_BT_No_HB s" and hI17_BT_BT_No_HB_s: "hI17_BT_BT_No_HB s" 
-   and hI18_Idx_Order_No_Rev_HB_s: "hI18_Idx_Order_No_Rev_HB s" and hI19_Scanner_Catches_Later_Enq_s: "hI19_Scanner_Catches_Later_Enq s" and hI20_Enq_Val_Valid_s: "hI20_Enq_Val_Valid s" 
-   and hI21_Ret_Implies_Call_s: "hI21_Ret_Implies_Call s" and hI22_Deq_Local_Pattern_s: "hI22_Deq_Local_Pattern s" and hI23_Deq_Call_Ret_Balanced_s: "hI23_Deq_Call_Ret_Balanced s" 
+   and hI9_Deq_Ret_Unique_s: "hI9_Deq_Ret_Unique s" and hI10_Enq_Call_Existence_s: "hI10_Enq_Call_Existence s" and hI11_Enq_Ret_Existence_s: "hI11_Enq_Ret_Existence s"
+   and hI12_D_Phase_Pending_Deq_s: "hI12_D_Phase_Pending_Deq s" and hI13_Qback_Deq_Sync_s: "hI13_Qback_Deq_Sync s" and hI14_Pending_Enq_Qback_Exclusivity_s: "hI14_Pending_Enq_Qback_Exclusivity s"
+   and hI15_Deq_Result_Exclusivity_s: "hI15_Deq_Result_Exclusivity s" and hI16_BO_BT_No_HB_s: "hI16_BO_BT_No_HB s" and hI17_BT_BT_No_HB_s: "hI17_BT_BT_No_HB s"
+   and hI18_Idx_Order_No_Rev_HB_s: "hI18_Idx_Order_No_Rev_HB s" and hI19_Scanner_Catches_Later_Enq_s: "hI19_Scanner_Catches_Later_Enq s" and hI20_Enq_Val_Valid_s: "hI20_Enq_Val_Valid s"
+   and hI21_Ret_Implies_Call_s: "hI21_Ret_Implies_Call s" and hI22_Deq_Local_Pattern_s: "hI22_Deq_Local_Pattern s" and hI23_Deq_Call_Ret_Balanced_s: "hI23_Deq_Call_Ret_Balanced s"
    and hI24_HB_Implies_Idx_Order_s: "hI24_HB_Implies_Idx_Order s" and hI25_Enq_Call_Ret_Balanced_s: "hI25_Enq_Call_Ret_Balanced s" and hI26_DeqRet_D4_Mutex_s: "hI26_DeqRet_D4_Mutex s"
    and hI27_Pending_PC_Sync_s: "hI27_Pending_PC_Sync s" and hI28_Fresh_Enq_Immunity_s: "hI28_Fresh_Enq_Immunity s"
    and hI29_E2_Scanner_Immunity_s: "hI29_E2_Scanner_Immunity s" and hI30_Ticket_HB_Immunity_s: "hI30_Ticket_HB_Immunity s"
-   and lI1_Op_Sets_Equivalence_s: "lI1_Op_Sets_Equivalence s" and lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" and lI3_HB_Ret_Lin_Sync_s: "lI3_HB_Ret_Lin_Sync s" 
-   and lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics s" and lI5_SA_Prefix_s: "lI5_SA_Prefix s" and lI6_D4_Deq_Linearized_s: "lI6_D4_Deq_Linearized s" 
-   and lI7_D4_Deq_Deq_HB_s: "lI7_D4_Deq_Deq_HB s" and lI8_D3_Deq_Returned_s: "lI8_D3_Deq_Returned s" and lI9_D1_D2_Deq_Returned_s: "lI9_D1_D2_Deq_Returned s" 
-   and lI10_D4_Enq_Deq_HB_s: "lI10_D4_Enq_Deq_HB s" and lI11_D4_Deq_Unique_s: "lI11_D4_Deq_Unique s" 
+   and lI1_Op_Sets_Equivalence_s: "lI1_Op_Sets_Equivalence s" and lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" and lI3_HB_Ret_Lin_Sync_s: "lI3_HB_Ret_Lin_Sync s"
+   and lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics s" and lI5_SA_Prefix_s: "lI5_SA_Prefix s" and lI6_D4_Deq_Linearized_s: "lI6_D4_Deq_Linearized s"
+   and lI7_D4_Deq_Deq_HB_s: "lI7_D4_Deq_Deq_HB s" and lI8_D3_Deq_Returned_s: "lI8_D3_Deq_Returned s" and lI9_D1_D2_Deq_Returned_s: "lI9_D1_D2_Deq_Returned s"
+   and lI10_D4_Enq_Deq_HB_s: "lI10_D4_Enq_Deq_HB s" and lI11_D4_Deq_Unique_s: "lI11_D4_Deq_Unique s"
    and di_lin_s: "data_independent (lin_seq s)"
     using INV unfolding system_invariant_def by auto
 
-  (* ========== 2. Analyze Sys_E3 and collect frame facts ========== *)
+  (* Step 2: extract the required facts. Related symbols: Sys_E3. *)
   have step_facts [simp]:
     "Q_arr s' = Q_arr s" "Qback_arr s' = Qback_arr s"
     "x_var s' = x_var s" "j_var s' = j_var s" "l_var s' = l_var s"
@@ -57,13 +55,14 @@ proof -
     "his_seq s' = his_seq s @ [mk_act enq (v_var s p) p (s_var s p) ret]"
     "program_counter s p = ''E3'' "
     "program_counter s' p = ''L0'' "
-    "i_var s' p = BOT" "v_var s' p = BOT" 
+    "i_var s' p = BOT" "v_var s' p = BOT"
     "s_var s' p = s_var s p + 1"
   proof -
-    from STEP obtain us_mid where
+    from STEP obtain us_mid us_ret where
       c_step: "C_E3 p (fst s) (fst s')"
       and u_step1: "U_E3 p (CState.v_var (fst s) p) (s_var s p) (snd s) us_mid"
-      and u_step2: "U_E4 p us_mid (snd s')"
+      and u_step2: "U_E4 p us_mid us_ret"
+      and u_step3: "U_E5 p us_ret (snd s')"
       unfolding Sys_E3_def
       by blast
 
@@ -83,18 +82,18 @@ proof -
     qed
 
     show "s_var s' p = s_var s p + 1"
-      using u_step1 u_step2
-      unfolding U_E3_def U_E4_def bridge_defs s_var_def
+      using u_step1 u_step2 u_step3
+      unfolding U_E3_def U_E4_def U_E5_def bridge_defs s_var_def
       by (auto simp: prod_eq_iff)
 
     show "lin_seq s' = lin_seq s"
       using STEP
-      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def bridge_defs
+      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def U_E5_def bridge_defs
       by (auto simp: prod_eq_iff)
 
     show "his_seq s' = his_seq s @ [mk_act enq (v_var s p) p (s_var s p) ret]"
       using STEP
-      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def bridge_defs
+      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def U_E5_def bridge_defs
       by (auto simp: prod_eq_iff)
   qed
 
@@ -105,17 +104,18 @@ proof -
     "\<And>q. q \<noteq> p \<Longrightarrow> s_var s' q = s_var s q"
   proof -
     fix q assume "q \<noteq> p"
-    from STEP obtain us_mid where
+    from STEP obtain us_mid us_ret where
       u_steps:
       "U_E3 p (CState.v_var (fst s) p) (s_var s p) (snd s) us_mid"
-      "U_E4 p us_mid (snd s')"
+      "U_E4 p us_mid us_ret"
+      "U_E5 p us_ret (snd s')"
       unfolding Sys_E3_def by blast
     thus "program_counter s' q = program_counter s q"
          "i_var s' q = i_var s q"
          "v_var s' q = v_var s q"
          "s_var s' q = s_var s q"
       using STEP \<open>q \<noteq> p\<close>
-      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def bridge_defs
+      unfolding Sys_E3_def C_E3_def U_E3_def U_E4_def U_E5_def bridge_defs
       by (auto simp: prod_eq_iff)
   qed
 
@@ -148,7 +148,7 @@ proof -
       using step_facts other_facts(1)[of q] by (cases "q = p") auto
   qed
 
-  (* ========== 3. Derived-set preservation under the E3 step ========== *)
+  (* Step 3: perform the set/cardinality reasoning. Related symbols: E3, Q, Qback. *)
   have typeb_eq: "\<And>x. TypeB s' x = TypeB s x"
   proof -
     fix x
@@ -192,7 +192,7 @@ proof -
     show "SetBO s' = SetBO s" unfolding SetBO_def using typebo_eq by simp
   qed
 
-  (* ========== 4. Reassemble the state, history, and linearization invariants ========== *)
+  (* Step 4: prove the required intermediate property. Related symbols: E3Lemmas. *)
   have STATE_rest:
     "TypeOK s' \<and>
      sI1_Zero_Index_BOT s' \<and>
@@ -258,9 +258,15 @@ proof -
      Simulate_PC s'"
     using E3_preserves_linearization_invs_rest[OF INV STEP] .
 
-  (* ========== 5. Assemble the final invariant package ========== *)
+  have USPEC_rest:
+    "uI1_USpec_EffOps_Lin s' \<and>
+     uI2_USpec_E1UE2 s' \<and>
+     uI3_USpec_D3UD2 s'"
+    using E3_preserves_uspec_invs_rest[OF INV STEP] .
+
+  (* Step 5 of the proof. *)
   show ?thesis
-    using STATE_rest HISTORY_rest LIN_rest
+    using STATE_rest HISTORY_rest LIN_rest USPEC_rest
     unfolding system_invariant_def by blast
 qed
 

@@ -1,5 +1,5 @@
 theory SysInvProof
-  imports Main 
+  imports Main
     Model
     D3Proof
     D4Proof
@@ -13,26 +13,26 @@ theory SysInvProof
 begin
 
 (* ========================================================== *)
-(* Preservation of the global system invariant              *)
+(* History well-formedness and call/return reasoning. *)
 (* ========================================================== *)
 lemma Sys_Inv_Step:
   assumes "system_invariant s"
       and "Next s s'"
   shows "system_invariant s'"
 proof -
-  (* Step 1: unfold Next and extract the process p that performs the step. *)
+  (* Step 1: extract the required facts. *)
   from assms(2) obtain p where step_cases:
-    "Sys_L0 p s s' \<or> 
-     Sys_E1 p s s' \<or> Sys_E2 p s s' \<or> Sys_E3 p s s' \<or> 
+    "Sys_L0 p s s' \<or>
+     Sys_E1 p s s' \<or> Sys_E2 p s s' \<or> Sys_E3 p s s' \<or>
      Sys_D1 p s s' \<or> Sys_D2 p s s' \<or> Sys_D3 p s s' \<or> Sys_D4 p s s'"
     unfolding Next_def by blast
 
-  (* Step 2: discharge the goal by case analysis over the eight transition rules. *)
+  (* Step 2: prove the required intermediate property. *)
   from step_cases show ?thesis
   proof (elim disjE, goal_cases)
     case 1
     thus ?case using L0_preserves_invariant[OF assms(1)]
-      by (simp add: L0_def) 
+      by (simp add: L0_def)
   next
     case 2
     thus ?case using E1_preserves_invariant[OF assms(1)] by simp

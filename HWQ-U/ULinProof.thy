@@ -1,55 +1,55 @@
 theory ULinProof
-  imports 
-    Main 
+  imports
+    Main
     "HOL-Library.Multiset"
     Model
     SysInvProof
 begin
 
 (* ========================================================== *)
-(* Top-level specification of linearizability               *)
+(* Linearization-sequence reasoning. *)
 (* ========================================================== *)
 
-(* Equivalence between a concurrent history H and a sequential operation list L. *)
+(* History well-formedness and call/return reasoning. *)
 definition Equivalent_History :: "ActRec list \<Rightarrow> OpRec list \<Rightarrow> bool" where
-  "Equivalent_History H L \<equiv> 
+  "Equivalent_History H L \<equiv>
     (\<forall>k < length H. act_cr (H ! k) = ret \<longrightarrow>
-      (\<exists>m < length L. 
+      (\<exists>m < length L.
         op_name (L ! m) = act_name (H ! k) \<and>
         op_pid (L ! m) = act_pid (H ! k) \<and>
         op_ssn (L ! m) = act_ssn (H ! k) \<and>
-        op_val (L ! m) = act_val (H ! k))) \<and>        
+        op_val (L ! m) = act_val (H ! k))) \<and>
     (\<forall>m < length L.
-      (\<exists>k < length H. 
+      (\<exists>k < length H.
         act_cr (H ! k) = call \<and>
         act_pid (H ! k) = op_pid (L ! m) \<and>
         act_ssn (H ! k) = op_ssn (L ! m) \<and>
         act_name (H ! k) = op_name (L ! m) \<and>
         act_val (H ! k) = (if op_name (L ! m) = deq then BOT else op_val (L ! m))))"
 
-(* Sequential queue specification: L must satisfy the FIFO discipline. *)
+(* Auxiliary proof step. *)
 definition Legal_Queue_Seq :: "OpRec list \<Rightarrow> bool" where
   "Legal_Queue_Seq L \<equiv> lI4_FIFO_Semantics_list L \<and> lI5_SA_Prefix_list L \<and> data_independent L"
 
-(* A history is linearizable if there exists a legal witness sequence L. *)
+(* Linearization-sequence reasoning. *)
 definition IsLinearizable :: "ActRec list \<Rightarrow> bool" where
-  "IsLinearizable H \<equiv> \<exists>L. 
-     Equivalent_History H L \<and>   
-     HB_consistent L H \<and>        
+  "IsLinearizable H \<equiv> \<exists>L.
+     Equivalent_History H L \<and>
+     HB_consistent L H \<and>
      Legal_Queue_Seq L"
 
 (* ================================================================= *)
-(* Main theorem: system_invariant implies linearizability of the recorded history. *)
+(* History well-formedness and call/return reasoning. Related symbols: system_invariant. *)
 (* ================================================================= *)
 theorem U_is_linearizable:
   assumes "system_invariant s"
   shows "IsLinearizable (his_seq s)"
 proof -
-  (* Step 1: choose the maintained linearization lin_seq s as the witness. *)
+  (* Step 1: extract the required facts. Related symbols: lin_seq. *)
   let ?S = "lin_seq s"
   let ?H = "his_seq s"
 
-  (* Step 2: extract the required invariants once and reuse them globally. *)
+  (* Step 2: extract the required facts. *)
   have I_lin1: "lI1_Op_Sets_Equivalence s" using assms unfolding system_invariant_def by blast
   have I_lin3: "lI3_HB_Ret_Lin_Sync s" using assms unfolding system_invariant_def by blast
   have I_lin4: "lI4_FIFO_Semantics s" using assms unfolding system_invariant_def by blast
@@ -57,7 +57,7 @@ proof -
   have I_di: "data_independent ?S" using assms unfolding system_invariant_def by blast
 
   (* --------------------------------------------------------------- *)
-  (* Goal A: prove equivalence between the history and the witness sequence. *)
+  (* Stability/equivalence argument. *)
   (* --------------------------------------------------------------- *)
   have goal_A: "Equivalent_History ?H ?S"
   proof -
@@ -67,45 +67,45 @@ proof -
                        op_ssn (?S ! m) = act_ssn (?H ! k) \<and>
                        op_val (?S ! m) = act_val (?H ! k))"
     proof (intro allI impI)
-      fix k 
-      assume hk_len: "k < length ?H" 
+      fix k
+      assume hk_len: "k < length ?H"
       assume hk_ret: "act_cr (?H ! k) = ret"
-      
+
       let ?e = "?H ! k"
-      have "act_name ?e = enq \<or> act_name ?e = deq" 
+      have "act_name ?e = enq \<or> act_name ?e = deq"
         using act_name_def mname.exhaust by metis
-        
-      then show "\<exists>m < length ?S. op_name (?S ! m) = act_name ?e \<and> 
-                                 op_pid (?S ! m) = act_pid ?e \<and> 
+
+      then show "\<exists>m < length ?S. op_name (?S ! m) = act_name ?e \<and>
+                                 op_pid (?S ! m) = act_pid ?e \<and>
                                  op_ssn (?S ! m) = act_ssn ?e \<and>
                                  op_val (?S ! m) = act_val ?e"
       proof
         assume "act_name ?e = enq"
-        (* Use the four-argument Model namespace predicate to avoid legacy name clashes. *)
+        (* Extract the corresponding operation from the invariant. *)
         then have "Model.EnqRetInHis s (act_pid ?e) (act_val ?e) (act_ssn ?e)"
           unfolding Model.EnqRetInHis_def Let_def using hk_len hk_ret by auto
-          
-        then obtain m where "m < length ?S" 
+
+        then obtain m where "m < length ?S"
                         and "?S ! m = mk_op enq (act_val ?e) (act_pid ?e) (act_ssn ?e)"
           using I_lin3 unfolding lI3_HB_Ret_Lin_Sync_def by blast
-          
-        then show ?thesis 
+
+        then show ?thesis
           using \<open>act_name ?e = enq\<close>
-          unfolding op_name_def op_pid_def op_val_def op_ssn_def mk_op_def 
+          unfolding op_name_def op_pid_def op_val_def op_ssn_def mk_op_def
           by force
       next
         assume "act_name ?e = deq"
-        (* Use the corresponding four-argument predicate from Model. *)
+        (* Auxiliary proof step. *)
         then have "Model.DeqRetInHis s (act_pid ?e) (act_val ?e) (act_ssn ?e)"
           unfolding Model.DeqRetInHis_def Let_def using hk_len hk_ret by auto
-          
-        then obtain m where "m < length ?S" 
+
+        then obtain m where "m < length ?S"
                         and "?S ! m = mk_op deq (act_val ?e) (act_pid ?e) (act_ssn ?e)"
           using I_lin3 unfolding lI3_HB_Ret_Lin_Sync_def by blast
-          
-        then show ?thesis 
+
+        then show ?thesis
           using \<open>act_name ?e = deq\<close>
-          unfolding op_name_def op_pid_def op_val_def op_ssn_def mk_op_def 
+          unfolding op_name_def op_pid_def op_val_def op_ssn_def mk_op_def
           by force
       qed
     qed
@@ -119,85 +119,85 @@ proof -
     proof (intro allI impI)
       fix m assume m_len: "m < length ?S"
       let ?act = "?S ! m"
-      
-      show "\<exists>k < length ?H. act_cr (?H ! k) = call \<and> 
-                            act_pid (?H ! k) = op_pid ?act \<and> 
+
+      show "\<exists>k < length ?H. act_cr (?H ! k) = call \<and>
+                            act_pid (?H ! k) = op_pid ?act \<and>
                             act_ssn (?H ! k) = op_ssn ?act \<and>
-                            act_name (?H ! k) = op_name ?act \<and> 
+                            act_name (?H ! k) = op_name ?act \<and>
                             act_val (?H ! k) = (if op_name ?act = deq then BOT else op_val ?act)"
       proof -
-        have act_in_OPLin: "?act \<in> OPLin s" 
+        have act_in_OPLin: "?act \<in> OPLin s"
           unfolding OPLin_def using m_len by auto
-        
+
         have act_cases: "?act \<in> OP_A_enq s \<or> ?act \<in> OP_B_enq s \<or> ?act \<in> OP_A_deq s"
           using I_lin1 act_in_OPLin unfolding lI1_Op_Sets_Equivalence_def by blast
-          
+
         have case1: "?act \<in> OP_A_enq s \<Longrightarrow> ?thesis"
         proof -
           assume "?act \<in> OP_A_enq s"
-          (* Use Model.EnqCallInHis explicitly. *)
-          then obtain p a sn where "?act = mk_op enq a p sn" and "Model.EnqCallInHis s p a sn" 
+          (* Extract the corresponding operation from the invariant. *)
+          then obtain p a sn where "?act = mk_op enq a p sn" and "Model.EnqCallInHis s p a sn"
             unfolding OP_A_enq_def by blast
-          (* Use force here to instantiate the existential witnesses directly. *)
-          then show ?thesis 
+          (* Discharge the record-field equalities. *)
+          then show ?thesis
             unfolding Model.EnqCallInHis_def mk_op_def op_name_def op_pid_def op_val_def op_ssn_def
             by (force simp: in_set_conv_nth)
         qed
-        
+
         have case2: "?act \<in> OP_B_enq s \<Longrightarrow> ?thesis"
         proof -
           assume "?act \<in> OP_B_enq s"
-          then obtain p b sn where "?act = mk_op enq b p sn" and "Model.EnqCallInHis s p b sn" 
+          then obtain p b sn where "?act = mk_op enq b p sn" and "Model.EnqCallInHis s p b sn"
             unfolding OP_B_enq_def by blast
-          (* Use force for the same witness-instantiation reason. *)
-          then show ?thesis 
+          (* Discharge the record-field equalities. *)
+          then show ?thesis
             unfolding Model.EnqCallInHis_def mk_op_def op_name_def op_pid_def op_val_def op_ssn_def
             by (force simp: in_set_conv_nth)
         qed
-        
+
         have case3: "?act \<in> OP_A_deq s \<Longrightarrow> ?thesis"
         proof -
           assume "?act \<in> OP_A_deq s"
-          then have "op_name ?act = deq" and "Model.DeqCallInHis s (op_pid ?act) (op_ssn ?act)" 
+          then have "op_name ?act = deq" and "Model.DeqCallInHis s (op_pid ?act) (op_ssn ?act)"
             unfolding OP_A_deq_def by auto
-          (* Use force for the same witness-instantiation reason. *)
-          then show ?thesis 
+          (* Discharge the record-field equalities. *)
+          then show ?thesis
             unfolding Model.DeqCallInHis_def Let_def
             by (force simp: in_set_conv_nth)
         qed
-        
+
         show ?thesis using act_cases case1 case2 case3 by blast
       qed
     qed
 
-    show ?thesis 
-      unfolding Equivalent_History_def 
+    show ?thesis
+      unfolding Equivalent_History_def
       using completeness soundness by blast
   qed
 
   (* --------------------------------------------------------------- *)
-  (* Goal B: prove consistency with the happens-before relation. *)
+  (* Happens-before reasoning. *)
   (* --------------------------------------------------------------- *)
-  moreover have goal_B: "HB_consistent ?S ?H" 
+  moreover have goal_B: "HB_consistent ?S ?H"
   proof -
     show ?thesis using I_lin3 unfolding lI3_HB_Ret_Lin_Sync_def
       by (simp add: HB_Act_def HB_consistent_def)
   qed
 
   (* --------------------------------------------------------------- *)
-  (* Goal C: show that the witness satisfies the sequential queue specification. *)
+  (* Auxiliary proof step. *)
   (* --------------------------------------------------------------- *)
   moreover have goal_C: "Legal_Queue_Seq ?S"
   proof -
     have req1: "lI4_FIFO_Semantics_list ?S" using I_lin4 unfolding lI4_FIFO_Semantics_def lI4_FIFO_Semantics_list_def by blast
     have req2: "lI5_SA_Prefix_list ?S" using I_lin5 unfolding lI5_SA_Prefix_def by simp
-    show ?thesis 
-      unfolding Legal_Queue_Seq_def 
+    show ?thesis
+      unfolding Legal_Queue_Seq_def
       using req1 req2 I_di by blast
   qed
 
   (* --------------------------------------------------------------- *)
-  (* Final step: assemble the three goals and conclude linearizability by definition. *)
+  (* Linearization-sequence reasoning. Related symbols: ?S. *)
   (* --------------------------------------------------------------- *)
   ultimately show ?thesis
     unfolding IsLinearizable_def
@@ -205,19 +205,19 @@ proof -
 qed
 
 (* ========================================================== *)
-(* Simulation relation corresponding to the paper's relation R(conf_h, conf_u). *)
-(* In this formalization the joint HWQ/UQueue configuration is represented as SysState. *)
-(* It is therefore natural to expose the relation as a binary predicate over CState and UState. *)
+(* Proof note. Related symbols: conf_h, conf_u. *)
+(* Auxiliary proof step. *)
+(* Auxiliary proof step. *)
 (* ========================================================== *)
 definition SimRel_U :: "CState \<Rightarrow> UState \<Rightarrow> bool" where
   "SimRel_U cs us \<equiv> system_invariant (cs, us)"
 
 (* ========================================================== *)
-(* Main theorem: HWQ is simulated by UQueue in the forward call/return sense. *)
-(* This theorem corresponds to the simulation claim stated in the paper. *)
+(* Auxiliary proof step. *)
+(* Auxiliary proof step. *)
 (*   [[O_HWQ, n]] \<preceq>_(c,r) [[U_Queue, n]]                     *)
-(* In the current formalization this is expressed by initial-state coverage and step preservation. *)
-(* The relation is preserved by every combined transition Next. *)
+(* Initialization-related reasoning. *)
+(* State-transition reasoning. *)
 (* ========================================================== *)
 theorem HWQ_is_simulated_by_UQueue:
   shows
@@ -241,8 +241,8 @@ next
 qed
 
 (* ========================================================== *)
-(* Corollary: every reachable joint state satisfies the simulation relation. *)
-(* This matches the statement that all reachable configurations lie in R. *)
+(* State-transition reasoning. *)
+(* Auxiliary proof step. *)
 (* ========================================================== *)
 corollary Reachable_Sys_in_SimRel_U:
   assumes "Reachable_Sys s"
@@ -261,8 +261,8 @@ next
 qed
 
 (* ========================================================== *)
-(* Final corollary: the history of HWQ is linearizable. *)
-(* This corollary matches the paper's linearizability statement. *)
+(* History well-formedness and call/return reasoning. *)
+(* Auxiliary proof step. *)
 (*   O_HWQ is linearizable w.r.t. queue for n processes        *)
 (* ========================================================== *)
 corollary HWQ_is_linearizable:
@@ -274,5 +274,51 @@ proof -
   thus ?thesis
     using U_is_linearizable by blast
 qed
+
+theorem HWQU_invariant_implies_recorded_history_linearizable:
+  assumes INV: "system_invariant s"
+  shows "IsLinearizable (his_seq s)"
+  using INV
+  by (rule U_is_linearizable)
+
+
+theorem reachable_HWQU_state_satisfies_invariant:
+  assumes REACH: "Reachable_Sys s"
+  shows "system_invariant s"
+  using REACH
+  by (rule Reachable_Sys_in_SimRel_U)
+
+
+theorem reachable_HWQU_recorded_history_linearizable:
+  assumes REACH: "Reachable_Sys s"
+  shows "IsLinearizable (his_seq s)"
+  using REACH
+  by (rule HWQ_is_linearizable)
+
+
+theorem HWQU_refines_UQueue_invariant_form:
+  shows
+    "(\<forall>cs us. Init (cs, us) \<longrightarrow> SimRel_U cs us) \<and>
+     (\<forall>cs us cs' us'.
+        SimRel_U cs us \<and> Next (cs, us) (cs', us')
+        \<longrightarrow> SimRel_U cs' us')"
+  using HWQ_is_simulated_by_UQueue
+  by simp
+
+
+theorem HWQU_initial_states_satisfy_simulation_relation:
+  assumes INIT: "Init (cs, us)"
+  shows "SimRel_U cs us"
+  using HWQ_is_simulated_by_UQueue INIT
+  by blast
+
+
+theorem HWQU_simulation_relation_preserved_by_step:
+  assumes REL: "SimRel_U cs us"
+      and STEP: "Next (cs, us) (cs', us')"
+  shows "SimRel_U cs' us'"
+  using HWQ_is_simulated_by_UQueue REL STEP
+  by blast
+
 
 end

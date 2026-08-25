@@ -8,9 +8,6 @@ theory L0Proof
     L0Lemmas
 begin
 
-(* ========================================================== *)
-(* Preservation of the system invariant for the L0 transition  *)
-(* ========================================================== *)
 
 lemma L0_preserves_invariant:
   fixes s s' :: SysState and p :: nat
@@ -36,6 +33,9 @@ proof -
     and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s"
     and sI9_Qback_Discrepancy_E3_s: "sI9_Qback_Discrepancy_E3 s"
     and sI10_Qback_Unique_Vals_s: "sI10_Qback_Unique_Vals s"
+    and uI1_USpec_EffOps_Lin_s: "uI1_USpec_EffOps_Lin s"
+    and uI2_USpec_E1UE2_s: "uI2_USpec_E1UE2 s"
+    and uI3_USpec_D3UD2_s: "uI3_USpec_D3UD2 s"
     using INV unfolding system_invariant_def by auto
 
   have pc_L0: "program_counter s p = ''L0''"
@@ -109,8 +109,8 @@ proof -
       unfolding sI10_Qback_Unique_Vals_def L0_E1_update_state_def
       by (auto simp: Let_def bridge_defs)
 
-    (* The large history and linearization proof block for this branch has been moved to L0Lemmas.thy. *)
-    (* As in D3Proof.thy, we keep only the main proof skeleton and the final assembly here. *)
+    (* Prove the required intermediate property. Related symbols: L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: D3Proof.thy. *)
     have E1_rest:
       "hI3_L0_E_Phase_Bounds s' \<and>
        hI2_SSN_Bounds s' \<and>
@@ -205,6 +205,17 @@ proof -
       and di_s': "data_independent (lin_seq s')"
       by simp_all
 
+
+    have USPEC_rest:
+      "uI1_USpec_EffOps_Lin s' \<and> uI2_USpec_E1UE2 s' \<and> uI3_USpec_D3UD2 s'"
+      using L0_E1_preserves_uspec_invs_rest[OF INV STEP True] .
+
+    from USPEC_rest have
+      uI1_s': "uI1_USpec_EffOps_Lin s'"
+      and uI2_s': "uI2_USpec_E1UE2 s'"
+      and uI3_s': "uI3_USpec_D3UD2 s'"
+      by simp_all
+
     show ?thesis
       unfolding system_invariant_def
       using Simulate_PC_s' TypeOK_s'
@@ -212,6 +223,7 @@ proof -
         hI2_s' sI11_s' hI1_s' sI12_s' hI4_s' hI7_s' hI8_s' hI5_s' hI6_s' hI9_s' hI10_s'
         hI11_s' hI12_s' hI13_s' hI14_s' hI15_s' hI16_s' hI17_s' hI18_s' hI19_s' hI20_s'
         hI21_s' hI22_s' hI23_s' hI24_s' hI25_s' hI26_s' hI27_s' hI28_s' hI29_s' hI30_s'
+        uI1_s' uI2_s' uI3_s'
         lI1_s' lI2_s' lI3_s' lI4_s' lI5_s' lI6_s' lI7_s' lI8_s' lI9_s' lI10_s' lI11_s' di_s'
       by blast
   next
@@ -279,8 +291,8 @@ proof -
       unfolding sI10_Qback_Unique_Vals_def L0_D1_update_state_def
       by (auto simp: Let_def bridge_defs)
 
-    (* The large history and linearization proof block for this branch has been moved to L0Lemmas.thy. *)
-    (* As in D3Proof.thy, we keep only the main proof skeleton and the final assembly here. *)
+    (* Prove the required intermediate property. Related symbols: L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: D3Proof.thy. *)
     have D1_rest:
       "hI3_L0_E_Phase_Bounds s' \<and>
        hI2_SSN_Bounds s' \<and>
@@ -375,6 +387,17 @@ proof -
       and di_s': "data_independent (lin_seq s')"
       by simp_all
 
+
+    have USPEC_rest:
+      "uI1_USpec_EffOps_Lin s' \<and> uI2_USpec_E1UE2 s' \<and> uI3_USpec_D3UD2 s'"
+      using L0_D1_preserves_uspec_invs_rest[OF INV STEP D1] .
+
+    from USPEC_rest have
+      uI1_s': "uI1_USpec_EffOps_Lin s'"
+      and uI2_s': "uI2_USpec_E1UE2 s'"
+      and uI3_s': "uI3_USpec_D3UD2 s'"
+      by simp_all
+
     show ?thesis
       unfolding system_invariant_def
       using Simulate_PC_s' TypeOK_s'
@@ -382,6 +405,7 @@ proof -
         hI2_s' sI11_s' hI1_s' sI12_s' hI4_s' hI7_s' hI8_s' hI5_s' hI6_s' hI9_s' hI10_s'
         hI11_s' hI12_s' hI13_s' hI14_s' hI15_s' hI16_s' hI17_s' hI18_s' hI19_s' hI20_s'
         hI21_s' hI22_s' hI23_s' hI24_s' hI25_s' hI26_s' hI27_s' hI28_s' hI29_s' hI30_s'
+        uI1_s' uI2_s' uI3_s'
         lI1_s' lI2_s' lI3_s' lI4_s' lI5_s' lI6_s' lI7_s' lI8_s' lI9_s' lI10_s' lI11_s' di_s'
       by blast
   qed

@@ -1,6 +1,6 @@
 theory D3Lemmas
-  imports 
-    Main 
+  imports
+    Main
     "HOL-Library.Multiset"
     Model
     PureLib
@@ -9,11 +9,11 @@ theory D3Lemmas
     DeqLib
 begin
 
-(* ========== Basic lemmas ========== *)
+(* ========== this ========== *)
 
 
-(* Auxiliary lemma: the successful D3 step preserves the core concrete-state invariants *)
-(* Encapsulate the concrete-state argument to keep the main proof concise *)
+(* Helper lemma: prove D3 preservation for physical invariants. *)
+(* Physical layer of provepackaging, prove of *)
 lemma Sys_D3_success_phys_invariants:
   assumes "system_invariant s"
   assumes "program_counter s p = ''D3''"
@@ -21,49 +21,49 @@ lemma Sys_D3_success_phys_invariants:
   defines "s' \<equiv> Sys_D3_success_update s p"
   shows "TypeOK s' \<and> sI2_X_var_Upper_Bound s' \<and> sI7_D4_Deq_Result s' \<and> sI8_Q_Qback_Sync s' \<and> sI9_Qback_Discrepancy_E3 s' \<and> sI10_Qback_Unique_Vals s'"
 proof -
-  (* 1. extract the invariants of the old state *)
-  from assms(1) have 
+  (* 1. extract the old state of property *)
+  from assms(1) have
     TypeOK_s: "TypeOK s" and
     sI2_X_var_Upper_Bound_s: "sI2_X_var_Upper_Bound s" and sI3_E2_Slot_Exclusive_s: "sI3_E2_Slot_Exclusive s" and sI4_E3_Qback_Written_s: "sI4_E3_Qback_Written s" and sI6_D3_Scan_Pointers_s: "sI6_D3_Scan_Pointers s" and
     sI7_D4_Deq_Result_s: "sI7_D4_Deq_Result s" and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s" and sI9_Qback_Discrepancy_E3_s: "sI9_Qback_Discrepancy_E3 s" and sI10_Qback_Unique_Vals_s: "sI10_Qback_Unique_Vals s"
     unfolding system_invariant_def by auto
 
-  (* 2. introduce local abbreviations *)
+  (* 2. definitionlocal *)
   let ?jp = "j_var s p"
   let ?q_val = "Q_arr s ?jp"
   let ?sn = "s_var s p"
-  
-  (* 3. prepare the key facts *)
-  (* Since Q[jp] is not BOT, it is a valid queue value. *)
+
+  (* 3. keyfact *)
+  (* Q[jp] as BOT, note it is one has value *)
   have q_valid: "?q_val \<in> Val"
-    using TypeOK_def TypeOK_s assms(3) by blast 
-    
-  (* By sI8_Q_Qback_Sync, a non-BOT Q[jp] must coincide with Qback[jp]. *)
+    using TypeOK_def TypeOK_s assms(3) by blast
+
+  (* SI8_Q_Qback_Sync can, Q[jp] BOT, necessarilyequal to Qback[jp] *)
   have q_eq_back: "?q_val = Qback_arr s ?jp"
     using sI8_Q_Qback_Sync_def sI8_Q_Qback_Sync_s assms(3) by auto
 
-  (* Step 4: unfold all relevant fields of s', including the SSN-related updates. *)
-  have s'_fields: 
+  (* 4. unfold s' of all (precise SSN, unfold s_var and align mk_op) *)
+  have s'_fields:
     "program_counter s' = (\<lambda>x. if x = p then ''D4'' else program_counter s x)"
     "Q_arr s' = (\<lambda>x. if x = ?jp then BOT else Q_arr s x)"
     "x_var s' = (\<lambda>x. if x = p then ?q_val else x_var s x)"
-    "lin_seq s' = (if should_modify (lin_seq s) (his_seq s) ?q_val then modify_lin (lin_seq s) (his_seq s) ?q_val else lin_seq s) @ [mk_op deq ?q_val p ?sn]" 
+    "lin_seq s' = (if should_modify (lin_seq s) (his_seq s) ?q_val then modify_lin (lin_seq s) (his_seq s) ?q_val else lin_seq s) @ [mk_op deq ?q_val p ?sn]"
     "Qback_arr s' = Qback_arr s"
     "X_var s' = X_var s"
-    "V_var s' = V_var s" 
-    "v_var s' = v_var s" 
+    "V_var s' = V_var s"
+    "v_var s' = v_var s"
     "i_var s' = i_var s"
     "j_var s' = j_var s"
     "l_var s' = l_var s"
     "his_seq s' = his_seq s"
     "s_var s' = s_var s"
-    using q_eq_back 
-    unfolding s'_def Sys_D3_success_update_def Let_def 
-              program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+    using q_eq_back
+    unfolding s'_def Sys_D3_success_update_def Let_def
+              program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
               X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def s_var_def
     by auto
 
-  (* --- prove the required conjuncts one by one --- *)
+  (* --- prove --- *)
 
   (* Proof of TypeOK *)
   have "TypeOK s'"
@@ -80,14 +80,14 @@ proof -
     show "\<forall>p. l_var s' p \<in> Val \<union> {BOT}" using TypeOK_s s'_fields unfolding TypeOK_def by auto
     show "\<forall>p. x_var s' p \<in> Val \<union> {BOT}" using s'_fields q_valid TypeOK_s unfolding TypeOK_def by auto
     show "\<forall>p. v_var s' p \<in> Val \<union> {BOT}" using TypeOK_s s'_fields unfolding TypeOK_def by simp
-    (* 💥 include the TypeOK obligation for s_var *)
+    (* Fill in TypeOK for s_var of *)
     show "\<forall>p. s_var s' p \<in> Val" using TypeOK_s s'_fields unfolding TypeOK_def by simp
   qed
 
   moreover have "sI2_X_var_Upper_Bound s'"
   proof -
-    (* sI2_X_var_Upper_Bound: Slots beyond X must stay BOT; turning one slot into BOT cannot violate sI2_X_var_Upper_Bound *)
-    show ?thesis 
+    (* SI2_X_var_Upper_Bound: X afterwards of slotmust is BOT. we only slot into BOT, does not sI2_X_var_Upper_Bound *)
+    show ?thesis
       using sI2_X_var_Upper_Bound_s s'_fields unfolding sI2_X_var_Upper_Bound_def by auto
   qed
 
@@ -96,11 +96,11 @@ proof -
   proof (intro allI impI)
     fix p'
     assume pc_D4: "program_counter s' p' = ''D4''"
-    show "j_var s' p' \<in> Val \<and> Q_arr s' (j_var s' p') = BOT \<and> 
+    show "j_var s' p' \<in> Val \<and> Q_arr s' (j_var s' p') = BOT \<and>
           Qback_arr s' (j_var s' p') = x_var s' p' \<and> x_var s' p' \<noteq> BOT"
     proof (cases "p' = p")
       case True
-      (* Here p has just entered D4, so we check the D4-specific invariant in the new state *)
+      (* At this point p enter D4, we need verifynew state is D4 of *)
       have "j_var s' p \<in> Val" using sI6_D3_Scan_Pointers_s assms(2) unfolding sI6_D3_Scan_Pointers_def by (simp add: s'_fields)
       moreover have "Q_arr s' (j_var s' p) = BOT" using s'_fields True by simp
       moreover have "Qback_arr s' (j_var s' p) = x_var s' p" using s'_fields True q_eq_back by simp
@@ -108,12 +108,12 @@ proof -
       ultimately show ?thesis using True by simp
     next
       case False
-      (* If p' is not p, then its control state is unchanged *)
+      (* If p' is p, then it of PC and old state one *)
       have old_pc_D4: "program_counter s p' = ''D4''" using pc_D4 False s'_fields(1)
-        by auto 
+        by auto
       have old_sI7_D4_Deq_Result: "j_var s p' \<in> Val \<and> Q_arr s (j_var s p') = BOT \<and> Qback_arr s (j_var s p') = x_var s p' \<and> x_var s p' \<noteq> BOT"
         using sI7_D4_Deq_Result_s old_pc_D4 unfolding sI7_D4_Deq_Result_def by simp
-      (* Q_arr changes only at ?jp, so every location that was already BOT stays BOT *)
+      (* Because Q_arr only in?jp into BOT, therefore it originally is BOT of is BOT *)
       have "Q_arr s' (j_var s p') = BOT" using s'_fields(2) old_sI7_D4_Deq_Result by simp
       thus ?thesis using old_sI7_D4_Deq_Result s'_fields False by auto
     qed
@@ -139,24 +139,24 @@ proof -
     fix k q
     assume prem: "Q_arr s' k = BOT \<and> Qback_arr s' k \<noteq> BOT"
     assume q_cond: "program_counter s' q \<in> {''E3''} \<and> i_var s' q = k"
-    
-    (* Key simplification: p D4, hence any process q in E3 must be different from p *)
+
+    (* Simplification step: p into D4, thereforeif q is E3, q necessarily is p *)
     have "q \<noteq> p" using q_cond s'_fields(1) by auto
     hence pc_q: "program_counter s q = ''E3''" using q_cond s'_fields(1) by auto
     have i_q: "i_var s q = k" using q_cond s'_fields by auto
-    
-    (* sI4_E3_Qback_Written ensures that any process q still in E3 satisfies Qback[i] = v *)
+
+    (* SI4_E3_Qback_Written: only q in E3, it of Qback[i] then necessarilyequal to v *)
     have "Qback_arr s (i_var s q) = v_var s q"
       using sI4_E3_Qback_Written_s pc_q unfolding sI4_E3_Qback_Written_def by blast
-      
-    (* A direct substitution proves the claim without a case split on k *)
+
+    (* Can proveconclusion, this need for k of! *)
     thus "v_var s' q = Qback_arr s' k"
       using i_q s'_fields by auto
   qed
 
   moreover have "sI10_Qback_Unique_Vals s'"
   proof -
-    (* Qback is unchanged, so uniqueness is preserved immediately *)
+    (* Qback, uniquenessdefinitelypreserve *)
     show ?thesis using sI10_Qback_Unique_Vals_s s'_fields unfolding sI10_Qback_Unique_Vals_def by simp
   qed
 
@@ -164,30 +164,30 @@ proof -
 qed
 
 (* ----------------------------------------------------------------- *)
-(* Auxiliary lemma: D3 preserves under the successful transition hI13_Qback_Deq_Sync (revised version) *)
+(* Helper lemma: D3 success preserve hI13_Qback_Deq_Sync (revised version) *)
 (* ----------------------------------------------------------------- *)
 lemma D3_preserves_hI13_Qback_Deq_Sync:
   assumes "hI13_Qback_Deq_Sync s"
-  assumes "sI8_Q_Qback_Sync s"                    (* Revision: use sI8_Q_Qback_Sync instead of sI2_X_var_Upper_Bound *)
+  assumes "sI8_Q_Qback_Sync s"                    (* Fix: in sI8_Q_Qback_Sync and is sI2_X_var_Upper_Bound *)
   assumes "program_counter s p = ''D3''"
   assumes "jp = j_var s p"
-  assumes "q_val = Q_arr s jp"       
+  assumes "q_val = Q_arr s jp"
   assumes "q_val \<noteq> BOT"
   assumes "s' = Sys_D3_success_update s p"
   shows "hI13_Qback_Deq_Sync s'"
 proof -
-  (* Step 1: 1. s' , SMT *)
-  have s'_fields: 
+  (* 1. extract s' of core update, SMT unfold *)
+  have s'_fields:
     "program_counter s' = (\<lambda>x. if x = p then ''D4'' else program_counter s x)"
     "x_var s' = (\<lambda>x. if x = p then q_val else x_var s x)"
     "Q_arr s' = (\<lambda>x. if x = jp then BOT else Q_arr s x)"
     "Qback_arr s' = Qback_arr s"
     "his_seq s' = his_seq s"
-    using assms unfolding Sys_D3_success_update_def Let_def 
+    using assms unfolding Sys_D3_success_update_def Let_def
           program_counter_def x_var_def Q_arr_def Qback_arr_def his_seq_def j_var_def
     by auto
 
-  (* 2. unfold hI13_Qback_Deq_Sync and prove the goal directly *)
+  (* 2. unfold hI13_Qback_Deq_Sync definition prove *)
   show ?thesis
     unfolding hI13_Qback_Deq_Sync_def
   proof (intro allI impI)
@@ -196,65 +196,65 @@ proof -
     assume "\<exists>k. Q_arr s' k = BOT \<and> Qback_arr s' k = a"
     then obtain k where k_props: "Q_arr s' k = BOT" "Qback_arr s' k = a" by blast
 
-    (* 💥 Revision note: The target statement contains \<exists>sn *)
+    (* Fix point: goal in \<exists>sn *)
     show "\<exists>proc. (program_counter s' proc = ''D4'' \<and> x_var s' proc = a) \<or> (\<exists>sn. DeqRetInHis s' proc a sn)"
     proof (cases "k = jp")
-      (* === Case A: k is the slot just manipulated by process p === *)
+      (* === case A: k is when before process p operation of slot === *)
       case True
-      (* Use k_props and the update equations of s' to derive the value of a *)
+      (* Use k_props and s' of propertyderivation a of value *)
       have "Qback_arr s jp = a" using k_props(2) True s'_fields(4) by simp
-      
-      (* Use sI8_Q_Qback_Sync to show that a must equal q_val *)
+
+      (* Use sI8_Q_Qback_Sync (dataconsistency) prove a mustequal to q_val *)
       have "Q_arr s jp = Qback_arr s jp"
-        using `sI8_Q_Qback_Sync s` `q_val \<noteq> BOT` assms(5) unfolding sI8_Q_Qback_Sync_def 
-        by (metis) 
-        
-      hence "q_val = a" 
+        using `sI8_Q_Qback_Sync s` `q_val \<noteq> BOT` assms(5) unfolding sI8_Q_Qback_Sync_def
+        by (metis)
+
+      hence "q_val = a"
         using `Qback_arr s jp = a` assms(5) by simp
-      
-      (* Construct the witness that p is in D4 and carries value a *)
+
+      (* Construct: process p then in D4, and has value a *)
       have "program_counter s' p = ''D4''" using s'_fields(1) by simp
       moreover have "x_var s' p = a" using s'_fields(2) `q_val = a` by simp
       ultimately show ?thesis by blast
-      
+
     next
-      (* === Case B: k is not the slot touched by the current step === *)
+      (* === case B: k is when before operation of slot === *)
       case False
-      (* Here both Q_arr and Qback_arr are inherited from s *)
-      have "Q_arr s k = BOT" 
+      (* At this point Q_arr and Qback_arr of s *)
+      have "Q_arr s k = BOT"
         using k_props(1) s'_fields(3) False by simp
-      have "Qback_arr s k = a" 
+      have "Qback_arr s k = a"
         using k_props(2) s'_fields(4) by simp
-        
-      (* Invoke the old-state invariant hI13_Qback_Deq_Sync s *)
+
+      (* Useoriginal of hI13_Qback_Deq_Sync s *)
       have hI13_Qback_Deq_Sync_pre: "\<exists>proc. (program_counter s proc = ''D4'' \<and> x_var s proc = a) \<or> (\<exists>sn. DeqRetInHis s proc a sn)"
-        using `hI13_Qback_Deq_Sync s` `a \<noteq> BOT` `Q_arr s k = BOT` `Qback_arr s k = a` 
+        using `hI13_Qback_Deq_Sync s` `a \<noteq> BOT` `Q_arr s k = BOT` `Qback_arr s k = a`
         unfolding hI13_Qback_Deq_Sync_def by blast
-        
-      then obtain proc where pre_cond: 
-        "(program_counter s proc = ''D4'' \<and> x_var s proc = a) \<or> (\<exists>sn. DeqRetInHis s proc a sn)" 
+
+      then obtain proc where pre_cond:
+        "(program_counter s proc = ''D4'' \<and> x_var s proc = a) \<or> (\<exists>sn. DeqRetInHis s proc a sn)"
         by blast
-      
-      (* prove that this property is preserved in s' *)
+
+      (* Prove property in s' in preserve *)
       show ?thesis
       proof (cases "program_counter s proc = ''D4'' \<and> x_var s proc = a")
         case True
-        (* If proc was in D4 in s, then proc \<noteq> p because p is in D3 *)
+        (* If proc in s in D4, then proc \<noteq> p (because p in D3) *)
         then have "proc \<noteq> p" using assms(3) by auto
-        
-        (* For all other processes, both the control state and x_var are unchanged *)
+
+        (* For in its process, pc and x_var change *)
         have "program_counter s' proc = program_counter s proc" using `proc \<noteq> p` s'_fields(1) by simp
         have "x_var s' proc = x_var s proc" using `proc \<noteq> p` s'_fields(2) by simp
-          
-        (* Therefore proc still satisfies the required condition in s' *)
+
+        (* Therefore s' in proc *)
         then show ?thesis using True `program_counter s' proc = program_counter s proc` by auto
       next
         case False
-        (* 💥 Revision note: If the D4 disjunct does not hold, then the SSN-indexed DeqRetInHis alternative must hold *)
+        (* Fix point: if D4, necessarily SSN of DeqRetInHis *)
         then have "\<exists>sn. DeqRetInHis s proc a sn" using pre_cond by blast
         then obtain sn where "DeqRetInHis s proc a sn" by blast
-        
-        (* The history sequence is unchanged, so the property is preserved *)
+
+        (* History, propertypreserve *)
         then have "DeqRetInHis s' proc a sn"
           using s'_fields(5) unfolding DeqRetInHis_def by simp
         then show ?thesis by blast
@@ -264,7 +264,7 @@ proof -
 qed
 
 (* ----------------------------------------------------------------- *)
-(* Auxiliary lemma: D3 preserves under the successful transition hI15_Deq_Result_Exclusivity (exclusivity of dequeue results) *)
+(* Helper lemma: D3 success preserve hI15_Deq_Result_Exclusivity (dequeuevalue) *)
 (* ----------------------------------------------------------------- *)
 
 
@@ -338,23 +338,23 @@ lemma D3_BOT_preserves_hI16_BO_BT_No_HB:
   assumes T_unchanged: "Qback_arr s' = Qback_arr s"
   shows "hI16_BO_BT_No_HB s'"
 proof -
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
                      Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
     have "hI16_BO_BT_No_HB s'"
     proof -
-      (* 1. basic facts *)
+      (* 1. basicfact *)
       have his_eq: "his_seq s' = his_seq s" using his_seq_eq .
       have Q_eq: "Q_arr s' = Q_arr s" using Q_unchanged .
       have T_eq: "Qback_arr s' = Qback_arr s" using T_unchanged .
 
-      (* 2. prove the equivalence of TypeB (SetB s' = SetB s) *)
+      (* 2. prove TypeB of equivalence (SetB s' = SetB s) *)
       have TypeB_iff: "\<And>x. TypeB s' x \<longleftrightarrow> TypeB s x"
       proof -
         fix x
-        (* Part 1: QHas is unchanged *)
+        (* Part 1: QHas *)
         have "QHas s' x \<longleftrightarrow> QHas s x" using Q_eq unfolding QHas_def by simp
-        (* Part 2: the E2-state condition is unchanged *)
-        have "(\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x) \<longleftrightarrow> 
+        (* Part 2: E2 *)
+        have "(\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x) \<longleftrightarrow>
               (\<exists>q. program_counter s q = ''E2'' \<and> v_var s q = x)"
         proof
           assume "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x"
@@ -372,27 +372,27 @@ proof -
         then show "TypeB s' x \<longleftrightarrow> TypeB s x" unfolding TypeB_def using `QHas s' x \<longleftrightarrow> QHas s x` by blast
       qed
 
-      (* 3. key lemma: inclusion of TypeBT (SetBT s' \<subseteq> SetBT s) *)
+      (* 3. key: TypeBT of (SetBT s' \<subseteq> SetBT s) *)
       have TypeBT_subset: "\<And>x. TypeBT s' x \<Longrightarrow> TypeBT s x"
       proof -
         fix x assume bt_new: "TypeBT s' x"
-        
-        (* unfold the definition of TypeBT *)
+
+        (* Split TypeBT definition *)
         have base_cond: "TypeB s x \<and> InQBack s x"
           using bt_new TypeB_iff T_eq unfolding TypeBT_def InQBack_def by simp
-          
-        (* analyze the main disjunct in the TypeBT definition ( - 1) *)
+
+        (* TypeBT of core (here - 1) *)
         have cond_new: "((\<forall>k < Idx s' x. Q_arr s' k = BOT) \<or>
                         (\<exists>q. program_counter s' q = ''D3'' \<and>
                              j_var s' q \<le> Idx s' x \<and> Idx s' x < l_var s' q \<and>
                              (\<forall>k. j_var s' q \<le> k \<and> k < Idx s' x \<longrightarrow> Q_arr s' k = BOT)))"
           using bt_new unfolding TypeBT_def by simp
-          
+
         let ?idx = "Idx s x"
-        have idx_eq: "Idx s' x = ?idx" 
+        have idx_eq: "Idx s' x = ?idx"
           using T_eq unfolding Idx_def AtIdx_def by simp
 
-        (* show that the corresponding condition already holds in s ( - 1) *)
+        (* Prove s in also this (here also - 1) *)
         have cond_old: "((\<forall>k < ?idx. Q_arr s k = BOT) \<or>
                          (\<exists>q. program_counter s q = ''D3'' \<and>
                               j_var s q \<le> ?idx \<and> ?idx < l_var s q \<and>
@@ -401,12 +401,12 @@ proof -
           case True then show ?thesis by simp
         next
           case False
-          (* part2_new - 1 *)
+          (* Here of part2_new also corresponds to - 1 *)
           then have part2_new: "\<exists>q. program_counter s' q = ''D3'' \<and>
                                     j_var s' q \<le> ?idx \<and> ?idx < l_var s' q \<and>
                                     (\<forall>k. j_var s' q \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s' k = BOT)"
             using cond_new idx_eq Q_eq by auto
-          
+
           obtain q where q_new: "program_counter s' q = ''D3''"
                                 "j_var s' q \<le> ?idx" "?idx < l_var s' q"
                                 "\<forall>k. j_var s' q \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s' k = BOT"
@@ -425,25 +425,25 @@ proof -
               using s'_simple True q_new(1) unfolding jp_def lp_def bridge_defs  by (auto split: if_splits)
             have l_rel: "l_var s p = l_var s' p"
               using s'_simple True unfolding lp_def bridge_defs  by auto
-            
-            (* derive the required bounds ( : - 1) *)
+
+            (* Derivation (update: - 1) *)
             have range_s: "j_var s p \<le> ?idx \<and> ?idx < l_var s p"
             proof -
-              (* show j_var s p <= ?idx *)
+              (* Prove j_var s p <=?idx *)
               have "j_var s p = jp" unfolding jp_def by simp
               have "jp < jp + 1" by simp
               also have "... = j_var s' p" using j_rel by simp
               also have "... \<le> ?idx" using q_new(2) True by simp
               finally have "j_var s p \<le> ?idx" unfolding jp_def by simp
-              
-              (* show ?idx < l_var s p *)
+
+              (* Prove?idx < l_var s p *)
               have "?idx < l_var s' p" using q_new(3) True by simp
               then have "?idx < l_var s p" using l_rel by simp
-              
+
               then show ?thesis using `j_var s p \<le> ?idx` by simp
             qed
-              
-            (* derive the BOT checks *)
+
+            (* BOT derivation *)
             have bot_s: "\<forall>k. j_var s p \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s k = BOT"
             proof (intro allI impI)
               fix k assume k_range: "j_var s p \<le> k \<and> k < ?idx"
@@ -457,50 +457,50 @@ proof -
                 then show ?thesis using q_new(4) True Q_eq by auto
               qed
             qed
-            
+
             show ?thesis using in_D3_s range_s bot_s by blast
           qed
         qed
-        
+
         show "TypeBT s x" unfolding TypeBT_def using base_cond cond_old by simp
       qed
 
-      (* 4. assemble the final proof hI16_BO_BT_No_HB *)
+      (* 4. prove hI16_BO_BT_No_HB *)
       show ?thesis
         unfolding hI16_BO_BT_No_HB_def SetBO_def SetBT_def TypeBO_def
       proof (intro allI impI notI)
         fix a b
         assume sets: "a \<in> {x \<in> Val. TypeB s' x \<and> \<not> TypeBT s' x} \<and> b \<in> {x \<in> Val. TypeBT s' x}"
         assume HB_new: "HB_EnqRetCall s' a b"
-        
-        (* split the assumptions *)
-        from sets have a_BO_new: "a \<in> {x \<in> Val. TypeB s' x \<and> \<not> TypeBT s' x}" 
+
+        (* Proof note *)
+        from sets have a_BO_new: "a \<in> {x \<in> Val. TypeB s' x \<and> \<not> TypeBT s' x}"
                    and b_BT_new: "b \<in> {x \<in> Val. TypeBT s' x}" by auto
-        
-        (* extract the Val-side facts *)
+
+        (* Extract Val *)
         have val_a: "a \<in> Val" using a_BO_new by simp
         have val_b: "b \<in> Val" using b_BT_new by simp
 
-        (* recover the corresponding state facts in s *)
+        (* Derivation s in of *)
         have hb_old: "HB_EnqRetCall s a b"
           using HB_new his_eq unfolding HB_EnqRetCall_def
           by (simp add: HB_Act_def)
-        
+
         have b_BT_old: "TypeBT s b"
           using b_BT_new TypeBT_subset by simp
-          
+
         have a_TypeB_old: "TypeB s a"
           using a_BO_new TypeB_iff by simp
-          
-        (* Proof note. *)
+
+        (* Constructset into fact *)
         have b_in_SetBT_s: "b \<in> SetBT s"
           using val_b b_BT_old unfolding SetBT_def by simp
 
-        (* a s BO BT *)
+        (* Case a in s in is BO is BT *)
         show False
         proof (cases "TypeBT s a")
           case True
-          (* Case A: a s BT. hI17_BT_BT_No_HB *)
+          (* Case A: a in s in also is BT. hI17_BT_BT_No_HB *)
           have a_in_SetBT_s: "a \<in> SetBT s"
             using val_a True unfolding SetBT_def by simp
 
@@ -515,14 +515,14 @@ proof -
             using INV a_in_SetBT_s b_in_SetBT_s
             unfolding system_invariant_def hI17_BT_BT_No_HB_def
             by blast
-            
+
           then show False using hb_old by simp
         next
           case False
-          (* Case B: a s BT. BO. hI16_BO_BT_No_HB *)
+          (* Case B: a in s in is BT. then is BO. hI16_BO_BT_No_HB *)
           have a_in_SetBO_s: "a \<in> SetBO s"
             using val_a a_TypeB_old False unfolding SetBO_def TypeBO_def by simp
-            
+
         have "\<not> HB_EnqRetCall s a b"
             using INV a_in_SetBO_s b_in_SetBT_s
             unfolding system_invariant_def hI16_BO_BT_No_HB_def
@@ -558,23 +558,23 @@ lemma D3_BOT_preserves_hI17_BT_BT_No_HB:
   assumes T_unchanged: "Qback_arr s' = Qback_arr s"
   shows "hI17_BT_BT_No_HB s'"
 proof -
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
                      Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
     have "hI17_BT_BT_No_HB s'"
     proof -
-      (* 1. basic facts *)
+      (* 1. basicfact *)
       have his_eq: "his_seq s' = his_seq s" using his_seq_eq .
       have Q_eq: "Q_arr s' = Q_arr s" using Q_unchanged .
       have T_eq: "Qback_arr s' = Qback_arr s" using T_unchanged .
 
-      (* 2. prove the equivalence of TypeB (TypeB s' x \<longleftrightarrow> TypeB s x) *)
+      (* 2. prove TypeB of equivalence (TypeB s' x \<longleftrightarrow> TypeB s x) *)
       have TypeB_iff: "\<And>x. TypeB s' x \<longleftrightarrow> TypeB s x"
       proof -
         fix x
-        (* Part 1: QHas is unchanged *)
+        (* Part 1: QHas *)
         have "QHas s' x \<longleftrightarrow> QHas s x" using Q_eq unfolding QHas_def by simp
-        (* Part 2: the E2-state condition is unchanged *)
-        have "(\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x) \<longleftrightarrow> 
+        (* Part 2: E2 *)
+        have "(\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x) \<longleftrightarrow>
               (\<exists>q. program_counter s q = ''E2'' \<and> v_var s q = x)"
         proof
           assume "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x"
@@ -592,27 +592,27 @@ proof -
         then show "TypeB s' x \<longleftrightarrow> TypeB s x" unfolding TypeB_def using `QHas s' x \<longleftrightarrow> QHas s x` by blast
       qed
 
-      (* 3. key lemma: inclusion of TypeBT (TypeBT s' x \<Longrightarrow> TypeBT s x) *)
+      (* 3. key: TypeBT of (TypeBT s' x \<Longrightarrow> TypeBT s x) *)
       have TypeBT_subset: "\<And>x. TypeBT s' x \<Longrightarrow> TypeBT s x"
       proof -
         fix x assume bt_new: "TypeBT s' x"
-        
-        (* unfold the definition of TypeBT *)
+
+        (* Split TypeBT definition *)
         have base_cond: "TypeB s x \<and> InQBack s x"
           using bt_new TypeB_iff T_eq unfolding TypeBT_def InQBack_def by simp
-          
-        (* analyze the main disjunct in the TypeBT definition ( : - 1) *)
+
+        (* TypeBT of core (already update: - 1) *)
         have cond_new: "((\<forall>k < Idx s' x. Q_arr s' k = BOT) \<or>
                         (\<exists>q. program_counter s' q = ''D3'' \<and>
                              j_var s' q \<le> Idx s' x \<and> Idx s' x < l_var s' q \<and>
                              (\<forall>k. j_var s' q \<le> k \<and> k < Idx s' x \<longrightarrow> Q_arr s' k = BOT)))"
           using bt_new unfolding TypeBT_def by simp
-          
+
         let ?idx = "Idx s x"
-        have idx_eq: "Idx s' x = ?idx" 
+        have idx_eq: "Idx s' x = ?idx"
           using T_eq unfolding Idx_def AtIdx_def by simp
 
-        (* show that the corresponding condition already holds in s ( : - 1) *)
+        (* Prove s in also this (already update: - 1) *)
         have cond_old: "((\<forall>k < ?idx. Q_arr s k = BOT) \<or>
                          (\<exists>q. program_counter s q = ''D3'' \<and>
                               j_var s q \<le> ?idx \<and> ?idx < l_var s q \<and>
@@ -625,7 +625,7 @@ proof -
                                     j_var s' q \<le> ?idx \<and> ?idx < l_var s' q \<and>
                                     (\<forall>k. j_var s' q \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s' k = BOT)"
             using cond_new idx_eq Q_eq by auto
-          
+
           obtain q where q_new: "program_counter s' q = ''D3''"
                                 "j_var s' q \<le> ?idx" "?idx < l_var s' q"
                                 "\<forall>k. j_var s' q \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s' k = BOT"
@@ -639,18 +639,18 @@ proof -
             then show ?thesis using q_new Q_eq by auto
           next
             case True
-            (* p: s' j' = jp + 1 *)
+            (* For in p: s' in j' = jp + 1 *)
             have in_D3_s: "program_counter s p = ''D3''" using pc_D3 by simp
             have j_rel: "j_var s' p = jp + 1"
               using s'_simple True q_new(1) unfolding jp_def lp_def bridge_defs  by (auto split: if_splits)
             have l_rel: "l_var s p = l_var s' p"
               using s'_simple True unfolding lp_def bridge_defs  by auto
-            
-            (* A. derive the required bounds: jp + 1 \<le> idx ==> jp \<le> idx ( : - 1) *)
+
+            (* A. derivation: jp + 1 \<le> idx ==> jp \<le> idx (already update: - 1) *)
             have range_s: "j_var s p \<le> ?idx \<and> ?idx < l_var s p"
               using q_new(2,3) True j_rel l_rel unfolding jp_def by simp
-              
-            (* B. BOT : s' [jp+1, idx) BOT, Q[jp]=BOT *)
+
+            (* B. BOT: s' [jp+1, idx) is BOT, andknown Q[jp]=BOT *)
             have bot_s: "\<forall>k. j_var s p \<le> k \<and> k < ?idx \<longrightarrow> Q_arr s k = BOT"
             proof (intro allI impI)
               fix k assume k_range: "j_var s p \<le> k \<and> k < ?idx"
@@ -664,40 +664,40 @@ proof -
                 then show ?thesis using q_new(4) True Q_eq by auto
               qed
             qed
-            
+
             show ?thesis using in_D3_s range_s bot_s by blast
           qed
         qed
-        
+
         show "TypeBT s x" unfolding TypeBT_def using base_cond cond_old by simp
       qed
 
-      (* 4. assemble the final proof hI17_BT_BT_No_HB *)
+      (* 4. prove hI17_BT_BT_No_HB *)
       show ?thesis
         unfolding hI17_BT_BT_No_HB_def SetBT_def
       proof (intro allI impI notI)
         fix a b
-        (* Proof note. *)
+        (* And with *)
         assume sets: "a \<in> {x \<in> Val. TypeBT s' x} \<and> b \<in> {x \<in> Val. TypeBT s' x}"
         assume HB_new: "HB_EnqRetCall s' a b"
-        
-        from sets have a_BT_new: "TypeBT s' a" and b_BT_new: "TypeBT s' b" 
+
+        from sets have a_BT_new: "TypeBT s' a" and b_BT_new: "TypeBT s' b"
                    and a_val: "a \<in> Val" and b_val: "b \<in> Val" by auto
 
-        (* Proof note. *)
+        (* Derivation old state *)
         have a_BT_old: "TypeBT s a" using a_BT_new TypeBT_subset by simp
         have b_BT_old: "TypeBT s b" using b_BT_new TypeBT_subset by simp
-        
-        (* Proof note. *)
+
+        (* Constructold state of set into *)
         have in_SetBT_s: "a \<in> SetBT s \<and> b \<in> SetBT s"
           using a_BT_old b_BT_old a_val b_val unfolding SetBT_def by simp
-          
+
         (* HB *)
         have HB_old: "HB_EnqRetCall s a b"
           using HB_new his_eq unfolding HB_EnqRetCall_def
-          using HB_Act_def by auto 
-          
-        (* hI17_BT_BT_No_HB *)
+          using HB_Act_def by auto
+
+        (* Useold state of hI17_BT_BT_No_HB derive a contradiction *)
         show False
           using INV in_SetBT_s HB_old
           unfolding system_invariant_def hI17_BT_BT_No_HB_def
@@ -730,73 +730,74 @@ lemma D3_BOT_preserves_hI19_Scanner_Catches_Later_Enq:
   assumes T_unchanged: "Qback_arr s' = Qback_arr s"
   shows "hI19_Scanner_Catches_Later_Enq s'"
 proof -
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
                      Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
     have "hI19_Scanner_Catches_Later_Enq s'"
       unfolding hI19_Scanner_Catches_Later_Enq_def
     proof (intro allI impI, goal_cases)
       case (1 a b)
-      
-      (* Step 1: 1. ( : InQBack TypeB ) *)
+
+      (* 1. extractgoal in of coreprecondition (: InQBack and TypeB) *)
       from 1 have inqa': "InQBack s' a" by blast
       from 1 have inqb': "InQBack s' b" by blast
       from 1 have tba': "TypeB s' a" by blast
       from 1 have tbb': "TypeB s' b" by blast
       from 1 have idx_lt': "Idx s' a < Idx s' b" by blast
-      from 1 have ex_q': "\<exists>q. HasPendingDeq s' q \<and> program_counter s' q = ''D3'' \<and> 
+      from 1 have ex_q': "\<exists>q. HasPendingDeq s' q \<and> program_counter s' q = ''D3'' \<and>
                               Idx s' a < j_var s' q \<and> j_var s' q \<le> Idx s' b \<and> Idx s' b < l_var s' q" by blast
-                              
-      (* Step 2: 2. *)
+
+      (* 2. extract invariantguards *)
       have inv_hI19_Scanner_Catches_Later_Enq: "hI19_Scanner_Catches_Later_Enq s" using INV unfolding system_invariant_def by blast
       have inv_hI20_Enq_Val_Valid: "hI20_Enq_Val_Valid s" using INV unfolding system_invariant_def by blast
-      
-      (* Step 3: 3. : \<And>x *)
+
+      (* 3. globalequivalence: use \<And>x blow-up avoidance *)
       have T_eq: "Qback_arr s' = Qback_arr s" using T_unchanged .
       have Q_eq: "Q_arr s' = Q_arr s" using Q_unchanged .
       have s_var_eq: "s_var s' = s_var s" using s'_simple by (auto simp: s_var_def)
       have v_var_eq: "v_var s' = v_var s" using s'_simple by (auto simp: v_var_def)
-      
-      (* E23 , TypeB E2, E2 p D3 D4, E2, *)
+
+      (* Key Fix: use E23 set, TypeB only E2, precise of E2 definitelymapping!
+         Because p from D3 to D4, impossible is E2, its process also *)
       have E2_eq: "\<And>q. program_counter s' q = ''E2'' \<longleftrightarrow> program_counter s q = ''E2''"
         using s'_simple pc_D3 by (auto simp: program_counter_def)
-        
+
       have TypeB_eq: "\<And>x. TypeB s' x \<longleftrightarrow> TypeB s x"
-        unfolding TypeB_def SetB_def InQBack_def QHas_def 
+        unfolding TypeB_def SetB_def InQBack_def QHas_def
         using T_eq Q_eq E2_eq v_var_eq by auto
-        
+
       have Idx_eq: "\<And>x. Idx s' x = Idx s x"
         unfolding Idx_def AtIdx_def using T_eq by simp
-        
+
       have pending_eq: "\<And>q. HasPendingDeq s' q \<longleftrightarrow> HasPendingDeq s q"
         unfolding HasPendingDeq_def DeqCallInHis_def Let_def using his_seq_eq s_var_eq by simp
-        
+
       have HB_eq: "HB_EnqRetCall s' a b \<longleftrightarrow> HB_EnqRetCall s a b"
         unfolding HB_EnqRetCall_def HB_Act_def HB_def Let_def match_ret_def match_call_def mk_op_def op_name_def op_val_def
         using his_seq_eq by auto
 
-      (* Step 4: 4. s *)
+      (* 4. mapping old state s of fact *)
       have inqa: "InQBack s a" using inqa' T_eq unfolding InQBack_def by simp
       have inqb: "InQBack s b" using inqb' T_eq unfolding InQBack_def by simp
       have tba: "TypeB s a" using tba' TypeB_eq by simp
       have tbb: "TypeB s b" using tbb' TypeB_eq by simp
       have idx_lt: "Idx s a < Idx s b" using idx_lt' Idx_eq by simp
-        
+
       from ex_q' obtain q where Witness:
         "HasPendingDeq s' q" "program_counter s' q = ''D3''"
         "Idx s' a < j_var s' q" "j_var s' q \<le> Idx s' b" "Idx s' b < l_var s' q"
         by blast
-        
-      (* Step 5: 5. *)
+
+      (* 5. branchprove *)
       show ?case
       proof (cases "q = p")
         case False
-        (* Step 5: 5.1 , , s hI19_Scanner_Catches_Later_Enq *)
+        (* 5.1 for in its process,, in s in hI19_Scanner_Catches_Later_Enq *)
         have pc_q: "program_counter s q = ''D3''" using s'_simple False Witness(2) bridge_defs by auto
         have j_q: "j_var s q = j_var s' q" using s'_simple False bridge_defs by auto
         have l_q: "l_var s q = l_var s' q" using s'_simple False bridge_defs by auto
         have pd_q: "HasPendingDeq s q" using Witness(1) pending_eq by simp
-        
-        have "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
+
+        have "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
                   Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q"
           using pc_q j_q l_q pd_q Witness(3,4,5) Idx_eq by auto
         with inv_hI19_Scanner_Catches_Later_Enq inqa inqb tba tbb idx_lt show ?thesis
@@ -804,66 +805,66 @@ proof -
       next
         case True
         have q_is_p: "q = p" using True by simp
-        
-        (* Step 5: 5.2 p *)
+
+        (* 5.2 for in when before of process p *)
         have in_D3_s: "program_counter s p = ''D3''" using pc_D3 by simp
         have pd_p: "HasPendingDeq s p" using Witness(1) pending_eq q_is_p by simp
-        
+
         have j_update: "j_var s' p = jp + 1" and l_same: "l_var s' p = lp"
           using s'_simple q_is_p Witness(2) unfolding jp_def lp_def bridge_defs by (auto split: if_splits)
-          
+
         show ?thesis
         proof (cases "Idx s a < jp")
           case True
-          (* Step 5: 5.2.1 Idx a < jp, p s Witness *)
+          (* 5.2.1 if Idx a < jp, then p in old state s is one valid of Witness *)
           have "jp + 1 \<le> Idx s' b" using Witness(4) j_update q_is_p by simp
           then have "jp \<le> Idx s b" using Idx_eq by simp
           have "Idx s b < lp" using Witness(5) l_same q_is_p Idx_eq by simp
-          
-          have "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
+
+          have "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
                     Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q"
             using pd_p in_D3_s True `jp \<le> Idx s b` `Idx s b < lp` unfolding jp_def lp_def by blast
           with inv_hI19_Scanner_Catches_Later_Enq inqa inqb tba tbb idx_lt show ?thesis
             unfolding hI19_Scanner_Catches_Later_Enq_def using HB_eq by blast
         next
           case False
-          (* Step 5: 5.2.2 Idx a = jp, *)
+          (* 5.2.2 if Idx a = jp, useinvariantextractcorecontradiction *)
           have "Idx s' a < jp + 1" using Witness(3) j_update q_is_p by simp
           then have "Idx s a < jp + 1" using Idx_eq by simp
           with False have Idx_a_jp: "Idx s a = jp" by simp
-          
+
           have Q_jp_bot: "Q_arr s jp = BOT" using q_is_bot q_val_def jp_def by simp
-          
+
           show ?thesis
           proof
             assume hb_s': "HB_EnqRetCall s' a b"
             then have hb: "HB_EnqRetCall s a b" using HB_eq by simp
-            
-            (* metis, a \<noteq> BOT *)
+
+            (* Metis, derivation a \<noteq> BOT *)
             have a_not_bot: "a \<noteq> BOT"
             proof -
               obtain p1 sn1 p2 sn2 where hb_act: "HB (his_seq s) (mk_op enq a p1 sn1) (mk_op enq b p2 sn2)"
                 using hb unfolding HB_EnqRetCall_def HB_Act_def by blast
-                
+
               obtain k where match_k: "match_ret (his_seq s) k (mk_op enq a p1 sn1)"
                 using hb_act unfolding HB_def Let_def by blast
-                
+
               have k_len: "k < length (his_seq s)" using match_k unfolding match_ret_def by auto
               have k_oper: "act_name (his_seq s ! k) = enq" using match_k unfolding match_ret_def mk_op_def op_name_def
-                by (metis fst_eqD) 
+                by (metis fst_eqD)
               have k_val: "act_val (his_seq s ! k) = a" using match_k unfolding match_ret_def mk_op_def op_val_def
-                by (metis fst_conv snd_conv) 
-                
+                by (metis fst_conv snd_conv)
+
               have "act_val (his_seq s ! k) \<in> Val" using k_len k_oper inv_hI20_Enq_Val_Valid unfolding hI20_Enq_Val_Valid_def by blast
               then have "a \<in> Val" using k_val by simp
               then show ?thesis unfolding Val_def BOT_def by auto
             qed
-              
-            (* D3Lib \<not> TypeB s a *)
+
+            (* Derivation: extract D3Lib of definitelycontradiction \<not> TypeB s a *)
             have "\<not> TypeB s a"
               using Idx_eq_j_and_Q_BOT_implies_not_TypeB[OF INV inqa Idx_a_jp Q_jp_bot a_not_bot] .
-              
-            (* tba (TypeB s a) *)
+
+            (* Contradictionclose immediately!because tba (TypeB s a) already is into of large premise! *)
             then show False using tba by simp
           qed
         qed
@@ -894,54 +895,54 @@ lemma D3_BOT_preserves_hI30_Ticket_HB_Immunity:
   assumes T_unchanged: "Qback_arr s' = Qback_arr s"
   shows "hI30_Ticket_HB_Immunity s'"
 proof -
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
                      Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
 
   have "hI30_Ticket_HB_Immunity s'"
   proof (unfold hI30_Ticket_HB_Immunity_def, intro allI impI, goal_cases)
     case (1 b q)
-    
+
     from 1 have pc_q': "program_counter s' q \<in> {''E2'', ''E3''}" by blast
     from 1 have inqb': "InQBack s' b" by blast
     from 1 have b_not_bot': "b \<noteq> BOT" by blast
     from 1 have b_neq_v': "b \<noteq> v_var s' q" by blast
     from 1 have hb': "HB_EnqRetCall s' b (v_var s' q)" by blast
-    
+
     have inv_hI22: "hI30_Ticket_HB_Immunity s"
       using INV unfolding system_invariant_def by blast
-    
+
     have q_neq_p: "q \<noteq> p"
     proof
       assume "q = p"
       with pc_q' have "program_counter s' p \<in> {''E2'', ''E3''}" by simp
-      moreover have "program_counter s' p \<in> {''D1'', ''D3''}" 
+      moreover have "program_counter s' p \<in> {''D1'', ''D3''}"
         using s'_simple by (auto simp: program_counter_def split: if_splits)
-      ultimately show False by auto 
+      ultimately show False by auto
     qed
 
     have his_eq: "his_seq s' = his_seq s" using s'_simple by (auto simp: his_seq_def)
     have v_eq: "v_var s' = v_var s" using s'_simple by (auto simp: v_var_def)
     have qback_eq: "Qback_arr s' = Qback_arr s" using s'_simple by (auto simp: Qback_arr_def)
     have i_eq: "i_var s' = i_var s" using s'_simple by (auto simp: i_var_def)
-    
-    have pc_eq: "program_counter s' q = program_counter s q" 
+
+    have pc_eq: "program_counter s' q = program_counter s q"
       using s'_simple q_neq_p by (auto simp: program_counter_def)
 
     have pc_q_s: "program_counter s q \<in> {''E2'', ''E3''}" using pc_q' pc_eq by simp
     have inqb_s: "InQBack s b" using inqb' qback_eq unfolding InQBack_def by simp
     have b_neq_v_s: "b \<noteq> v_var s q" using b_neq_v' v_eq by auto
-    
+
     have hb_eq: "HB_EnqRetCall s' b (v_var s' q) = HB_EnqRetCall s b (v_var s q)"
       unfolding HB_EnqRetCall_def HB_Act_def HB_def Let_def match_ret_def match_call_def mk_op_def op_name_def op_val_def
       using his_eq v_eq by auto
     have hb_s: "HB_EnqRetCall s b (v_var s q)" using hb' hb_eq by simp
-    
+
     have idx_eq: "Idx s' b = Idx s b" unfolding Idx_def AtIdx_def using qback_eq by simp
 
     have "Idx s b < i_var s q"
       using inv_hI22 pc_q_s inqb_s b_not_bot' b_neq_v_s hb_s
       unfolding hI30_Ticket_HB_Immunity_def by blast
-      
+
     thus "Idx s' b < i_var s' q" using idx_eq i_eq by simp
   qed
 
@@ -954,7 +955,7 @@ lemma D3_success_preserves_hI14_Pending_Enq_Qback_Exclusivity:
       and STEP: "s' = Sys_D3_success_update s p"
   shows "hI14_Pending_Enq_Qback_Exclusivity s'"
 proof -
-  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def 
+  note bridge_defs = program_counter_def X_var_def V_var_def Q_arr_def
                      Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
 
   have inv_hI14_Pending_Enq_Qback_Exclusivity: "hI14_Pending_Enq_Qback_Exclusivity s"
@@ -964,15 +965,15 @@ proof -
     using STEP unfolding Sys_D3_success_update_def Let_def his_seq_def lin_seq_def by auto
 
   have Qback_eq: "Qback_arr s' = Qback_arr s"
-    using STEP unfolding Sys_D3_success_update_def Let_def bridge_defs 
+    using STEP unfolding Sys_D3_success_update_def Let_def bridge_defs
     by (auto simp: fun_eq_iff)
 
   have i_var_eq: "i_var s' = i_var s"
-    using STEP unfolding Sys_D3_success_update_def Let_def bridge_defs 
+    using STEP unfolding Sys_D3_success_update_def Let_def bridge_defs
     by (auto simp: fun_eq_iff)
 
   have s_var_eq: "s_var s' = s_var s"
-    using STEP unfolding Sys_D3_success_update_def Let_def s_var_def bridge_defs 
+    using STEP unfolding Sys_D3_success_update_def Let_def s_var_def bridge_defs
     by (auto simp: fun_eq_iff)
 
   have pending_eq: "\<And>q a. HasPendingEnq s' q a = HasPendingEnq s q a"
@@ -999,45 +1000,45 @@ lemma D3_preserves_hI15_Deq_Result_Exclusivity:
   assumes "system_invariant s"
   assumes "program_counter s p = ''D3''"
   assumes "s' = Sys_D3_success_update s p"
-  assumes "q_val = Q_arr s (j_var s p)"  (* Q_arr *)
-  assumes "Q_arr s (j_var s p) \<noteq> BOT"    (* BOT *)
+  assumes "q_val = Q_arr s (j_var s p)"  (* Fix: physicalqueue Q_arr *)
+  assumes "Q_arr s (j_var s p) \<noteq> BOT"    (* To of is BOT *)
   shows "hI15_Deq_Result_Exclusivity s'"
 proof -
-  (* Step 1: 1. basic facts *)
-  from assms(1) have 
-    hI15_Deq_Result_Exclusivity_s: "hI15_Deq_Result_Exclusivity s" and sI7_D4_Deq_Result_s: "sI7_D4_Deq_Result s" and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s" and 
+  (* 1. basicfact *)
+  from assms(1) have
+    hI15_Deq_Result_Exclusivity_s: "hI15_Deq_Result_Exclusivity s" and sI7_D4_Deq_Result_s: "sI7_D4_Deq_Result s" and sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s" and
     sI10_Qback_Unique_Vals_s: "sI10_Qback_Unique_Vals s" and TypeOK_s: "TypeOK s"
     unfolding system_invariant_def by auto
-    
+
   define jp where "jp = j_var s p"
-    
-  (* 1: q_val *)
+
+  (* Fact 1: q_val then is physicalqueue in of value *)
   have Q_is_qval: "Q_arr s jp = q_val"
     using assms(4) jp_def by simp
 
-  (* 2: q_val *)
-  have q_val_valid: "q_val \<in> Val" 
+  (* Fact 2: q_val is has value *)
+  have q_val_valid: "q_val \<in> Val"
     using assms(5) TypeOK_s unfolding TypeOK_def jp_def
-    using Q_is_qval jp_def by blast 
+    using Q_is_qval jp_def by blast
 
-  (* 3: sI8_Q_Qback_Sync : BOT, q_val *)
+  (* Fact 3: use sI8_Q_Qback_Sync: because BOT, queue in also must is q_val *)
   have Qback_is_qval: "Qback_arr s jp = q_val"
     using sI8_Q_Qback_Sync_s assms(5) Q_is_qval unfolding sI8_Q_Qback_Sync_def jp_def by metis
 
-  (* Step 1: 1.5 s' *)
-  have s'_fields: 
+  (* 1.5 extract s' update *)
+  have s'_fields:
     "program_counter s' = (\<lambda>x. if x = p then ''D4'' else program_counter s x)"
     "x_var s' = (\<lambda>x. if x = p then q_val else x_var s x)"
     "Q_arr s' = (\<lambda>x. if x = jp then BOT else Q_arr s x)"
     "s_var s' = s_var s"
     "his_seq s' = his_seq s"
-    (* j_var_def simplifier jp *)
+    (* J_var_def make simplifier out jp *)
     using assms unfolding Sys_D3_success_update_def Let_def jp_def
           program_counter_def x_var_def Q_arr_def s_var_def his_seq_def j_var_def
     by auto
 
-  (* Step 2: 2. : s q_val "" *)
-  (* q_val *)
+  (* 2. key: in s in q_val of " " *)
+  (* All has successdequeue q_val *)
   have no_his_s: "\<forall>q sn. \<not> DeqRetInHis s q q_val sn"
   proof (intro allI)
     fix q sn
@@ -1045,47 +1046,47 @@ proof -
       using hI15_Deq_Result_Exclusivity_s q_val_valid Q_is_qval unfolding hI15_Deq_Result_Exclusivity_def by blast
   qed
 
-  (* D4 q_val *)
+  (* Has D4 of has q_val *)
   have no_D4_s: "\<forall>q. program_counter s q = ''D4'' \<longrightarrow> x_var s q \<noteq> q_val"
   proof (intro allI impI notI)
     fix q assume pc_D4: "program_counter s q = ''D4''"
     assume conflict: "x_var s q = q_val"
-    
+
     have "Q_arr s (j_var s q) = BOT" "Qback_arr s (j_var s q) = q_val"
       using sI7_D4_Deq_Result_s pc_D4 conflict unfolding sI7_D4_Deq_Result_def by auto
-      
-    (* sI10_Qback_Unique_Vals: Qback q_val, *)
+
+    (* Use sI10_Qback_Unique_Vals: since two of Qback all is q_val, it operation of is one *)
     have "j_var s q = jp"
       using sI10_Qback_Unique_Vals_s `Qback_arr s (j_var s q) = q_val` Qback_is_qval q_val_valid
       unfolding sI10_Qback_Unique_Vals_def
-      by (metis Q_is_qval assms(5) jp_def) 
-      
-    (* BOT q_val( BOT) *)
-    show False 
+      by (metis Q_is_qval assms(5) jp_def)
+
+    (* Derive a contradiction: one impossible is BOT equal to q_val(BOT) *)
+    show False
       using `Q_arr s (j_var s q) = BOT` `j_var s q = jp` assms(5) jp_def by simp
   qed
 
 
-  (* Step 3: 3. hI15_Deq_Result_Exclusivity *)
+  (* 3. unfold hI15_Deq_Result_Exclusivity definition prove *)
   show ?thesis
     unfolding hI15_Deq_Result_Exclusivity_def
   proof (intro conjI allI impI notI)
-    
-    (* === Part 1: === *)
-    fix a p1 p2 :: nat    (* nat *)
+
+    (* === Part 1: mutual exclusion === *)
+    fix a p1 p2 :: nat    (* In source then as nat *)
     assume a_val: "a \<in> Val" and neq: "p1 \<noteq> p2"
-    assume conflict: 
+    assume conflict:
       "((\<exists>sn1. DeqRetInHis s' p1 a sn1) \<or> (program_counter s' p1 = ''D4'' \<and> x_var s' p1 = a)) \<and>
        ((\<exists>sn2. DeqRetInHis s' p2 a sn2) \<or> (program_counter s' p2 = ''D4'' \<and> x_var s' p2 = a))"
-    
+
     let ?HasIt_s' = "\<lambda>proc. (\<exists>sn. DeqRetInHis s' proc a sn) \<or> (program_counter s' proc = ''D4'' \<and> x_var s' proc = a)"
     let ?HasIt_s  = "\<lambda>proc. (\<exists>sn. DeqRetInHis s proc a sn)  \<or> (program_counter s proc = ''D4'' \<and> x_var s proc = a)"
 
     show False
     proof (cases "a = q_val")
       case True
-      (* a = q_val: D4 p *)
-      have "p1 = p" 
+      (* A = q_val: proveonly has enter D4 of p may has it *)
+      have "p1 = p"
       proof (rule ccontr)
         assume "p1 \<noteq> p"
         have "\<forall>sn. \<not> DeqRetInHis s' p1 a sn" using no_his_s s'_fields(5) True unfolding DeqRetInHis_def by simp
@@ -1093,8 +1094,8 @@ proof -
           using s'_fields(1,2) `p1 \<noteq> p` no_D4_s True by simp
         ultimately show False using conflict `p1 \<noteq> p` by blast
       qed
-      
-      have "p2 = p" 
+
+      have "p2 = p"
       proof (rule ccontr)
         assume "p2 \<noteq> p"
         have "\<forall>sn. \<not> DeqRetInHis s' p2 a sn" using no_his_s s'_fields(5) True unfolding DeqRetInHis_def by simp
@@ -1102,33 +1103,33 @@ proof -
           using s'_fields(1,2) `p2 \<noteq> p` no_D4_s True by simp
         ultimately show False using conflict `p2 \<noteq> p` by blast
       qed
-      
+
       show False using `p1 = p` `p2 = p` neq by simp
     next
       case False
-      (* a \<noteq> q_val: s *)
+      (* A \<noteq> q_val: prove to s complete into *)
       {
         fix q
         assume "?HasIt_s' q"
         have "?HasIt_s q"
         proof (cases "q = p")
           case True
-          (* s' p D4(q_val). a \<noteq> q_val, s' p D4 a *)
+          (* S' in p is D4(q_val). a \<noteq> q_val, s' in p necessarily D4 has a *)
           have "x_var s' p = q_val" using s'_fields(2) by simp
           then have "x_var s' p \<noteq> a" using False by simp
           then have "\<not> (program_counter s' p = ''D4'' \<and> x_var s' p = a)" by simp
-          (* p a *)
+          (* Therefore p only history has a *)
           then obtain sn where "DeqRetInHis s' p a sn" using `?HasIt_s' q` True by blast
-          (* Proof note. *)
+          (* To history *)
           then have "DeqRetInHis s p a sn" using s'_fields(5) unfolding DeqRetInHis_def by simp
           then show ?thesis using True by blast
         next
           case False_q: False
-          (* Proof note. *)
+          (* Its *)
           have "program_counter s' q = program_counter s q" using s'_fields(1) False_q by simp
           have "x_var s' q = x_var s q" using s'_fields(2) False_q by simp
-          
-          show ?thesis 
+
+          show ?thesis
           proof (cases "\<exists>sn. DeqRetInHis s' q a sn")
             case True
             then obtain sn where "DeqRetInHis s' q a sn" by blast
@@ -1142,11 +1143,11 @@ proof -
         qed
       }
       note transfer = this
-      
+
       have s_conflict_1: "?HasIt_s p1" using conflict transfer by simp
       have s_conflict_2: "?HasIt_s p2" using conflict transfer by simp
-      
-      show False 
+
+      show False
         using hI15_Deq_Result_Exclusivity_s a_val neq s_conflict_1 s_conflict_2 unfolding hI15_Deq_Result_Exclusivity_def by blast
     qed
 
@@ -1155,34 +1156,34 @@ proof -
     fix p_test a k
     assume a_val: "a \<in> Val" and pending: "HasPendingDeq s' p_test"
     assume bad: "x_var s' p_test = a \<and> Q_arr s' k = a"
-    
+
     have "a \<noteq> q_val"
     proof
       assume "a = q_val"
-      have "k \<noteq> jp" 
+      have "k \<noteq> jp"
       proof
         assume "k = jp"
         then have "Q_arr s' k = BOT" using s'_fields(3) by simp
         then show False using bad a_val unfolding Val_def BOT_def by simp
       qed
-      
+
       then have "Q_arr s k = q_val" using bad `a = q_val` s'_fields(3) by simp
       have "Qback_arr s k = q_val" using sI8_Q_Qback_Sync_s `Q_arr s k = q_val` q_val_valid unfolding sI8_Q_Qback_Sync_def
-        using Q_is_qval assms(5) jp_def by force 
+        using Q_is_qval assms(5) jp_def by force
       have "k = jp" using sI10_Qback_Unique_Vals_s `Qback_arr s k = q_val` Qback_is_qval unfolding sI10_Qback_Unique_Vals_def
-        by (metis Q_is_qval assms(5) jp_def) 
+        by (metis Q_is_qval assms(5) jp_def)
       thus False using `k \<noteq> jp` by simp
     qed
-    
-    (* Proof note. *)
-    (* HasPendingDeq s_var, s_var *)
-    have "HasPendingDeq s p_test" 
+
+    (* Proof note *)
+    (* HasPendingDeq in newversion in s_var, and s_var in operation in change *)
+    have "HasPendingDeq s p_test"
       using pending s'_fields(4,5) unfolding HasPendingDeq_def DeqCallInHis_def Let_def by simp
-      
-    have "x_var s p_test = a" 
+
+    have "x_var s p_test = a"
       using bad s'_fields(2) `a \<noteq> q_val` by (auto split: if_splits)
-    
-    have "Q_arr s k = a" 
+
+    have "Q_arr s k = a"
     proof (cases "k = jp")
       case True
       then have "Q_arr s' k = BOT" using s'_fields(3) by simp
@@ -1192,18 +1193,18 @@ proof -
       case False
       then show ?thesis using bad s'_fields(3) by simp
     qed
-    
+
     show False using hI15_Deq_Result_Exclusivity_s a_val `HasPendingDeq s p_test` `x_var s p_test = a` `Q_arr s k = a` unfolding hI15_Deq_Result_Exclusivity_def by blast
 
   next
     (* === Part 3: History vs Q === *)
     fix p_test a k
     assume a_val: "a \<in> Val" and has_his: "\<exists>sn. DeqRetInHis s' p_test a sn" and in_Q: "Q_arr s' k = a"
-    
-    (* Proof note. *)
+
+    (* History and *)
     obtain sn where "DeqRetInHis s p_test a sn" using has_his s'_fields(5) unfolding DeqRetInHis_def by auto
-    
-    have "Q_arr s k = a" 
+
+    have "Q_arr s k = a"
     proof (cases "k = jp")
       case True
       then have "Q_arr s' k = BOT" using s'_fields(3) by simp
@@ -1212,105 +1213,105 @@ proof -
       case False
       then show ?thesis using in_Q s'_fields(3) by simp
     qed
-    
+
     show False using hI15_Deq_Result_Exclusivity_s a_val `DeqRetInHis s p_test a sn` `Q_arr s k = a` unfolding hI15_Deq_Result_Exclusivity_def by blast
   qed
 qed
 
 
 (* ================================================================= *)
-(* lI2_Op_Cardinality D3 *)
-(* SetA SetB *)
+(* : lI2_Op_Cardinality in D3 step of preserve *)
+(* Note: SetA and SetB of all *)
 (* ================================================================= *)
 lemma lI2_Op_Cardinality_D3_step_lemma:
   assumes INV_s: "system_invariant s"
   assumes q_val_SetB: "q_val \<in> SetB s"
-  (* Revision note 1: mk_op sn (Isabelle sn ) *)
+  (* Fix point 1: as mk_op fill in of sn (Isabelle sn as) *)
   assumes mset_eq: "mset (lin_seq s') = mset (lin_seq s) + {# mk_op deq q_val p sn #}"
   assumes SetA_eq: "SetA s' = SetA s \<union> {q_val}"
   assumes SetB_eq: "SetB s' = SetB s - {q_val}"
   shows "lI2_Op_Cardinality s'"
 proof -
-  (* Step 1: 1. lI2_Op_Cardinality *)
+  (* 1. extract the old state of lI2_Op_Cardinality *)
   from INV_s have lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" unfolding system_invariant_def by simp
-  
-  (* Step 3: 3. lI2_Op_Cardinality *)
+
+  (* 3. unfold lI2_Op_Cardinality definition prove *)
   show ?thesis
     unfolding lI2_Op_Cardinality_def
   proof (intro conjI)
-    
-    (* === Part A: SetA === *)
+
+    (* === Part A: SetA in of element === *)
     show "\<forall>a. a \<in> SetA s' \<longrightarrow> card (EnqIdxs s' a) = 1 \<and> card (DeqIdxs s' a) = 1"
     proof (intro allI impI)
       fix a assume a_in: "a \<in> SetA s'"
-      
+
       show "card (EnqIdxs s' a) = 1 \<and> card (DeqIdxs s' a) = 1"
       proof (cases "a = q_val")
         case True
-        (* Case A.1: a q_val *)
-        
-        (* Enq 1 *)
+        (* Case A.1: a is of q_val *)
+
+        (* --- prove Enq as 1 --- *)
         have enq_count: "card (EnqIdxs s' q_val) = 1"
         proof -
           have "card (EnqIdxs s q_val) = 1"
             using lI2_Op_Cardinality_s q_val_SetB unfolding lI2_Op_Cardinality_def by simp
-          (* s' = s + {deq}, deq , Enq *)
+          (* S' = s + {deq}, since of is deq operation, therefore Enq *)
           moreover have "card (EnqIdxs s' q_val) = card (EnqIdxs s q_val)"
             using mset_eq by (simp add: card_EnqIdxs_mset_eq mk_op_def op_name_def)
           ultimately show ?thesis by simp
         qed
 
-        (* Deq 1 *)
+        (* --- prove Deq as 1 --- *)
         have deq_count: "card (DeqIdxs s' q_val) = 1"
         proof -
           have "card (DeqIdxs s q_val) = 0"
             using lI2_Op_Cardinality_s q_val_SetB unfolding lI2_Op_Cardinality_def by simp
-          (* s' = s + {deq(q_val)}, Deq + 1 *)
+          (* S' = s + {deq(q_val)}, therefore Deq + 1 *)
           moreover have "card (DeqIdxs s' q_val) = card (DeqIdxs s q_val) + 1"
             using mset_eq by (simp add: card_DeqIdxs_mset_incr mk_op_def op_name_def op_val_def)
           ultimately show ?thesis by simp
         qed
-        
-        show ?thesis using enq_count deq_count True by simp 
-        
+
+        show ?thesis using enq_count deq_count True by simp
+
       next
         case False
-        (* Case A.2: a SetA *)
+        (* Case A.2: a is original has of SetA element *)
         have old_A: "a \<in> SetA s" using a_in SetA_eq False by simp
-        
-        (* Enq/Deq , a != q_val *)
+
+        (* Enq/Deq all, because a!= q_val *)
         have enq_stable: "card (EnqIdxs s' a) = card (EnqIdxs s a)"
           using mset_eq False by (simp add: card_EnqIdxs_mset_eq mk_op_def op_name_def op_val_def)
-          
+
         have deq_stable: "card (DeqIdxs s' a) = card (DeqIdxs s a)"
           using mset_eq False by (simp add: card_DeqIdxs_mset_unchanged mk_op_def op_name_def op_val_def)
-          
+
         show ?thesis
           using lI2_Op_Cardinality_s old_A enq_stable deq_stable unfolding lI2_Op_Cardinality_def by simp
       qed
     qed
-    
-    (* === Part B: SetB === *)
+
+    (* === Part B: SetB in of element === *)
     show "\<forall>b. b \<in> SetB s' \<longrightarrow> card (EnqIdxs s' b) = 1 \<and> card (DeqIdxs s' b) = 0"
     proof (intro allI impI)
       fix b assume b_in: "b \<in> SetB s'"
-      
-      (* Proof note. *)
+
+      (* Out old state *)
       have old_B: "b \<in> SetB s" using b_in SetB_eq by auto
       have b_neq: "b \<noteq> q_val" using b_in SetB_eq by auto
-      
-      (* Enq ( simp, metis) *)
+
+      (* Enq preserve (use directlybasic simp, metis) *)
       have enq_stable: "card (EnqIdxs s' b) = card (EnqIdxs s b)"
         using mset_eq b_neq by (simp add: card_EnqIdxs_mset_eq mk_op_def op_name_def op_val_def)
-        
-      (* Revision note 2: Deq . b \<noteq> q_val, Part A , *)
+
+      (* Fix point 2: Deq preserve. since b \<noteq> q_val, and Part A complete one, no need use of outside *)
       have deq_stable: "card (DeqIdxs s' b) = card (DeqIdxs s b)"
-        using mset_eq b_neq by (simp add: card_DeqIdxs_mset_unchanged mk_op_def op_name_def op_val_def) 
-        
-      (* Proof note. *)
+        using mset_eq b_neq by (simp add: card_DeqIdxs_mset_unchanged mk_op_def op_name_def op_val_def)
+
+      (* Old stateconclusion *)
       have "card (EnqIdxs s b) = 1" and "card (DeqIdxs s b) = 0"
         using lI2_Op_Cardinality_s old_B unfolding lI2_Op_Cardinality_def by auto
-        
+
       show "card (EnqIdxs s' b) = 1 \<and> card (DeqIdxs s' b) = 0"
         using enq_stable deq_stable `card (EnqIdxs s b) = 1` `card (DeqIdxs s b) = 0` by simp
     qed
@@ -1319,19 +1320,19 @@ qed
 
 
 (* ========================================================================= *)
-(* Auxiliary lemma: SetB D3 *)
+(* Helper lemma: SetB in D3 step in of update *)
 (* ========================================================================= *)
 lemma SetB_D3_step_lemma:
   assumes INV_s: "system_invariant s"
-  (* 【 】 s' = ..., *)
-  (* Step 1: 1. Q BOT *)
+  (* [key change] then s' =..., and is split as update *)
+  (* 1. Q as BOT *)
   assumes Q_update: "Q_arr s' = (Q_arr s)(jp := BOT)"
-  (* Step 2: 2. PC D4 *)
+  (* 2. PC as D4 *)
   assumes PC_update: "program_counter s' = (program_counter s)(p := ''D4'')"
-  (* Step 3: 3. v_var (D3 v_var) *)
+  (* 3. v_var preserve (D3 change v_var) *)
   assumes v_stable: "v_var s' = v_var s"
-  
-  (* Proof note. *)
+
+  (* Proof note *)
   assumes q_val_def: "q_val = Q_arr s jp"
   assumes jp_def: "jp = head s p"
   assumes q_not_bot: "q_val \<noteq> BOT"
@@ -1340,38 +1341,38 @@ lemma SetB_D3_step_lemma:
   shows "SetB s' = SetB s - {q_val}"
 proof (rule set_eqI)
   fix x
-  
+
   have "TypeOK s" using INV_s unfolding system_invariant_def by simp
   have "sI3_E2_Slot_Exclusive s" using INV_s unfolding system_invariant_def by simp
   have "sI10_Qback_Unique_Vals s" using INV_s unfolding system_invariant_def by simp
 
-  (* Step 1: 1. BOT *)
+  (* 1. BOT *)
   have case_bot_logic: "x = BOT \<Longrightarrow> x \<notin> SetB s \<and> x \<notin> SetB s'"
   proof -
     assume "x = BOT"
-    have "BOT \<notin> SetB s" 
+    have "BOT \<notin> SetB s"
       using `TypeOK s` unfolding TypeOK_def TypeB_def Val_def SetB_def by (simp add: BOT_def)
     have "BOT \<notin> SetB s'"
     proof
       assume "BOT \<in> SetB s'"
-      have "SetB s' \<subseteq> Val" unfolding SetB_def Val_def TypeB_def by blast 
+      have "SetB s' \<subseteq> Val" unfolding SetB_def Val_def TypeB_def by blast
       then show False using `BOT \<in> SetB s'` unfolding Val_def using BOT_def by auto
     qed
     show ?thesis using `BOT \<notin> SetB s` `BOT \<notin> SetB s'` by (simp add: \<open>x = BOT\<close>)
   qed
 
-  (* Step 3: 3. *)
+  (* 3. caseprovesetequal *)
   show "x \<in> SetB s' \<longleftrightarrow> x \<in> SetB s - {q_val}"
   proof (cases "x = BOT")
     case True then show ?thesis using case_bot_logic by simp
   next
     case False
     note x_not_bot = False
-    
+
     show ?thesis
     proof (cases "x = q_val")
       case True
-      (* === Case A: x q_val === *)
+      (* === case A: x is q_val === *)
       have "q_val \<notin> SetB s'"
       proof
         assume "q_val \<in> SetB s'"
@@ -1381,50 +1382,50 @@ proof (rule set_eqI)
         proof cases
           case 1 (* QHas s' q_val *)
           obtain k where k_val: "Q_arr s' k = q_val" using 1 unfolding QHas_def by blast
-          (* Q_update *)
-          have "k \<noteq> jp" using k_val Q_update q_not_bot by (metis fun_upd_apply) 
+          (* Use Q_update *)
+          have "k \<noteq> jp" using k_val Q_update q_not_bot by (metis fun_upd_apply)
           then have "Q_arr s k = q_val" using k_val Q_update by auto
           have "Q_arr s jp = q_val" using q_val_def by simp
           show False
-            using `Q_arr s k = q_val` `Q_arr s jp = q_val` `k \<noteq> jp` 
+            using `Q_arr s k = q_val` `Q_arr s jp = q_val` `k \<noteq> jp`
             unfolding lI2_Op_Cardinality_def EnqIdxs_def
             by (metis sI10_Qback_Unique_Vals_def sI8_Q_Qback_Sync_def INV_s True \<open>Q_arr s k = q_val\<close> \<open>k \<noteq> jp\<close>
                 q_val_def system_invariant_def x_not_bot)
     next
       case 2 (* E2 *)
       obtain t where t_state: "program_counter s' t = ''E2''" "v_var s' t = q_val" using 2 by blast
-      
-      (* Step 1: 1. t *)
+
+      (* 1. derivation t of *)
       have "program_counter s' p = ''D4''" using PC_update by simp
       then have "t \<noteq> p" using t_state(1) by auto
-      
-      have pc_t: "program_counter s t = ''E2''" 
+
+      have pc_t: "program_counter s t = ''E2''"
         using t_state(1) PC_update `t \<noteq> p` by auto
-      have v_t: "v_var s t = q_val" 
+      have v_t: "v_var s t = q_val"
         using t_state(2) v_stable by simp
-      
-      (* Step 2: 2. t Enq ( D3Lemmas ) *)
+
+      (* 2. derivation t has start of Enq operation (use D3Lemmas in of) *)
       have pending_t: "HasPendingEnq s t q_val"
         using E2_implies_HasPendingEnq[OF INV_s pc_t] v_t by simp
 
-      (* Step 3: 3. q_val Qback *)
-      (* sI8_Q_Qback_Sync sI10_Qback_Unique_Vals: Q[jp] = q_val -> Qback[jp] = q_val *)
+      (* 3. derivation q_val in Qback in of *)
+      (* Use sI8_Q_Qback_Sync and sI10_Qback_Unique_Vals: Q[jp] = q_val -> Qback[jp] = q_val *)
       have ai8: "sI8_Q_Qback_Sync s" and ai10: "sI10_Qback_Unique_Vals s" and sI3_E2_Slot_Exclusive: "sI3_E2_Slot_Exclusive s"
         using INV_s unfolding system_invariant_def by auto
-        
+
       have "Qback_arr s jp = q_val"
         by (metis sI8_Q_Qback_Sync_def ai8 q_not_bot q_val_def)
 
 
-      (* Step 4: 4. t BOT (E2 ) *)
+      (* 4. derivation t of goal is BOT (E2 property) *)
       have "Qback_arr s (i_var s t) = BOT"
         using sI3_E2_Slot_Exclusive pc_t unfolding sI3_E2_Slot_Exclusive_def by simp
 
-      (* Step 5: 5. *)
+      (* 5. derive a contradiction *)
       show False
         using pending_t `Qback_arr s jp = q_val` `Qback_arr s (i_var s t) = BOT`
         using INV_s
-        (* , *)
+        (* Key: onlyunfold of uniqueness and start definition, unfold *)
         unfolding system_invariant_def hI14_Pending_Enq_Qback_Exclusivity_def HasPendingEnq_def
         using True pc_t x_not_bot by blast
     qed
@@ -1432,10 +1433,10 @@ proof (rule set_eqI)
       then show ?thesis using True by simp
     next
       case False
-      (* === Case B: x \<noteq> q_val === *)
+      (* === case B: x \<noteq> q_val === *)
       note neq_q = False
-      
-      (* Step 1: 1. QHas *)
+
+      (* 1. QHas equivalence *)
       have "QHas s' x \<longleftrightarrow> QHas s x"
       proof -
         have "\<forall>k. Q_arr s' k = (if k = jp then BOT else Q_arr s k)"
@@ -1444,9 +1445,9 @@ proof (rule set_eqI)
           unfolding QHas_def
           using neq_q x_not_bot q_val_def by (metis)
       qed
-      
-      (* Step 2: 2. E2 *)
-      have "(\<exists>p. program_counter s' p = ''E2'' \<and> v_var s' p = x) \<longleftrightarrow> 
+
+      (* 2. E2 equivalence *)
+      have "(\<exists>p. program_counter s' p = ''E2'' \<and> v_var s' p = x) \<longleftrightarrow>
             (\<exists>p. program_counter s p = ''E2'' \<and> v_var s p = x)"
       proof
         (* -> *)
@@ -1455,10 +1456,10 @@ proof (rule set_eqI)
         (* t != p *)
         have "program_counter s' p = ''D4''" using PC_update by simp
         then have "t \<noteq> p" using t_st by auto
-        
+
         have "program_counter s t = ''E2''" using t_st PC_update `t \<noteq> p` by auto
         have "v_var s t = x" using t_st v_stable by simp
-        then show "\<exists>p. program_counter s p = ''E2'' \<and> v_var s p = x" 
+        then show "\<exists>p. program_counter s p = ''E2'' \<and> v_var s p = x"
           using `program_counter s t = ''E2''` by blast
       next
         (* <- *)
@@ -1466,15 +1467,15 @@ proof (rule set_eqI)
         then obtain t where t_st: "program_counter s t = ''E2''" "v_var s t = x" by blast
         (* t != p *)
         have "t \<noteq> p" using t_st pc_at_D3 by auto
-        
+
         have "program_counter s' t = ''E2''" using t_st PC_update `t \<noteq> p` by auto
         have "v_var s' t = x" using t_st v_stable by simp
-        then show "\<exists>p. program_counter s' p = ''E2'' \<and> v_var s' p = x" 
+        then show "\<exists>p. program_counter s' p = ''E2'' \<and> v_var s' p = x"
           using `program_counter s' t = ''E2''` by blast
       qed
 
       show ?thesis
-        using `QHas s' x \<longleftrightarrow> QHas s x` 
+        using `QHas s' x \<longleftrightarrow> QHas s x`
         using `(\<exists>p. program_counter s' p = ''E2'' \<and> v_var s' p = x) \<longleftrightarrow> (\<exists>p. program_counter s p = ''E2'' \<and> v_var s p = x)`
         unfolding SetB_def TypeB_def using neq_q by auto
     qed
@@ -1483,70 +1484,70 @@ qed
 
 
 lemma modify_step_c0_consistent:
-  (* 1. *)
+  (* --- 1. and --- *)
   assumes sys_inv: "system_invariant s"
   assumes H_cons: "HB_consistent L H"
   assumes H_def: "H = his_seq s"
   assumes di: "data_independent L"
-  assumes mset_eq: "mset L = mset (lin_seq s)"  
+  assumes mset_eq: "mset L = mset (lin_seq s)"
   assumes sa_iso: "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)"
-  (* 2. *)
+  (* --- 2. decompose --- *)
   assumes L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
   assumes l2_decomp: "l2 = ll2 @ [l2_last]"
-  
-  (* 3. *)
+
+  (* --- 3. keydefinition --- *)
   assumes last_sa_pos_def: "last_sa_pos = find_last_SA L"
   assumes l1_def: "l1 = take (nat (last_sa_pos + 1)) L"
-  
-  (* 4. *)
+
+  (* --- 4. element --- *)
   assumes l2_last_enq: "op_name l2_last = enq"
   assumes bt_is_enq: "op_name bt_act = enq"
-  assumes bt_val_type: "TypeBT s (op_val bt_act)" 
-  
-  (* Proof note. *)
+  assumes bt_val_type: "TypeBT s (op_val bt_act)"
+
+  (* --- goal --- *)
   shows "HB_consistent (l1 @ ll2 @ [bt_act] @ [l2_last] @ l3) H"
 proof -
-  (* Step 1: 1. pre, L *)
+  (* 1. definitionprefix pre, L of *)
   define pre where "pre = l1 @ ll2"
-  
+
   have L_struct: "L = pre @ [l2_last] @ [bt_act] @ l3"
     using L_decomp l2_decomp pre_def by simp
 
-  (* Step 2: 2. : l2_last bt_act HB *)
-  (* HB_swap_adjacent HB *)
+  (* 2. core: prove l2_last and bt_act has of HB *)
+  (* Align HB_swap_adjacent of original HB definition *)
   have not_hb: "\<not> HB H l2_last bt_act"
   proof -
-    (* HB_Act TypeBT_implies_no_HB *)
+    (* Goal as HB_Act form with match TypeBT_implies_no_HB *)
     have target: "\<not> HB_Act s l2_last bt_act"
     proof (rule TypeBT_implies_no_HB[OF sys_inv])
-      
-      (* Step 2: 2.1 : TypeBT *)
+
+      (* 2.1 premise: goal is TypeBT *)
       show "TypeBT s (op_val bt_act)" using bt_val_type .
 
-      (* Step 2: 2.2 : (l2_last) Enq *)
+      (* 2.2 premise: source (l2_last) is of Enq operation *)
       show "l2_last \<in> active_enqs s"
       proof -
-        (* Proof note. *)
+        (* Constructprove need of decompose *)
         define rest where "rest = ll2 @ [l2_last] @ [bt_act] @ l3"
         have L_split: "L = l1 @ rest" using L_decomp l2_decomp rest_def by simp
         have rest_not_nil: "rest \<noteq> []" unfolding rest_def by simp
-        
-        (* l1 Enq SA *)
+
+        (* Use: l1 afterwards of all Enq all in SA in *)
         have all_succ_not_SA: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
           using l1_contains_all_SA_in_L[OF di L_split rest_not_nil l1_def last_sa_pos_def]
           by simp
 
-        (* l2_last L *)
+        (* L2_last in L in of *)
         let ?idx = "length pre"
         have idx_ge: "?idx \<ge> length l1" unfolding pre_def by simp
         have idx_valid: "?idx < length L" using L_struct by simp
         have is_l2_last: "L ! ?idx = l2_last" using L_struct by (simp add: nth_append)
-        
-        (* l2_last SA *)
+
+        (* Derivation l2_last in SA in *)
         have not_sa: "\<not> in_SA (op_val l2_last) L"
           using all_succ_not_SA idx_ge idx_valid is_l2_last l2_last_enq by blast
 
-        (* lin_seq s *)
+        (* Mapping to lin_seq s of property *)
         have in_lin_seq: "l2_last \<in> set (lin_seq s)"
           using L_struct mset_eq
           by (metis idx_valid is_l2_last mset_eq_setD nth_mem)
@@ -1556,36 +1557,36 @@ proof -
 
         have lI1_Op_Sets_Equivalence: "lI1_Op_Sets_Equivalence s" using sys_inv unfolding system_invariant_def by simp
         have lI2_Op_Cardinality: "lI2_Op_Cardinality s" using sys_inv unfolding system_invariant_def by simp
-        
-        (* SA Enq *)
+
+        (* Conclusion: SA of Enq is of *)
         show ?thesis
           using non_SA_enqs_are_active[OF lI1_Op_Sets_Equivalence lI2_Op_Cardinality] in_lin_seq l2_last_enq not_sa_s
           by blast
       qed
 
-      (* Step 2: 2.3 *)
+      (* 2.3 premise: two equal *)
       show "l2_last \<noteq> bt_act"
       proof
         assume eq: "l2_last = bt_act"
-        (* Enq *)
+        (* Usedata: one has two of Enq value *)
         have "length pre < length L" using L_struct by simp
         have "Suc (length pre) < length L" using L_struct by simp
         have "op_val (L ! length pre) = op_val (L ! Suc (length pre))"
           using eq L_struct l2_last_enq bt_is_enq by (simp add: nth_append)
-        
+
         have "length pre = Suc (length pre)"
           apply (rule same_enq_value_same_index[OF di])
-          using \<open>length pre < length L\<close> \<open>Suc (length pre) < length L\<close> 
+          using \<open>length pre < length L\<close> \<open>Suc (length pre) < length L\<close>
           using L_struct l2_last_enq bt_is_enq \<open>op_val (L ! length pre) = op_val (L ! Suc (length pre))\<close>
           by (auto simp: nth_append)
         then show False by simp
       qed
 
-      (* Step 2: 2.4 *)
+      (* 2.4 premise: operation *)
       show "op_name l2_last = enq" using l2_last_enq .
       show "op_name bt_act = enq" using bt_is_enq .
 
-      (* Step 2: 2.5 : bt_act *)
+      (* 2.5 premise: bt_act value has *)
       show "op_val bt_act \<in> Val"
       proof -
         have "bt_act \<in> set (lin_seq s)" using L_struct mset_eq
@@ -1594,10 +1595,10 @@ proof -
           using lin_seq_enq_in_sets[OF sys_inv] bt_is_enq unfolding SetA_def SetB_def by blast
       qed
 
-      (* Step 2: 2.6 : l2_last SetBO SetBT *)
+      (* 2.6 premise: l2_last of value in SetBO or SetBT *)
       show "op_val l2_last \<in> SetBO s \<or> op_val l2_last \<in> SetBT s"
       proof -
-        (* l2_last SetA *)
+        (* Prove l2_last in SetA in *)
         have "op_val l2_last \<notin> SetA s"
         proof
           assume "op_val l2_last \<in> SetA s"
@@ -1605,56 +1606,56 @@ proof -
             using SetA_implies_in_SA[OF sys_inv] by simp
           then have "in_SA (op_val l2_last) L"
             using sa_iso by simp
-          
-          (* l1 SA *)
+
+          (* Then use l1 afterwardsno SA of propertyderive a contradiction *)
           define rest where "rest = ll2 @ [l2_last] @ [bt_act] @ l3"
           have L_split: "L = l1 @ rest" using L_decomp l2_decomp rest_def by simp
           have "rest \<noteq> []" unfolding rest_def by simp
           have "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
             using l1_contains_all_SA_in_L[OF di L_split \<open>rest \<noteq> []\<close> l1_def last_sa_pos_def] by simp
-          
+
           have "\<not> in_SA (op_val l2_last) L"
           proof -
             let ?idx = "length pre"
-            have idx_ge: "?idx \<ge> length l1" 
+            have idx_ge: "?idx \<ge> length l1"
               unfolding pre_def by simp
-            have idx_valid: "?idx < length L" 
+            have idx_valid: "?idx < length L"
               using L_struct by simp
-            have val_at_idx: "L ! ?idx = l2_last" 
+            have val_at_idx: "L ! ?idx = l2_last"
               using L_struct by (simp add: nth_append)
-            have is_enq: "op_name (L ! ?idx) = enq" 
+            have is_enq: "op_name (L ! ?idx) = enq"
               using val_at_idx l2_last_enq by simp
             show ?thesis
               using \<open>\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L\<close>
               using idx_ge idx_valid is_enq val_at_idx
               by blast
           qed
-            
+
           thus False using \<open>in_SA (op_val l2_last) L\<close> by simp
         qed
-        
+
         have "l2_last \<in> set (lin_seq s)"
           using L_struct mset_eq
-          by (metis append_Cons in_set_conv_decomp mset_eq_setD) 
-          
-        (* LinSeq_Enq_State_Mapping *)
+          by (metis append_Cons in_set_conv_decomp mset_eq_setD)
+
+        (* Use LinSeq_Enq_State_Mapping out conclusion *)
         show ?thesis
           using LinSeq_Enq_State_Mapping[OF sys_inv \<open>l2_last \<in> set (lin_seq s)\<close> l2_last_enq \<open>op_val l2_last \<notin> SetA s\<close>] .
       qed
     qed
-    
-    (* target , HB *)
+
+    (* Final step: target of definitionunfold after, then is we need of original HB *)
     thus ?thesis unfolding HB_Act_def H_def .
   qed
 
-  (* Step 3: 3. Swap *)
-  (* pre = l1 @ ll2, pre @ [l2_last] @ [bt_act] @ l3 L *)
+  (* 3. apply Swap complete into prove *)
+  (* At this point pre = l1 @ ll2, therefore pre @ [l2_last] @ [bt_act] @ l3 then is L *)
   have "HB_consistent (pre @ [bt_act] @ [l2_last] @ l3) H"
   proof (rule HB_swap_adjacent)
     show "HB_consistent (pre @ [l2_last] @ [bt_act] @ l3) H"
       using H_cons L_struct by simp
-      
-    (* HB, *)
+
+    (* Original HB, does not then has *)
     show "\<not> HB H l2_last bt_act"
       using not_hb .
   qed
@@ -1664,128 +1665,128 @@ qed
 
 
 lemma modify_step_c1_consistent:
-  (* 1. *)
+  (* --- 1. and --- *)
   assumes sys_inv: "system_invariant s"
   assumes H_cons: "HB_consistent L H"
-  assumes H_def: "H = his_seq s"        
-  assumes mset_eq: "mset L = mset (lin_seq s)" 
+  assumes H_def: "H = his_seq s"
+  assumes mset_eq: "mset L = mset (lin_seq s)"
 
-  (* 2. *)
+  (* --- 2. decompose --- *)
   assumes L_decomp: "L = prefix @ [b_act] @ [o1] @ suffix"
-  
-  (* 3. *)
+
+  (* --- 3. element --- *)
   assumes b_is_enq: "op_name b_act = enq"
   assumes o1_is_deq: "op_name o1 = deq"
-  
-  (* [ ] *)
+
+  (* [newpremise] goal in list in *)
   assumes bt_in_L: "bt_act \<in> set L"
   assumes bt_is_enq: "op_name bt_act = enq"
   assumes bt_val_type: "TypeBT s (op_val bt_act)"
-  
-  (* 4. c1 *)
-  assumes hb_o1_bt: "HB H o1 bt_act" 
-  
-  (* 5. *)
+
+  (* --- 4. c1 branch has of --- *)
+  assumes hb_o1_bt: "HB H o1 bt_act"
+
+  (* --- 5. set and --- *)
   assumes b_active: "b_act \<in> active_enqs s"
   assumes b_neq_bt: "b_act \<noteq> bt_act"
   assumes b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
 
-  (* Proof note. *)
+  (* --- goal --- *)
   shows "HB_consistent (prefix @ [o1] @ [b_act] @ suffix) H"
 proof -
-  (* Step 1: 1. *)
+  (* 1. proveoriginal list *)
   have L_struct: "L = prefix @ [b_act] @ [o1] @ suffix"
     using L_decomp by simp
 
-  (* Step 2: 2. : b_act o1 HB *)
+  (* 2. core: prove b_act and o1 has HB *)
   have not_hb: "\<not> HB H b_act o1"
   proof
-    (* === : b_act -> o1 === *)
+    (* ===: b_act -> o1 === *)
     assume conflict: "HB H b_act o1"
-    
-    (* A. b_act -> bt_act *)
-    (* 1: HB_Act , HB_transitive_lemma *)
+
+    (* A. use out b_act -> bt_act *)
+    (* Step 1: prove HB_Act form, with match HB_transitive_lemma *)
     have "HB_Act s b_act bt_act"
     proof (rule HB_transitive_lemma[OF sys_inv H_def])
-      
-      (* A.1 1: b -> o1 ( ) *)
-      show "HB_Act s b_act o1" 
+
+      (* A.1 premise 1: b -> o1 () *)
+      show "HB_Act s b_act o1"
         using conflict H_def unfolding HB_Act_def by simp
-      
-      (* A.2 2: o1 -> bt ( c1 ) *)
-      show "HB_Act s o1 bt_act" 
+
+      (* A.2 premise 2: o1 -> bt (c1) *)
+      show "HB_Act s o1 bt_act"
         using hb_o1_bt H_def unfolding HB_Act_def by simp
-      
-      (* A.3 3: o1 *)
+
+      (* A.3 premise 3: in node o1 is has of *)
       show "op_name o1 = enq \<or> op_val o1 \<in> Val"
       proof -
-        (* o1 L -> lin_seq s *)
+        (* O1 in L in -> in lin_seq s in *)
         have "o1 \<in> set L" using L_struct by simp
-        then have "o1 \<in> set (lin_seq s)" 
+        then have "o1 \<in> set (lin_seq s)"
           using mset_eq by (metis mset_eq_setD)
-          
-        (* LinSeq_Deq_Val_Valid *)
+
+        (* Use LinSeq_Deq_Val_Valid *)
         have "op_val o1 \<in> Val"
           using LinSeq_Deq_Val_Valid[OF sys_inv `o1 \<in> set (lin_seq s)` o1_is_deq] .
-          
+
         thus ?thesis by simp
       qed
     qed
-    
-    (* 2: HB H *)
+
+    (* Step 2: HB H form *)
     then have b_hb_bt: "HB H b_act bt_act"
       using H_def unfolding HB_Act_def by simp
 
-    (* B. TypeBT_No_HB_Target (\<not> b_act -> bt_act) *)
-    (* TypeBT_No_HB_Target *)
+    (* B. use TypeBT_No_HB_Target derive a contradiction (\<not> b_act -> bt_act) *)
+    (* We need TypeBT_No_HB_Target of premise *)
     have not_b_hb_bt: "\<not> HB H b_act bt_act"
     proof (rule TypeBT_No_HB_Target[OF sys_inv])
-      (* Proof note. *)
+      (* Proof note *)
       show "lin_seq s = lin_seq s" ..
       show "H = his_seq s" using H_def .
-      
-      (* Step 1: 1. bt_act *)
-      (* bt_act lin_seq *)
-      show "bt_act \<in> set (lin_seq s)" 
+
+      (* 1. goal bt_act of property *)
+      (* Now can with prove directly bt_act in lin_seq in *)
+      show "bt_act \<in> set (lin_seq s)"
         using bt_in_L mset_eq by (metis mset_eq_setD)
 
       show "op_name bt_act = enq" using bt_is_enq .
       show "TypeBT s (op_val bt_act)" using bt_val_type .
-      
-      (* Step 2: 2. b_act *)
-      show "b_act \<in> set (lin_seq s)" 
+
+      (* 2. source b_act of property *)
+      show "b_act \<in> set (lin_seq s)"
         using L_struct mset_eq
-        by (metis append_Cons in_set_conv_decomp mset_eq_setD) 
+        by (metis append_Cons in_set_conv_decomp mset_eq_setD)
       show "op_name b_act = enq" using b_is_enq .
       show "b_act \<noteq> bt_act" using b_neq_bt .
-      
-      (* Step 3: 3. : b_act SetA *)
+
+      (* 3. key: prove b_act in SetA in *)
       show "op_val b_act \<notin> SetA s"
       proof
         assume "op_val b_act \<in> SetA s"
-        (* SetA SetB (BO U BT) *)
-        (* b_val_sets: b SetBO SetBT *)
-        have "op_val b_act \<in> SetB s" 
+        (* Use SetA and SetB (BO U BT) of mutual exclusion *)
+        (* Known b_val_sets: b in SetBO or SetBT in *)
+        have "op_val b_act \<in> SetB s"
           using b_val_sets unfolding SetB_partition by auto
-          
-        (* SetA SetB *)
-        have "SetA s \<inter> SetB s = {}" 
+
+        (* Prove SetA and SetB *)
+        have "SetA s \<inter> SetB s = {}"
           unfolding SetA_def SetB_def TypeA_def TypeB_def
           using LinSeq_Enq_Val_Valid TypeBT_implies_no_HB \<open>HB_Act s b_act bt_act\<close>
             \<open>bt_act \<in> set (lin_seq s)\<close> b_active b_is_enq b_neq_bt b_val_sets
             bt_is_enq bt_val_type sys_inv by blast
-          
-        then show False 
-          using `op_val b_act \<in> SetA s` `op_val b_act \<in> SetB s` 
+
+        then show False
+          using `op_val b_act \<in> SetA s` `op_val b_act \<in> SetB s`
           by blast
       qed
     qed
 
-    (* C. *)
+    (* C. contradiction *)
     show False using b_hb_bt not_b_hb_bt by simp
   qed
 
-  (* Step 3: 3. Swap *)
+  (* 3. apply Swap *)
   show ?thesis
   proof (rule HB_swap_adjacent)
     show "HB_consistent (prefix @ [b_act] @ [o1] @ suffix) H"
@@ -1801,10 +1802,10 @@ lemma modify_step_c2_consistent:
   and hb_cons: "HB_consistent L H"
   and H_def: "H = his_seq s"
   and inv_mset: "mset L = mset (lin_seq s)"
-  (* Proof note. *)
+  (* Decompose *)
   and L_def: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
   and l22_not_nil: "l22 \<noteq> []"
-  (* Proof note. *)
+  (* And *)
   and bt_enq: "op_name bt_act = enq"
   and bt_type: "TypeBT s (op_val bt_act)"
   and bt_in: "bt_act \<in> set L"
@@ -1813,61 +1814,61 @@ lemma modify_step_c2_consistent:
   and b_active: "b_act \<in> active_enqs s"
   and b_neq_bt: "b_act \<noteq> bt_act"
   and b_val: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
-  (* Proof note. *)
-  and not_c1: "\<not> HB H o1 bt_act" 
+  (* Branch *)
+  and not_c1: "\<not> HB H o1 bt_act"
   and c2: "HB H b_act o1"
-  (* l22 Deq ( D3 ) *)
+  (* Additional proof block: l22 is Deq (is D3 of) *)
   and l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
-  (* Proof note. *)
+  (* Conclusion *)
 shows "HB_consistent (l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3) H"
 proof -
-  (* Step 1: 1. *)
+  (* 1. definition prefix and in *)
   define pre where "pre = l1 @ l21"
   define middle where "middle = [b_act] @ l22"
-   
-  (* Proof note. *)
+
+  (* Verifyoriginal list *)
   have L_struct: "L = pre @ middle @ [bt_act] @ l3"
     using L_def pre_def middle_def by simp
 
-  (* Step 2: 2. b_act Happens-Before bt_act *)
+  (* 2. prove b_act impossible Happens-Before bt_act *)
   have not_hb_b_bt: "\<not> HB H b_act bt_act"
   proof
     assume "HB H b_act bt_act"
-    
-    (* hI16_BO_BT_No_HB/hI17_BT_BT_No_HB *)
+
+    (* HI16_BO_BT_No_HB/hI17_BT_BT_No_HB of premise *)
     have hb_rel: "HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
       unfolding HB_EnqRetCall_def
       apply (rule exI[where x="op_pid b_act"])
       apply (rule exI[where x="op_pid bt_act"])
-      using `HB H b_act bt_act` b_enq bt_enq H_def 
+      using `HB H b_act bt_act` b_enq bt_enq H_def
       unfolding HB_Act_def mk_op_def op_name_def op_val_def op_pid_def
-      by (metis split_pairs) 
+      by (metis split_pairs)
 
-    (* branch-specific reasoning *)
+    (* Casederive a contradiction *)
     from b_val show False
     proof (elim disjE)
-      (* === Case A: b_act \<in> SetBO === *)
+      (* === case A: b_act \<in> SetBO === *)
       assume in_BO: "op_val b_act \<in> SetBO s"
-      
+
       have in_BT: "op_val bt_act \<in> SetBT s"
         using bt_type unfolding SetBT_def
         by (metis LinSeq_Enq_Val_Valid bt_enq bt_in inv_mset mem_Collect_eq
-            mset_eq_setD sys) 
+            mset_eq_setD sys)
 
       show False
         using sys in_BO in_BT hb_rel
         unfolding system_invariant_def hI16_BO_BT_No_HB_def
         by blast
-        
+
     next
-      (* === Case B: b_act \<in> SetBT === *)
+      (* === case B: b_act \<in> SetBT === *)
       assume in_BT_b: "op_val b_act \<in> SetBT s"
-      
+
       have in_BT_bt: "op_val bt_act \<in> SetBT s"
         using bt_type unfolding SetBT_def
         by (metis LinSeq_Enq_Val_Valid bt_enq bt_in inv_mset mem_Collect_eq
-            mset_eq_setD sys) 
-      
+            mset_eq_setD sys)
+
       show False
         using sys in_BT_b in_BT_bt hb_rel
         unfolding system_invariant_def hI17_BT_BT_No_HB_def
@@ -1875,27 +1876,27 @@ proof -
     qed
   qed
 
-  (* Step 3: 3. l22 Happens-Before bt_act *)
+  (* 3. prove l22 in has element Happens-Before bt_act *)
   have no_hb_l22: "\<forall>d \<in> set l22. \<not> HB H d bt_act"
   proof
     fix d assume d_in: "d \<in> set l22"
 
-    (* Step 3: 3.1 HB_barrier_protection *)
-    define idx_o1 where "idx_o1 = length pre + 1" (* b_act *)
-    
-    (* d l22 k *)
+    (* 3.1 use HB_barrier_protection of *)
+    define idx_o1 where "idx_o1 = length pre + 1" (* B_act one *)
+
+    (* To d in l22 in of k *)
     obtain k where k_valid: "k < length l22" and d_at_k: "l22 ! k = d"
       using d_in by (auto simp: in_set_conv_nth)
-      
+
     define idx_d where "idx_d = idx_o1 + k"
-    
-    (* Step 3: 3.2 *)
+
+    (* 3.2 prove *)
     have idx_o1_valid: "idx_o1 < length L"
       using L_def l22_not_nil pre_def idx_o1_def by simp
-      
-    have idx_d_valid: "idx_d < length L" 
+
+    have idx_d_valid: "idx_d < length L"
       using L_def l22_not_nil pre_def idx_o1_def idx_d_def k_valid by simp
-    
+
     have L_at_idx_o1: "L ! idx_o1 = o1"
       unfolding L_def pre_def[symmetric] idx_o1_def o1_def
       using l22_not_nil
@@ -1903,40 +1904,40 @@ proof -
           append_is_Nil_conv append_self_conv2 diff_is_0_eq' hd_append2
           hd_conv_nth le_numeral_extra(4) less_numeral_extra(1) middle_def
           nth_Cons_pos nth_append_length_plus)
-      
-    (* L , pre, *)
+
+    (* New L of, its in pre, simplify *)
     have L_struct_simple: "L = pre @ [b_act] @ l22 @ [bt_act] @ l3"
       using L_def pre_def by simp
 
-    (* idx_d *)
+    (* Idx_d of value *)
     have idx_val: "idx_d = length pre + 1 + k"
       using idx_d_def idx_o1_def by simp
 
-    (* Proof note. *)
+    (* Prove value *)
     have L_at_idx_d: "L ! idx_d = d"
       unfolding L_struct_simple idx_val
       apply (simp add: nth_append)
       by (simp add: d_at_k k_valid)
 
-      
+
     have order: "idx_o1 \<le> idx_d" unfolding idx_d_def by simp
 
-    (* Step 3: 3.3 o1 Deq *)
+    (* 3.3 prove o1 is Deq *)
     have o1_is_deq: "op_name o1 = deq"
       using o1_def l22_not_nil l22_deqs by auto
 
-    (* Step 3: 3.4 barrier *)
+    (* 3.4 use barrier *)
     show "\<not> HB H d bt_act"
       apply (rule HB_barrier_protection[OF hb_cons])
-      (* Proof note. *)
+      (* In has *)
       apply (rule idx_o1_valid)
       apply (rule idx_d_valid)
-      (* Proof note. *)
+      (* In value *)
       apply (rule L_at_idx_o1)
       apply (rule L_at_idx_d)
-      (* Proof note. *)
+      (* In *)
       apply (rule order)
-      (* Proof note. *)
+      (* In its it *)
       apply (rule c2)
       apply (rule not_hb_b_bt)
       apply (rule bt_enq)
@@ -1944,67 +1945,67 @@ proof -
       done
   qed
 
-  (* Step 4: 4. middle *)
+  (* 4. middle of no property *)
   (* middle = [b_act] @ l22 *)
   have middle_safe: "\<forall>m \<in> set middle. \<not> HB H m bt_act"
     using not_hb_b_bt no_hb_l22 unfolding middle_def by auto
 
-  (* Step 5: 5. HB_jump_left *)
-  (* HB_consistent (pre @ [bt_act] @ middle @ l3) H *)
-  
+  (* 5. apply HB_jump_left *)
+  (* Goal: HB_consistent (pre @ [bt_act] @ middle @ l3) H *)
+
   have list_eq: "l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 = pre @ [bt_act] @ middle @ l3"
     unfolding pre_def middle_def by simp
 
   show ?thesis
     unfolding list_eq
     apply (rule HB_jump_left)
-    (* 1: Consistent *)
+    (* Premise 1: before of list is Consistent of *)
     using hb_cons L_struct apply simp
-    (* 2: middle HB bt_act *)
+    (* Premise 2: middle in of element all HB bt_act *)
     using middle_safe apply simp
     done
 qed
 
 
 lemma modify_step_c3_new_consistent:
-  (* 1. *)
+  (* --- 1. and --- *)
   assumes sys_inv: "system_invariant s"
   assumes H_cons: "HB_consistent L H"
-  assumes H_def: "H = his_seq s"        
-  assumes mset_eq: "mset L = mset (lin_seq s)" 
+  assumes H_def: "H = his_seq s"
+  assumes mset_eq: "mset L = mset (lin_seq s)"
 
-  (* 2. *)
+  (* --- 2. decompose --- *)
   assumes L_decomp: "L = prefix @ [b_act] @ [o1] @ suffix"
-  
-  (* 3. *)
+
+  (* --- 3. element --- *)
   assumes b_is_enq: "op_name b_act = enq"
   assumes o1_is_deq: "op_name o1 = deq"
-  
-  (* [ ] *)
+
+  (* [newpremise] goal in list in *)
   assumes bt_in_L: "bt_act \<in> set L"
   assumes bt_is_enq: "op_name bt_act = enq"
   assumes bt_val_type: "TypeBT s (op_val bt_act)"
-  
-  (* 4. c1 *)
+
+  (* --- 4. c1 branch has of --- *)
   assumes hb_o1_bt: "\<not> HB H o1 bt_act \<and> \<not> HB H b_act o1"
-  
-  (* 5. *)
+
+  (* --- 5. set and --- *)
   assumes b_active: "b_act \<in> active_enqs s"
   assumes b_neq_bt: "b_act \<noteq> bt_act"
   assumes b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
 
-  (* Proof note. *)
+  (* --- goal --- *)
   shows "HB_consistent (prefix @ [o1] @ [b_act] @ suffix) H"
 proof -
-  (* Step 1: 1. *)
+  (* 1. proveoriginal list *)
   have L_struct: "L = prefix @ [b_act] @ [o1] @ suffix"
     using L_decomp by simp
 
-  (* Step 2: 2. : b_act o1 HB *)
+  (* 2. core: prove b_act and o1 has HB *)
   have not_hb: "\<not> HB H b_act o1"
     by (simp add: hb_o1_bt)
 
-  (* Step 3: 3. Swap *)
+  (* 3. apply Swap *)
   show ?thesis
   proof (rule HB_swap_adjacent)
     show "HB_consistent (prefix @ [b_act] @ [o1] @ suffix) H"
@@ -2016,137 +2017,137 @@ qed
 
 
 lemma modify_step_c3_consistent:
-  (* 1. ( c0 ) *)
+  (* --- 1. and (and c0 preserve one) --- *)
   assumes sys_inv: "system_invariant s"
   assumes H_cons: "HB_consistent L H"
   assumes H_def: "H = his_seq s"
   assumes mset_eq: "mset L = mset (lin_seq s)"
 
-  (* 2. ( c0 l2_decomp) *)
+  (* --- 2. decompose (c0 of l2_decomp) --- *)
   assumes L_decomp: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
   assumes l22_decomp: "l22 = l22_rest @ [ou]"
-  
-  (* 3. ( c0 l2_last_enq ) *)
-  (* bt_act *)
+
+  (* --- 3. element (c0 of l2_last_enq) --- *)
+  (* Bt_act *)
   assumes bt_is_enq: "op_name bt_act = enq"
   assumes bt_val_type: "TypeBT s (op_val bt_act)"
   assumes bt_in_L: "bt_act \<in> set L"
-  
-  (* ou (c3 ) *)
+
+  (* Ou (c3 of for) *)
   assumes ou_is_deq: "op_name ou = deq"
 
-  (* b_act ( ) *)
+  (* B_act () *)
   assumes b_is_enq: "op_name b_act = enq"
   assumes b_active: "b_act \<in> active_enqs s"
   assumes b_neq_bt: "b_act \<noteq> bt_act"
   assumes b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
-  
-  (* 4. (c3 ) *)
+
+  (* --- 4. branch (c3 has) --- *)
   assumes c3: "HB H b_act ou"
-  
-  (* ou bt_act *)
+
+  (* --- goal: ou and bt_act --- *)
   shows "HB_consistent (l1 @ l21 @ [b_act] @ l22_rest @ [bt_act] @ [ou] @ l3) H"
 proof -
-  (* Step 1: 1. pre ( c0: define pre where "pre = l1 @ ll2") *)
+  (* 1. definitionprefix pre (c0: define pre where "pre = l1 @ ll2") *)
   define pre where "pre = l1 @ l21 @ [b_act] @ l22_rest"
-  
-  (* L ( c0: have L_struct ...) *)
+
+  (* Verify L of (c0: have L_struct...) *)
   have L_struct: "L = pre @ [ou] @ [bt_act] @ l3"
     using L_decomp l22_decomp pre_def by simp
 
-  (* Step 2: 2. : ( c0: have not_hb ...) *)
+  (* 2. core: prove of (c0: have not_hb...) *)
   have not_hb: "\<not> HB H ou bt_act"
   proof
-    (* Proof note. *)
+    (* Proof note *)
     assume conflict: "HB H ou bt_act"
-    
-    (* c0 , *)
-    
-    (* A. b_act -> bt_act *)
-    (* b_act -> ou (c3 ) -> bt_act ( ) *)
+
+    (* And c0 of is, here need use derive a contradiction *)
+
+    (* A. use b_act -> bt_act *)
+    (* Path: b_act -> ou (c3) -> bt_act () *)
     have b_hb_bt: "HB H b_act bt_act"
     proof -
-       (* HB_Act HB_transitive_lemma *)
+       (* As HB_Act form with use HB_transitive_lemma *)
        have "HB_Act s b_act bt_act"
        proof (rule HB_transitive_lemma[OF sys_inv H_def])
          show "HB_Act s b_act ou" using c3 H_def unfolding HB_Act_def by simp
          show "HB_Act s ou bt_act" using conflict H_def unfolding HB_Act_def by simp
-         (* ou *)
+         (* In node ou has *)
          show "op_name ou = enq \<or> op_val ou \<in> Val"
          proof -
            have "ou \<in> set (lin_seq s)" using L_struct mset_eq
-             by (metis append_Cons in_set_conv_decomp mset_eq_setD) 
+             by (metis append_Cons in_set_conv_decomp mset_eq_setD)
            thus ?thesis using LinSeq_Deq_Val_Valid[OF sys_inv _ ou_is_deq] by simp
          qed
        qed
        thus ?thesis using H_def unfolding HB_Act_def by simp
     qed
 
-    (* B. TypeBT (\<not> b_act -> bt_act) *)
-    (* c0/c1 b_act bt_act HB *)
+    (* B. use TypeBT propertyderive a contradiction (\<not> b_act -> bt_act) *)
+    (* And c0/c1 in prove b_act and bt_act no HB of complete one *)
     have not_b_hb_bt: "\<not> HB H b_act bt_act"
     proof (rule TypeBT_No_HB_Target[OF sys_inv])
       show "lin_seq s = lin_seq s" ..
       show "H = his_seq s" using H_def .
-      (* bt_act *)
+      (* Goal bt_act property *)
       show "bt_act \<in> set (lin_seq s)" using bt_in_L mset_eq by (metis mset_eq_setD)
       show "op_name bt_act = enq" using bt_is_enq .
       show "TypeBT s (op_val bt_act)" using bt_val_type .
-      (* b_act *)
+      (* Source b_act property *)
       show "b_act \<in> set (lin_seq s)" using L_decomp mset_eq
         by (metis append.assoc append_Cons in_set_conv_decomp
-            mset_eq_setD) 
+            mset_eq_setD)
       show "op_name b_act = enq" using b_is_enq .
       show "b_act \<noteq> bt_act" using b_neq_bt .
-      (* b_act SetA *)
+      (* B_act in SetA *)
       show "op_val b_act \<notin> SetA s"
       proof
         assume "op_val b_act \<in> SetA s"
-        
-        (* Step 1: 1. b_act SetB *)
-        have "op_val b_act \<in> SetB s" 
+
+        (* 1. derivation b_act must in SetB in *)
+        have "op_val b_act \<in> SetB s"
           using b_val_sets unfolding SetB_partition by auto
-          
-        (* Step 2: 2. HB *)
-        (* TypeBT_implies_no_HB: HB x y y TypeBT, x SetA *)
-        (* b_hb_bt ( HB H b_act bt_act) *)
-        have "SetA s \<inter> SetB s = {}" 
+
+        (* 2. use HB derive a contradiction *)
+        (* TypeBT_implies_no_HB: if HB x y and y is TypeBT, then x is SetA *)
+        (* Hereuse directly we already of b_hb_bt (HB H b_act bt_act) *)
+        have "SetA s \<inter> SetB s = {}"
           unfolding SetA_def SetB_def TypeA_def TypeB_def
-          using LinSeq_Enq_Val_Valid TypeBT_implies_no_HB 
-          using b_hb_bt[unfolded H_def]  (* <--- : H *)
-          using bt_in_L mset_eq         (* bt_act lin_seq *)
+          using LinSeq_Enq_Val_Valid TypeBT_implies_no_HB
+          using b_hb_bt[unfolded H_def]  (* <--- key change: use and unfold H definition *)
+          using bt_in_L mset_eq         (* Need prove bt_act in lin_seq in *)
           using b_active b_is_enq b_neq_bt b_val_sets
           using bt_is_enq bt_val_type sys_inv
-          using HB_Act_def \<open>bt_act \<in> set (lin_seq s)\<close> by blast 
-          
-        then show False 
-          using `op_val b_act \<in> SetA s` `op_val b_act \<in> SetB s` 
+          using HB_Act_def \<open>bt_act \<in> set (lin_seq s)\<close> by blast
+
+        then show False
+          using `op_val b_act \<in> SetA s` `op_val b_act \<in> SetB s`
           by blast
       qed
     qed
-      
-    (* C. *)
+
+    (* C. contradiction *)
     show False using b_hb_bt not_b_hb_bt by simp
   qed
 
-(* Step 3: 3. Swap (revised version) *)
+(* 3. apply Swap (revised version) *)
   show ?thesis
   proof -
-    (* A. pre @ [bt_act] @ [ou] @ l3 *)
-    (* simp *)
+    (* A. provegoal equal to pre @ [bt_act] @ [ou] @ l3 *)
+    (* Use simp list of *)
     have new_L_struct: "l1 @ l21 @ [b_act] @ l22_rest @ [bt_act] @ [ou] @ l3 = pre @ [bt_act] @ [ou] @ l3"
       unfolding pre_def by simp
-      
-    (* B. *)
+
+    (* B. replace and apply *)
     show ?thesis
-      apply (subst new_L_struct)       (* pre @ ... *)
-      apply (rule HB_swap_adjacent)    (* , *)
-      
-      (* C. *)
-      (* 1: ( L) consistent *)
+      apply (subst new_L_struct)       (* Goal into pre @... of form *)
+      apply (rule HB_swap_adjacent)    (* Now precisematch, apply *)
+
+      (* C. prove of two premise *)
+      (* Premise 1: before of list (L) is consistent of *)
       using H_cons L_struct apply simp
-      
-      (* 2: HB *)
+
+      (* Premise 2: of two elementno HB *)
       using not_hb apply simp
       done
   qed
@@ -2158,10 +2159,10 @@ lemma modify_step_c4_consistent:
   and hb_cons: "HB_consistent L H"
   and H_def: "H = his_seq s"
   and inv_mset: "mset L = mset (lin_seq s)"
-  (* Proof note. *)
+  (* Decompose *)
   and L_def: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
   and l22_not_nil: "l22 \<noteq> []"
-  (* Proof note. *)
+  (* Proof note *)
   and bt_enq: "op_name bt_act = enq"
   and bt_type: "TypeBT s (op_val bt_act)"
   and bt_in: "bt_act \<in> set L"
@@ -2170,103 +2171,103 @@ lemma modify_step_c4_consistent:
   and b_active: "b_act \<in> active_enqs s"
   and b_neq_bt: "b_act \<noteq> bt_act"
   and b_val: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
-  (* Proof note. *)
-  and not_c1: "\<not> HB H (hd l22) bt_act" 
+  (* Branch *)
+  and not_c1: "\<not> HB H (hd l22) bt_act"
   and not_c2: "\<not> HB H b_act (hd l22)"
   and not_c3: "\<not> HB H b_act ou"
   and c4: "HB H ou bt_act"
-  (* Proof note. *)
+  (* Previouslystepprove of conclusion *)
   and not_hb_b_bt: "\<not> HB H b_act bt_act"
-  (* Proof note. *)
+  (* Additional proof block *)
   and l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
-  (* b_act l22 *)
+  (* Conclusion: b_act right l22 *)
   shows "HB_consistent (l1 @ l21 @ l22 @ [b_act] @ [bt_act] @ l3) H"
 proof -
-  (* Step 1: 1. *)
+  (* 1. definition *)
   define pre where "pre = l1 @ l21"
   define middle where "middle = l22"
   define post where "post = [bt_act] @ l3"
   define x where "x = b_act"
 
-  (* L HB_jump_right *)
+  (* Verifyoriginal L HB_jump_right of premise *)
   have L_struct: "L = pre @ [x] @ middle @ post"
     unfolding pre_def middle_def post_def x_def using L_def by simp
 
-  (* Step 2: 2. x (b_act) Happens-Before middle (l22) *)
+  (* 2. prove x (b_act) Happens-Before middle (l22) in of element *)
   have not_hb_x_middle: "\<forall>d \<in> set middle. \<not> HB H x d"
   proof
     fix d assume d_in: "d \<in> set middle"
     show "\<not> HB H x d"
-    proof -  (* <--- : "-", False *)
-      
-      (* Step 2: 2.1 ou *)
-      (* l22 index = length pre + 1 *)
+    proof -  (* <--- keyFix: "-", goal into False *)
+
+      (* 2.1 ou of *)
+      (* L22 index = length pre + 1 *)
       define idx_ou where "idx_ou = length pre + length l22"
-      
-      (* Step 2: 2.2 d *)
-      (* d l22 , k *)
+
+      (* 2.2 d of *)
+      (* D in l22 in, to its for k *)
       obtain k where k_valid: "k < length l22" and d_at_k: "l22 ! k = d"
         using d_in unfolding middle_def by (auto simp: in_set_conv_nth)
-        
+
       define idx_d where "idx_d = length pre + 1 + k"
 
-      (* Step 2: 2.3 *)
+      (* 2.3 prove *)
       have idx_d_valid: "idx_d < length L"
         unfolding idx_d_def pre_def using L_def l22_not_nil k_valid by simp
-        
+
       have idx_ou_valid: "idx_ou < length L"
         unfolding idx_ou_def pre_def using L_def l22_not_nil by simp
 
-      (* L *)
+      (* One simplify of L use in prove value *)
       have L_struct_simple: "L = pre @ [b_act] @ l22 @ [bt_act] @ l3"
         using L_struct x_def middle_def post_def by simp
 
-      (* L ! idx_d = d *)
+      (* Prove L! idx_d = d *)
       have L_at_idx_d: "L ! idx_d = d"
-        unfolding idx_d_def 
-        apply (subst L_struct_simple) (* Proof note. *)
-        apply (simp add: nth_append)  (* pre *)
+        unfolding idx_d_def
+        apply (subst L_struct_simple) (* Usesimplify *)
+        apply (simp add: nth_append)  (* Pre *)
         using d_at_k k_valid
-        apply simp                    (* b_act *)
+        apply simp                    (* B_act and value *)
         done
 
-      (* L ! idx_ou = ou *)
+      (* Prove L! idx_ou = ou *)
       have L_at_idx_ou: "L ! idx_ou = ou"
-        unfolding idx_ou_def 
+        unfolding idx_ou_def
         apply (subst L_struct_simple)
-        apply (simp add: nth_append)  (* pre *)
+        apply (simp add: nth_append)  (* Pre *)
         using l22_not_nil
         apply simp
-        by (simp add: last_conv_nth nth_append_left ou_def)  
-        
-      (* d l22 , ou , idx_d <= idx_ou *)
+        by (simp add: last_conv_nth nth_append_left ou_def)
+
+      (* Key: d in l22 in, ou is, therefore idx_d <= idx_ou *)
       have order: "idx_d \<le> idx_ou"
         unfolding idx_d_def idx_ou_def using k_valid by simp
 
-      (* Step 2: 2.4 *)
+      (* 2.4 prove *)
       have d_deq: "op_name d = deq"
         using d_in unfolding middle_def using l22_deqs by auto
       have ou_deq: "op_name ou = deq"
         using ou_def l22_not_nil l22_deqs
-        by simp 
+        by simp
 
-      (* Step 2: 2.5 HB_jump_right_protection *)
-      (* show ?thesis *)
+      (* 2.5 use HB_jump_right_protection *)
+      (* Use show?thesis or then goal can *)
       show ?thesis
         unfolding x_def
         apply (rule HB_jump_right_protection[OF hb_cons])
-        (* Step 1: 1. *)
+        (* 1. has *)
         apply (rule idx_d_valid)
         apply (rule idx_ou_valid)
-        (* Step 2: 2. *)
+        (* 2. value *)
         apply (rule L_at_idx_d)
         apply (rule L_at_idx_ou)
-        (* Step 3: 3. *)
+        (* 3. *)
         apply (rule order)
-        (* Step 4: 4. HB *)
+        (* 4. HB *)
         apply (rule c4)            (* HB ou bt *)
         apply (rule not_hb_b_bt)   (* \<not> HB b bt *)
-        (* Step 5: 5. *)
+        (* 5. *)
         apply (rule b_enq)
         apply (rule bt_enq)
         apply (rule d_deq)
@@ -2275,40 +2276,32 @@ proof -
     qed
   qed
 
-  (* Step 3: 3. HB_jump_right *)
-  (* pre @ middle @ [x] @ post *)
+  (* 3. apply HB_jump_right *)
+  (* Goal: pre @ middle @ [x] @ post *)
   have target_struct: "l1 @ l21 @ l22 @ [b_act] @ [bt_act] @ l3 = pre @ middle @ [x] @ post"
     unfolding pre_def middle_def post_def x_def by simp
 
   show ?thesis
     unfolding target_struct
     apply (rule HB_jump_right)
-    (* 1 *)
+    (* Premise 1: originallistconsistency *)
     using hb_cons L_struct apply simp
-    (* 2: x middle HB *)
+    (* Premise 2: x and middle no HB *)
     using not_hb_x_middle apply simp
     done
 qed
 
 
-
-lemma modify_preserves_HB_consistent:
+lemma modify_preserves_HB_consistent_local:
   assumes sys_inv: "system_invariant s"
-  assumes L_def: "L = lin_seq s"
   assumes H_def: "H = his_seq s"
   assumes hb_cons: "HB_consistent L H"
   assumes di: "data_independent L"
   assumes type_bt: "TypeBT s bt_val"
+  assumes inv_mset: "mset L = mset (lin_seq s)"
+  assumes inv_sa: "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)"
   shows "HB_consistent (modify_lin L H bt_val) H"
 proof -
-  (* === 1. : === *)
-  have inv_mset: "mset L = mset (lin_seq s)" 
-    using L_def by simp
-
-  have inv_sa: "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)" 
-    using L_def by simp
-
-  (* === 2. === *)
   show ?thesis
     using hb_cons di H_def type_bt inv_mset inv_sa
   proof (induct L H bt_val rule: modify_lin.induct)
@@ -2317,11 +2310,11 @@ proof -
     proof (cases "should_modify L H bt_val")
       case False
       then show ?thesis using "1.prems"(1)
-        by (subst modify_lin.simps, simp) 
+        by (subst modify_lin.simps, simp)
     next
       case True
       note do_modify = True
-      
+
       define last_sa_pos where "last_sa_pos = find_last_SA L"
       define remaining where "remaining = drop (nat (last_sa_pos + 1)) L"
 
@@ -2331,8 +2324,8 @@ proof -
         hence "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = None" by simp
         thus False using do_modify unfolding should_modify_def Let_def remaining_def last_sa_pos_def by simp
       qed
-      
-      then obtain bt_idx where bt_idx_def: 
+
+      then obtain bt_idx where bt_idx_def:
         "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
         by auto
 
@@ -2344,7 +2337,7 @@ proof -
       define l3 where "l3 = drop (Suc bt_idx) remaining"
       define bt_act where "bt_act = remaining ! bt_idx"
 
-      (* Proof note. *)
+      (* Basic prove *)
       have bt_in_L: "bt_act \<in> set L"
         unfolding bt_act_def remaining_def
         by (metis bt_idx_valid in_set_dropD nth_mem remaining_def)
@@ -2367,7 +2360,7 @@ proof -
         case True
         have "bt_idx = 0" using True l2_def
           using bt_idx_valid by force
-        have False using do_modify unfolding should_modify_def Let_def 
+        have False using do_modify unfolding should_modify_def Let_def
           using `bt_idx = 0` bt_idx_def last_sa_pos_def remaining_def by force
         then show ?thesis ..
       next
@@ -2383,16 +2376,16 @@ proof -
         note l2_last_enq = True
         define ll2 where "ll2 = butlast l2"
         define new_L where "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"
-        
+
         have local_di: "data_independent L" using "1.prems"(2) by blast
         have l2_split_exact: "l2 = ll2 @ [l2_last]" using l2_not_nil l2_last_def ll2_def by simp
 
-        (* === , === *)
+        (* === decomposefact, after aligngoaluse === *)
         have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
           unfolding l2_def l3_def bt_act_def
           using bt_idx_valid by (simp add: id_take_nth_drop)
 
-        (* new_L *)
+        (* Prove new_L preserveinvariant *)
         have mset_new: "mset new_L = mset (lin_seq s)"
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def ll2_def remaining_def
           using L_decomp l2_split_exact "1.prems"(5)
@@ -2415,23 +2408,23 @@ proof -
         have hb_new_L: "HB_consistent new_L H"
           using modify_step_c0_consistent[OF sys_inv _ "1.prems"(3) local_di "1.prems"(5) "1.prems"(6) L_decomp l2_split_exact last_sa_pos_def l1_def True bt_is_enq]
           using "1.prems"(1) "1.prems"(4) bt_val_eq
-          by (simp add: new_L_def) 
-        
-        (* Step 1: 1. should_modify *)
+          by (simp add: new_L_def)
+
+        (* 1. should_modify of or *)
         have fact_modify: "should_modify L H bt_val" by (fact do_modify)
-        
-        (* Step 2: 2. Let explicit  *)
-        (* the (find_unique_index ...), *)
+
+        (* 2. Let of explicit mapping (key!) *)
+        (* Since in use of is the (find_unique_index...), we then for it form *)
         have fact_bt_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
           using bt_idx_def by simp
-          
-        (* Step 3: 3. guard (op_name l2_last = enq) *)
+
+        (* 3. prove guard (op_name l2_last = enq) *)
         have fop_name: "op_name (last (take bt_idx remaining)) = enq"
           using True l2_last_def l2_def by simp
 
-        (* Step 4: 4. HB_consistent *)
-        (* new_L_def induct take/drop *)
-        have fact_hb_new: "HB_consistent new_L H" by (fact hb_new_L)    
+        (* 4. newlist of HB_consistent *)
+        (* Note: heremust new_L_def already complete unfold as induct then of original take/drop form *)
+        have fact_hb_new: "HB_consistent new_L H" by (fact hb_new_L)
 
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           unfolding l1_def remaining_def l2_def l3_def bt_act_def l2_last_def last_sa_pos_def
@@ -2441,54 +2434,55 @@ proof -
               last_sa_pos_def ll2_def new_L_def remaining_def)
 
         show ?thesis
-          (* Step 1: 1. , new_L *)
+          (* 1. onlyunfold one, do not unfold new_L definition *)
           unfolding step1
-          
-          (* Step 2: 2. . : [where...], rule modify_lin (new_L) H bt_val *)
+
+          (* 2. apply. Note: in outside [where...],
+             Make rule matchwhen before of modify_lin (new_L) H bt_val *)
           apply (rule "1.hyps"(1))
 
-          (* Step 3: 3. : modify_lin, Let *)
-          (* apply, Let *)
-          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context} 
-            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def 
+          (* 3. core: unfold modify_lin, only Let definition and physicalfact *)
+          (* We all of definition for No. one apply, it large Let goal *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
                             bt_act_def l2_last_def ll2_def new_L_def bt_idx_def} ))\<close>)
-          
-          (* Step 4: 4. 4 (Goal 1-4) *)
+
+          (* 4. 4 in list decompose of goal (Goal 1-4) *)
           using L_decomp remaining_decomp l2_split_exact
           using fact_modify apply auto[1]
 
 
-          (* Step 5: 5. (the (Some x) = x) *)
+          (* 5. (the (Some x) = x) *)
           apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
 
-          (* Step 6: 6. (Goal 5-9) *)
+          (* 6. last in physicalpropertyconclusion (Goal 5-9) *)
           using do_modify True hb_new_L di_new mset_new sa_new "1.prems"
                  apply simp_all
           subgoal
-            (* , *)
+            (* Unfoldlocaldefinition, its original as goal in of form *)
             using l2_last_def l2_def remaining_def last_sa_pos_def
-            (* op_name l2_last = enq *)
+            (* In when before branch of premise: op_name l2_last = enq *)
             using True by simp
           subgoal
-            (* new_L , *)
-            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            (* Unfold new_L of construct, align *)
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
-            (* Proof note. *)
+            (* In previously already of physicalfact *)
             using hb_new_L by simp
           subgoal
-            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             using di_new by simp
           subgoal
-            (* mset new_L = mset (lin_seq s) *)
+            (* Physicalfact: mset new_L = mset (lin_seq s) *)
             using mset_new
-            (* new_L , multiset *)
-            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            (* Unfold new_L of definition, make multiset match *)
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             by (simp add: ac_simps)
           subgoal
             using sa_new
-            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             by simp
           done
@@ -2498,45 +2492,45 @@ proof -
 
         have find_enq_valid: "find_last_enq l2 \<noteq> None"
           using do_modify False l2_not_nil unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def
-          using bt_idx_def by (smt (verit) last_sa_pos_def option.simps(4,5) remaining_def) 
-        
+          using bt_idx_def by (smt (verit) last_sa_pos_def option.simps(4,5) remaining_def)
+
         obtain l21 b_act l22 where l2_split: "find_last_enq l2 = Some (l21, b_act, l22)"
           using find_enq_valid by (cases "find_last_enq l2", auto)
 
         have b_act_enq: "op_name b_act = enq"
-          using l2_split by (simp add: find_last_enq_props(2))  
+          using l2_split by (simp add: find_last_enq_props(2))
 
         define o1 where "o1 = hd l22"
-        
+
         have l22_not_nil: "l22 \<noteq> []"
           using l2_split l2_not_nil not_enq unfolding find_last_enq_def l2_last_def
           by (metis find_last_enq_props(1,2) l2_split last_snoc self_append_conv)
 
         have L_split_c1: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
-          using L_decomp l2_split find_last_enq_props(1) by auto 
+          using L_decomp l2_split find_last_enq_props(1) by auto
 
-        (* ( ) *)
+        (* (and previously one) *)
         define b_idx where "b_idx = length l1 + length l21"
         have b_idx_props: "L ! b_idx = b_act" "b_idx \<ge> length l1" "b_idx < length L"
           unfolding b_idx_def using L_split_c1 by (auto simp: nth_append)
 
         have b_act_active: "b_act \<in> active_enqs s"
         proof -
-          (* Step 1: 1. : L remaining *)
+          (* 1.: L and remaining of *)
           have L_rest: "L = l1 @ remaining"
             unfolding l1_def remaining_def by simp
 
           have rem_not_nil: "remaining \<noteq> []"
             using bt_idx_valid by auto
 
-          (* Step 2: 2. , l1 enq SA *)
+          (* 2. use core, prove l1 afterwards of all enq all in SA in *)
           have all_after_l1_not_sa: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
             using l1_contains_all_SA_in_L[OF "1.prems"(2) L_rest rem_not_nil l1_def last_sa_pos_def] .
 
           have not_sa_L: "\<not> in_SA (op_val b_act) L"
             using all_after_l1_not_sa b_idx_props b_act_enq by auto
 
-          (* Step 3: 3. lin_seq s *)
+          (* 3. mapping list lin_seq s *)
           have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)"
             using not_sa_L "1.prems"(6) by simp
 
@@ -2544,46 +2538,46 @@ proof -
             using b_idx_props(1) b_idx_props(3) "1.prems"(5)
             by (metis nth_mem set_mset_mset)
 
-          (* Step 4: 4. , *)
+          (* 4. split invariant, complete into derivation *)
           have inv1: "lI1_Op_Sets_Equivalence s" and inv2: "lI2_Op_Cardinality s"
             using sys_inv unfolding system_invariant_def by auto
 
-          (* inv1 inv2 , blast *)
+          (* Fix: only use inv1 inv2, its blast derivation *)
           show ?thesis
             using non_SA_enqs_are_active[OF inv1 inv2] b_in_s b_act_enq not_sa_s by blast
         qed
 
         have b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
         proof -
-          (* Step 1: 1. *)
+          (* 1. of list fact *)
           have L_rest: "L = l1 @ remaining"
             unfolding l1_def remaining_def by simp
-            
+
           have rem_not_nil: "remaining \<noteq> []"
             using bt_idx_valid by auto
-            
-          (* Step 2: 2. : 1.prems(2) data_independent *)
+
+          (* 2. use: oldold use 1.prems(2) in local of data_independent fact *)
           have all_after_l1_not_sa: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
             using l1_contains_all_SA_in_L[OF "1.prems"(2) L_rest rem_not_nil l1_def last_sa_pos_def] .
 
-          (* Step 3: 3. , b_act SA *)
+          (* 3., out b_act in SA in *)
           have not_sa_L: "\<not> in_SA (op_val b_act) L"
             using all_after_l1_not_sa b_idx_props b_act_enq by auto
 
           have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)"
             using not_sa_L "1.prems"(6) by simp
 
-          (* Step 4: 4. b_act *)
+          (* 4. prove b_act is of has element *)
           have b_in_s: "b_act \<in> set (lin_seq s)"
             using b_idx_props(1) b_idx_props(3) "1.prems"(5)
             by (metis nth_mem set_mset_mset)
 
-          (* Step 5: 5. b_act SetA *)
+          (* 5. use out b_act of value in SetA in *)
           have not_SetA: "op_val b_act \<notin> SetA s"
             using not_sa_s SetA_implies_in_SA[OF sys_inv] by blast
 
-          (* Step 6: 6. state transport *)
-          show ?thesis 
+          (* 6. mapping out of two one conclusion *)
+          show ?thesis
             using LinSeq_Enq_State_Mapping[OF sys_inv b_in_s b_act_enq not_SetA] by blast
         qed
 
@@ -2594,18 +2588,18 @@ proof -
         have b_neq_bt: "b_act \<noteq> bt_act"
         proof
           assume eq: "b_act = bt_act"
-          
-          (* Step 1: 1. bt_act L *)
+
+          (* 1. definition bt_act in L in of definitely *)
           define bt_idx_abs where "bt_idx_abs = length l1 + length l21 + 1 + length l22"
 
-          (* Step 2: 2. L bt_act *)
+          (* 2. prove L in of value then is bt_act *)
           have L_bt: "L ! bt_idx_abs = bt_act"
             unfolding bt_idx_abs_def L_split_c1 by (auto simp: nth_append)
 
           have bt_idx_abs_less: "bt_idx_abs < length L"
             unfolding bt_idx_abs_def L_split_c1 by simp
 
-          (* Step 3: 3. same_enq_value_same_index *)
+          (* 3. extract same_enq_value_same_index need of premise *)
           have val_eq: "op_val (L ! b_idx) = op_val (L ! bt_idx_abs)"
             using b_idx_props(1) L_bt eq by simp
 
@@ -2615,19 +2609,19 @@ proof -
           have op_bt: "op_name (L ! bt_idx_abs) = enq"
             using L_bt bt_is_enq by simp
 
-          (* Step 4: 4. : , *)
+          (* 4. use: becauseoperation and value all, therefore must *)
           have "b_idx = bt_idx_abs"
             using same_enq_value_same_index[OF "1.prems"(2) b_idx_props(3) bt_idx_abs_less op_b op_bt val_eq] .
 
-          (* Step 5: 5. , *)
+          (* 5. from in out of large small, derive a contradiction *)
           moreover have "b_idx < bt_idx_abs"
             unfolding b_idx_def bt_idx_abs_def by simp
 
           ultimately show False by simp
         qed
 
-        (* Proof note. *)
-        consider 
+        (* --- branch --- *)
+        consider
           (c1) "happens_before o1 bt_act H" |
           (c2) "\<not> happens_before o1 bt_act H \<and> happens_before b_act o1 H" |
           (c3) "\<not> happens_before o1 bt_act H \<and> \<not> happens_before b_act o1 H"
@@ -2638,24 +2632,24 @@ proof -
           case c1 (* === c1 === *)
           define new_l22 where "new_l22 = tl l22"
           define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
-          
-          (* Step 1: 1. c1  *)
+
+          (* 1. original has of c1 decomposefact (preserve) *)
           have c1_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)"
             using L_split_c1 l22_not_nil o1_def new_l22_def by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
 
-          (* Step 2: 2. ✨ : new_L , prefix suffix *)
+          (* 2.  new: as new_L, prefix and suffix *)
           have new_L_struct: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (new_l22 @ [bt_act] @ l3)"
             unfolding new_L_def by simp
 
-          (* Step 3: 3. *)
+          (* 3. its of apply *)
           have hb_new_L: "HB_consistent new_L H"
-            unfolding new_L_struct (* Proof note. *)
+            unfolding new_L_struct (* Unfold as has precise of list *)
             apply (rule modify_step_c1_consistent[where bt_act=bt_act and s=s and L=L])
             apply (rule sys_inv)
             apply (rule "1.prems"(1))
             apply (rule "1.prems"(3))
             apply (rule "1.prems"(5))
-            apply (rule c1_decomp) (* L_decomp *)
+            apply (rule c1_decomp) (* Here in precise of L_decomp *)
             apply (rule b_act_enq)
             apply (rule o1_deq)
             apply (rule bt_in_L)
@@ -2678,114 +2672,114 @@ proof -
             using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
 
           have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
-          (* Step 1: 1. *)
+          (* 1. unfold definition *)
           apply (subst modify_lin.simps)
-          (* Step 2: 2. Let *)
+          (* 2. Let and outside *)
           apply (simp only: Let_def case_prod_unfold)
-          
-          (* Step 3: 3. *)
-          (* , simp *)
-          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric] 
-                            l1_def[symmetric] bt_idx_def[symmetric] 
-                            bt_act_def[symmetric] l2_def[symmetric] 
+
+          (* 3. core: No. one! can of original listoperation local *)
+          (* Small goal, simp in no *)
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
                             l3_def[symmetric] l2_last_def[symmetric])
           using bt_act_def bt_idx_def c1 do_modify l2_def l2_last_def l2_split
               l3_def new_L_def new_l22_def not_enq o1_def by force
 
 
-        (* === show ?thesis === *)
+        (* === in show?thesis previouslyinsert fact === *)
         have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
           unfolding l2_def l3_def bt_act_def
           using bt_idx_valid by (simp add: id_take_nth_drop)
 
-        (* === === *)
+        (* === fix after of === *)
         show ?thesis
-          (* Step 1: 1. *)
+          (* 1. onlyunfold one *)
           unfolding step1
-          
-          (* Step 2: 2. *)
+
+          (* 2. apply *)
           apply (rule "1.hyps"(2))
 
-          (* Step 3: 3. tactic: , *)
-          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context} 
-            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def 
+          (* 3. core tactic: unfoldlocaldefinition, goalalign *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
                             bt_act_def l2_last_def o1_def new_l22_def new_L_def bt_idx_def} ))\<close>)
 
-          (* Step 4: 4. (Goals 1-4) *)
-          (* fact_modify do_modify *)
+          (* 4. align (Goals 1-4) *)
+          (* Fix: of fact_modify replace as do_modify *)
           using L_decomp remaining_decomp l2_split do_modify
           apply auto[1]
 
-          (* Step 5: 5. (the (Some x) = x) *)
+          (* 5. (the (Some x) = x) *)
           apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
 
-          (* Step 6: 6. *)
+          (* 6. in physicalfact *)
           using do_modify not_enq c1 hb_new_L di_new mset_new sa_new "1.prems"
           apply simp_all
 
           (* === 7. Subgoal === *)
-          
+
           (* Subgoal: op_name l2_last \<noteq> enq *)
           subgoal
             using l2_last_def l2_def remaining_def last_sa_pos_def
             using not_enq by simp
 
-          (* Subgoal: find_last_enq *)
+          (* Subgoal: find_last_enq match *)
           subgoal
             using l2_split l2_def remaining_def last_sa_pos_def option.sel by simp
 
-          (* Subgoal: happens_before *)
+          (* Subgoal: happens_before branch match *)
           subgoal
             using c1 o1_def l2_def remaining_def last_sa_pos_def
-            using bt_act_def by blast 
+            using bt_act_def by blast
 
           (* Subgoal: HB_consistent new_L *)
           subgoal
-            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             using hb_new_L by simp
 
           (* Subgoal: data_independent new_L *)
           subgoal
-            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             using di_new by simp
 
           (* Subgoal: mset new_L *)
           subgoal
             using mset_new
-            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             by (simp add: ac_simps)
 
           (* Subgoal: in_SA new_L *)
           subgoal
             using sa_new
-            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def 
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
                       remaining_def last_sa_pos_def bt_idx_def
             by simp
-            
+
           done
 
       next
-        case c2 (* === c2 === *)
-        
-        (* Step 1: 1. c2 ( happens_before \<equiv> HB, ) *)
-        have not_hb_strict: "\<not> HB H o1 bt_act" 
-          using c2 by simp
-          
-        have hb_b_o1_strict: "HB H b_act o1" 
+        case c2 (* === c2 branch === *)
+
+        (* 1. extract c2 branch of premise (since happens_before \<equiv> HB, can use directly) *)
+        have not_hb_strict: "\<not> HB H o1 bt_act"
           using c2 by simp
 
-        (* Step 2: 2. *)
+        have hb_b_o1_strict: "HB H b_act o1"
+          using c2 by simp
+
+        (* 2. real of list *)
         have c2_decomp: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
           using L_split_c1 by auto
 
         define new_L where "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
 
-        (* Step 3: 3. modify_step_c2_consistent *)
+        (* 3. precise use already of modify_step_c2_consistent *)
         have hb_new_L: "HB_consistent new_L H"
-          unfolding new_L_def 
+          unfolding new_L_def
           apply (rule modify_step_c2_consistent[where bt_act=bt_act and s=s and L=L])
           apply (rule sys_inv)
           apply (rule "1.prems"(1))
@@ -2795,21 +2789,21 @@ proof -
           apply (rule l22_not_nil)
           apply (rule bt_is_enq)
           apply (rule "1.prems"(4)[unfolded bt_val_eq[symmetric]])
-          apply (rule bt_in_L)        
-          apply (rule o1_def)         
-          apply (rule b_act_enq)      
-          apply (rule b_act_active)   
-          apply (rule b_neq_bt)       
-          apply (rule b_val_sets)     
-          apply (rule not_hb_strict)  
-          apply (rule hb_b_o1_strict) 
-          apply (rule l22_are_all_deq[OF l2_split l22_not_nil]) 
+          apply (rule bt_in_L)
+          apply (rule o1_def)
+          apply (rule b_act_enq)
+          apply (rule b_act_active)
+          apply (rule b_neq_bt)
+          apply (rule b_val_sets)
+          apply (rule not_hb_strict)
+          apply (rule hb_b_o1_strict)
+          apply (rule l22_are_all_deq[OF l2_split l22_not_nil])
           done
 
-        (* Step 4: 4. *)
+        (* 4. preserve its *)
         have mset_new: "mset new_L = mset (lin_seq s)"
           unfolding new_L_def using L_split_c1 "1.prems"(5)
-          by (metis append_assoc case3) 
+          by (metis append_assoc case3)
 
         have di_new: "data_independent new_L"
           using "1.prems"(2) data_independent_cong mset_new "1.prems"(5) by blast
@@ -2817,53 +2811,53 @@ proof -
         have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
           using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
 
-        (* Step 5: 5. ( c1 ) *)
+        (* 5. unfold and (and c1 of operation) *)
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           apply (subst modify_lin.simps)
           apply (simp only: Let_def case_prod_unfold)
-          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric] 
-                            l1_def[symmetric] bt_idx_def[symmetric] 
-                            bt_act_def[symmetric] l2_def[symmetric] 
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
                             l3_def[symmetric] l2_last_def[symmetric])
-          using bt_act_def bt_idx_def c2 do_modify l2_def l2_last_def l2_split 
+          using bt_act_def bt_idx_def c2 do_modify l2_def l2_last_def l2_split
                 l3_def new_L_def not_enq o1_def by force
 
         have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
           unfolding l2_def l3_def bt_act_def
           using bt_idx_valid by (simp add: id_take_nth_drop)
 
-        (* Step 6: 6. : Tactic *)
+        (* 6. final closure: use Tactic match *)
         show ?thesis
           unfolding step1
-          (* rule modify_lin *)
-          apply (rule "1.hyps"(3)) 
-          
-          (* Tactic: , *)
-          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context} 
-                 addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def 
+          (* : make rule when before of modify_lin goal *)
+          apply (rule "1.hyps"(3))
+
+          (* Core Tactic: alldefinition, unfold *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+                 addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
                                  bt_act_def l2_last_def o1_def new_L_def bt_idx_def} ))\<close>)
-          
-          (* Proof note. *)
+
+          (* And boundarygoal *)
           using L_decomp remaining_decomp l2_split do_modify
           apply auto[1]
           apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
-          
-          (* Proof note. *)
+
+          (* In all of physical *)
           using do_modify not_enq c2 hb_new_L di_new mset_new sa_new "1.prems"
           apply simp_all
 
-          (* === Subgoal ( ) === *)
+          (* === Subgoal (precisealign) === *)
           subgoal using l2_last_def l2_def remaining_def last_sa_pos_def not_enq by simp
           subgoal using l2_split l2_def remaining_def last_sa_pos_def option.sel by simp
           subgoal using c2 o1_def l2_def remaining_def last_sa_pos_def bt_act_def by blast
           subgoal using c2 o1_def l2_def remaining_def last_sa_pos_def bt_act_def by blast
-          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def 
+          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
                             remaining_def last_sa_pos_def bt_idx_def using hb_new_L by simp
-          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def 
+          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
                             remaining_def last_sa_pos_def bt_idx_def using di_new by simp
-          subgoal using mset_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def 
+          subgoal using mset_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
                             remaining_def last_sa_pos_def bt_idx_def by (simp add: ac_simps)
-          subgoal using sa_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def 
+          subgoal using sa_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
                             remaining_def last_sa_pos_def bt_idx_def by simp
           done
 
@@ -2872,22 +2866,22 @@ proof -
         define new_l22 where "new_l22 = tl l22"
         define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
 
-        (* Step 1: 1. c3  *)
-        (* L , hd tl *)
+        (* 1. original has of c3 physical prove(fix) *)
+        (* Explicitly package L of, hd and tl of decompose *)
         have c3_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)"
-          using L_split_c1 l22_not_nil o1_def new_l22_def 
+          using L_split_c1 l22_not_nil o1_def new_l22_def
           by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
 
-        (* new_L , c3_decomp *)
+        (* Explicitly package new_L of, complete align c3_decomp of *)
         have new_L_struct: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (new_l22 @ [bt_act] @ l3)"
           unfolding new_L_def by simp
 
         have hb_new_L: "HB_consistent new_L H"
-          unfolding new_L_struct 
+          unfolding new_L_struct
           apply (rule modify_step_c3_new_consistent[OF sys_inv `HB_consistent L H` "1.prems"(3) "1.prems"(5)])
-          (* Proof note. *)
-          using c3_decomp l22_not_nil o1_def new_l22_def b_act_enq o1_deq bt_in_L 
-                bt_is_enq "1.prems"(4) bt_val_eq c3 b_act_active b_neq_bt b_val_sets 
+          (* In of and allpremise *)
+          using c3_decomp l22_not_nil o1_def new_l22_def b_act_enq o1_deq bt_in_L
+                bt_is_enq "1.prems"(4) bt_val_eq c3 b_act_active b_neq_bt b_val_sets
           by auto
 
         have mset_new: "mset new_L = mset (lin_seq s)"
@@ -2900,71 +2894,71 @@ proof -
         have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
           using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
 
-        (* Step 2: 2.  *)
+        (* 2. unfold and (of blow-up avoidance operation) *)
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           apply (subst modify_lin.simps)
           apply (simp only: Let_def case_prod_unfold)
-          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric] 
-                            l1_def[symmetric] bt_idx_def[symmetric] 
-                            bt_act_def[symmetric] l2_def[symmetric] 
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
                             l3_def[symmetric] l2_last_def[symmetric])
-          using bt_act_def bt_idx_def c3 do_modify l2_def l2_last_def l2_split 
+          using bt_act_def bt_idx_def c3 do_modify l2_def l2_last_def l2_split
                 l3_def new_L_def new_l22_def not_enq o1_def by force
 
-        (* remaining , *)
+        (* Remaining of decompose, alignuse *)
         have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
           unfolding l2_def l3_def bt_act_def
           using bt_idx_valid by (simp add: id_take_nth_drop)
 
-        (* Step 3: 3. *)
-        (* Option , *)
+        (* 3. final closure: prove *)
+        (* --- first step: Option value as, is core --- *)
         have fact_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
           using bt_idx_def by simp
-          
+
         have fact_enq: "the (find_last_enq l2) = (l21, b_act, l22)"
           using l2_split by simp
-          
-        (* Proof note. *)
+
+        (* --- second step: unfold as of no original form --- *)
         have fact_hb: "HB_consistent (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) H"
           using hb_new_L unfolding new_L_def by simp
-          
+
         have fact_di: "data_independent (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3)"
           using di_new unfolding new_L_def by simp
-          
+
         have fact_ms: "mset (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) = mset (lin_seq s)"
           using mset_new unfolding new_L_def by simp
-          
+
         have fact_sa: "\<forall>v. in_SA v (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) = in_SA v (lin_seq s)"
           using sa_new unfolding new_L_def by simp
 
-        (* Step 3: 3. *)
-        (* Option *)
+        (* 3. final closure: original original of *)
+        (* Before Option value *)
         have fact_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
           using bt_idx_def by simp
-          
+
         have fact_enq: "the (find_last_enq l2) = (l21, b_act, l22)"
           using l2_split by simp
-          
-        (* 【 】: # , simp *)
+
+        (* [keyalign]: construct has # of, precise simp of *)
         have fact_hb: "HB_consistent (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) (his_seq s)"
           using hb_new_L H_def unfolding new_L_def
-          using "1.prems"(3) by auto 
-          
+          using "1.prems"(3) by auto
+
         have fact_di: "data_independent (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3)"
           using di_new unfolding new_L_def by simp
-          
+
         have fact_ms: "mset (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) = mset (lin_seq s)"
           using mset_new unfolding new_L_def by simp
-          
+
         have fact_sa: "\<forall>v. in_SA v (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) = in_SA v (lin_seq s)"
           using sa_new unfolding new_L_def by simp
 
-        (* Proof note. *)
+        (* --- No. four: and --- *)
         show ?thesis
           unfolding step1 new_L_def
           apply (rule "1.hyps"(4))
-          
-          (* 27 , *)
+
+          (* : is one 27, and does not list of *)
           apply (simp_all add: last_sa_pos_def[symmetric])
           apply (simp_all add: remaining_def[symmetric])
           apply (simp_all add: fact_idx)
@@ -2973,24 +2967,24 @@ proof -
           apply (simp_all add: l2_last_def[symmetric] not_enq)
           apply (simp_all add: o1_def[symmetric] bt_act_def[symmetric] c3 H_def)
           apply (simp_all add: new_l22_def[symmetric])
-          
-          (* 27 let guard *)
-          (* 8 , # , *)
+
+          (* At this point 27 let and guard already all! *)
+          (* Only last of 8 goal, in has # of fact, one! *)
           apply (simp_all add: do_modify fact_hb fact_di fact_ms fact_sa "1.prems" inv_mset inv_sa H_def)
-          (* 27 let guard *)
-          (* , , 4 *)
+          (* At this point 27 let and guard already all! *)
+          (* We then one, and is the of, one of 4 goal: *)
 
-          (* Step 1: 1. should_modify( H his_seq s ) *)
+          (* 1. should_modify(in H and his_seq s of equalfact) *)
           subgoal using do_modify H_def
-            by (simp add: "1.prems"(3)) 
+            by (simp add: "1.prems"(3))
 
-          (* Step 2: 2. l1 *)
+          (* 2. l1 of definition original *)
           subgoal unfolding l1_def by simp
 
-          (* Step 3: 3. l3 (Suc bt_idx bt_idx + 1) *)
+          (* 3. l3 of definition original (Suc bt_idx its then is bt_idx + 1) *)
           subgoal unfolding l3_def by simp
 
-          (* Step 4: 4. mset ( ac_simps + add_mset ) *)
+          (* 4. mset goal(use ac_simps make set of + and add_mset align) *)
           subgoal using fact_ms by (simp add: ac_simps)
 
           done
@@ -3000,27 +2994,1821 @@ proof -
   qed
 qed
 
+lemma modify_preserves_HB_consistent:
+  assumes sys_inv: "system_invariant s"
+  assumes L_def: "L = lin_seq s"
+  assumes H_def: "H = his_seq s"
+  assumes hb_cons: "HB_consistent L H"
+  assumes di: "data_independent L"
+  assumes type_bt: "TypeBT s bt_val"
+  shows "HB_consistent (modify_lin L H bt_val) H"
+proof -
+  have inv_mset:
+    "mset L = mset (lin_seq s)"
+    using L_def
+    by simp
 
-(* Auxiliary lemma: e *)
-(* \<not> HB H e e , HB *)
+  have inv_sa:
+    "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)"
+    using L_def
+    by simp
+
+  show ?thesis
+    by (rule modify_preserves_HB_consistent_local[
+          OF sys_inv H_def hb_cons di type_bt inv_mset inv_sa
+        ])
+qed
+
+
+lemma TypeBT_implies_no_HB_from_local_invs:
+  assumes HI16: "hI16_BO_BT_No_HB s"
+  assumes HI17: "hI17_BT_BT_No_HB s"
+  assumes type_bt: "TypeBT s (op_val bt_act)"
+  assumes x_active: "x \<in> active_enqs s"
+  assumes not_eq: "x \<noteq> bt_act"
+  assumes x_is_enq: "op_name x = enq"
+  assumes bt_is_enq: "op_name bt_act = enq"
+  assumes bt_val_valid: "op_val bt_act \<in> Val"
+  assumes val_in_sets: "op_val x \<in> SetBO s \<or> op_val x \<in> SetBT s"
+  shows "\<not> HB_Act s x bt_act"
+proof
+  assume hb: "HB_Act s x bt_act"
+
+  let ?v = "op_val x"
+  let ?bt_v = "op_val bt_act"
+
+  have bt_in_SetBT: "?bt_v \<in> SetBT s"
+    using type_bt bt_val_valid
+    unfolding SetBT_def
+    by simp
+
+  have val_hb: "HB_EnqRetCall s ?v ?bt_v"
+    unfolding HB_EnqRetCall_def
+    apply (rule exI[where x="op_pid x"])
+    apply (rule exI[where x="op_pid bt_act"])
+    using hb x_is_enq bt_is_enq
+    unfolding mk_op_def
+    by (metis op_name_def op_pid_def op_val_def split_pairs)
+
+  show False
+    using val_in_sets
+  proof
+    assume in_BO: "op_val x \<in> SetBO s"
+    have "\<not> HB_EnqRetCall s ?v ?bt_v"
+      using HI16 in_BO bt_in_SetBT
+      unfolding hI16_BO_BT_No_HB_def
+      by blast
+    thus False
+      using val_hb by simp
+  next
+    assume in_BT: "op_val x \<in> SetBT s"
+    have "\<not> HB_EnqRetCall s ?v ?bt_v"
+      using HI17 in_BT bt_in_SetBT
+      unfolding hI17_BT_BT_No_HB_def
+      by blast
+    thus False
+      using val_hb by simp
+  qed
+qed
+
+
+lemma lin_seq_enq_in_sets_from_LI1:
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes x_in_seq: "x \<in> set (lin_seq s)"
+  assumes is_enq: "op_name x = enq"
+  shows "op_val x \<in> SetA s \<union> SetB s"
+proof -
+  have "x \<in> OPLin s"
+    using x_in_seq
+    unfolding OPLin_def
+    by simp
+
+  hence x_union:
+    "x \<in> OP_A_enq s \<union> OP_A_deq s \<union> OP_B_enq s"
+    using LI1
+    unfolding lI1_Op_Sets_Equivalence_def
+    by simp
+
+  have "x \<notin> OP_A_deq s"
+    unfolding OP_A_deq_def
+    using is_enq
+    by simp
+
+  hence x_source:
+    "x \<in> OP_A_enq s \<union> OP_B_enq s"
+    using x_union
+    by blast
+
+  show ?thesis
+  proof (cases "x \<in> OP_A_enq s")
+    case True
+    then obtain p a sn where
+      x_eq: "x = mk_op enq a p sn"
+      and a_in: "a \<in> SetA s"
+      unfolding OP_A_enq_def
+      by blast
+
+    hence "op_val x = a"
+      unfolding mk_op_def op_val_def
+      by simp
+
+    thus ?thesis
+      using a_in by blast
+  next
+    case False
+    hence "x \<in> OP_B_enq s"
+      using x_source by blast
+
+    then obtain p b sn where
+      x_eq: "x = mk_op enq b p sn"
+      and b_in: "b \<in> SetB s"
+      unfolding OP_B_enq_def
+      by blast
+
+    hence "op_val x = b"
+      unfolding mk_op_def op_val_def
+      by simp
+
+    thus ?thesis
+      using b_in by blast
+  qed
+qed
+
+
+lemma LinSeq_Enq_State_Mapping_from_LI1:
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes a_in_seq: "a \<in> set (lin_seq s)"
+  assumes is_enq: "op_name a = enq"
+  assumes not_in_SetA: "op_val a \<notin> SetA s"
+  shows "op_val a \<in> SetBO s \<or> op_val a \<in> SetBT s"
+proof -
+  have val_range: "op_val a \<in> SetA s \<union> SetB s"
+    using lin_seq_enq_in_sets_from_LI1[OF LI1 a_in_seq is_enq] .
+
+  hence "op_val a \<in> SetB s"
+    using not_in_SetA
+    by auto
+
+  thus ?thesis
+    unfolding SetB_partition
+    by auto
+qed
+
+
+lemma SetA_implies_in_SA_from_LI2:
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes a_in_SetA: "a \<in> SetA s"
+  shows "in_SA a (lin_seq s)"
+proof -
+  let ?L = "lin_seq s"
+  let ?Pe = "\<lambda>x. op_name x = enq \<and> op_val x = a"
+  let ?Pd = "\<lambda>x. op_name x = deq \<and> op_val x = a"
+
+  have card_enq:
+    "card (EnqIdxs s a) = 1"
+    using LI2 a_in_SetA
+    unfolding lI2_Op_Cardinality_def
+    by auto
+
+  have card_deq:
+    "card (DeqIdxs s a) = 1"
+    using LI2 a_in_SetA
+    unfolding lI2_Op_Cardinality_def
+    by auto
+
+  have card_enq':
+    "card {i. i < length ?L \<and> ?Pe (?L ! i)} = 1"
+    using card_enq
+    unfolding EnqIdxs_def
+    by simp
+
+  have card_deq':
+    "card {i. i < length ?L \<and> ?Pd (?L ! i)} = 1"
+    using card_deq
+    unfolding DeqIdxs_def
+    by simp
+
+  obtain eidx where eidx:
+    "find_unique_index ?Pe ?L = Some eidx"
+    using find_unique_index_card_1[OF card_enq']
+    by blast
+
+  obtain didx where didx:
+    "find_unique_index ?Pd ?L = Some didx"
+    using find_unique_index_card_1[OF card_deq']
+    by blast
+
+  show ?thesis
+    unfolding in_SA_def
+    using eidx didx
+    by simp
+qed
+
+lemma modify_step_c0_consistent_local:
+  assumes H_cons: "HB_consistent L H"
+  assumes H_def: "H = his_seq s"
+  assumes di: "data_independent L"
+  assumes mset_eq: "mset L = mset (lin_seq s)"
+  assumes sa_iso: "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)"
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes HI16: "hI16_BO_BT_No_HB s"
+  assumes HI17: "hI17_BT_BT_No_HB s"
+  assumes L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
+  assumes l2_decomp: "l2 = ll2 @ [l2_last]"
+  assumes last_sa_pos_def: "last_sa_pos = find_last_SA L"
+  assumes l1_def: "l1 = take (nat (last_sa_pos + 1)) L"
+  assumes l2_last_enq: "op_name l2_last = enq"
+  assumes bt_is_enq: "op_name bt_act = enq"
+  assumes bt_val_type: "TypeBT s (op_val bt_act)"
+  shows "HB_consistent (l1 @ ll2 @ [bt_act] @ [l2_last] @ l3) H"
+proof -
+  define pre where "pre = l1 @ ll2"
+
+  have L_struct:
+    "L = pre @ [l2_last] @ [bt_act] @ l3"
+    using L_decomp l2_decomp pre_def
+    by simp
+
+  have not_hb:
+    "\<not> HB H l2_last bt_act"
+  proof -
+    have target:
+      "\<not> HB_Act s l2_last bt_act"
+    proof (rule TypeBT_implies_no_HB_from_local_invs)
+      show "hI16_BO_BT_No_HB s"
+        using HI16 .
+    next
+      show "hI17_BT_BT_No_HB s"
+        using HI17 .
+    next
+      show "TypeBT s (op_val bt_act)"
+        using bt_val_type .
+    next
+      show "l2_last \<in> active_enqs s"
+      proof -
+        define rest where "rest = ll2 @ [l2_last] @ [bt_act] @ l3"
+
+        have L_split:
+          "L = l1 @ rest"
+          using L_decomp l2_decomp rest_def
+          by simp
+
+        have rest_not_nil:
+          "rest \<noteq> []"
+          unfolding rest_def
+          by simp
+
+        have all_succ_not_SA:
+          "\<forall>i. i \<ge> length l1 \<and> i < length L \<and>
+               op_name (L ! i) = enq \<longrightarrow>
+               \<not> in_SA (op_val (L ! i)) L"
+          using l1_contains_all_SA_in_L[
+            OF di L_split rest_not_nil l1_def last_sa_pos_def
+          ]
+          by simp
+
+        let ?idx = "length pre"
+
+        have idx_ge:
+          "?idx \<ge> length l1"
+          unfolding pre_def
+          by simp
+
+        have idx_valid:
+          "?idx < length L"
+          using L_struct
+          by simp
+
+        have is_l2_last:
+          "L ! ?idx = l2_last"
+          using L_struct
+          by (simp add: nth_append)
+
+        have not_sa:
+          "\<not> in_SA (op_val l2_last) L"
+          using all_succ_not_SA idx_ge idx_valid is_l2_last l2_last_enq
+          by blast
+
+        have in_lin_seq:
+          "l2_last \<in> set (lin_seq s)"
+          using L_struct mset_eq
+          by (metis idx_valid is_l2_last mset_eq_setD nth_mem)
+
+        have not_sa_s:
+          "\<not> in_SA (op_val l2_last) (lin_seq s)"
+          using not_sa sa_iso
+          by auto
+
+        show ?thesis
+          using non_SA_enqs_are_active[OF LI1 LI2]
+                in_lin_seq l2_last_enq not_sa_s
+          by blast
+      qed
+    next
+      show "l2_last \<noteq> bt_act"
+      proof
+        assume eq: "l2_last = bt_act"
+
+        have idx0: "length pre < length L"
+          using L_struct
+          by simp
+
+        have idx1: "Suc (length pre) < length L"
+          using L_struct
+          by simp
+
+        have val_eq:
+          "op_val (L ! length pre) = op_val (L ! Suc (length pre))"
+          using eq L_struct l2_last_enq bt_is_enq
+          by (simp add: nth_append)
+
+        have "length pre = Suc (length pre)"
+          apply (rule same_enq_value_same_index[OF di])
+          using idx0 idx1 L_struct l2_last_enq bt_is_enq val_eq
+          by (auto simp: nth_append)
+
+        thus False
+          by simp
+      qed
+    next
+      show "op_name l2_last = enq"
+        using l2_last_enq .
+    next
+      show "op_name bt_act = enq"
+        using bt_is_enq .
+    next
+      show "op_val bt_act \<in> Val"
+      proof -
+        have "bt_act \<in> set (lin_seq s)"
+          using L_struct mset_eq
+          by (metis append_assoc append_Cons in_set_conv_decomp mset_eq_setD)
+
+        hence "op_val bt_act \<in> SetA s \<union> SetB s"
+          using lin_seq_enq_in_sets_from_LI1[OF LI1 _ bt_is_enq]
+          by simp
+
+        thus ?thesis
+          unfolding SetA_def SetB_def
+          by blast
+      qed
+    next
+      show "op_val l2_last \<in> SetBO s \<or> op_val l2_last \<in> SetBT s"
+      proof -
+        have not_SetA:
+          "op_val l2_last \<notin> SetA s"
+        proof
+          assume in_SetA:
+            "op_val l2_last \<in> SetA s"
+
+          have in_sa_s:
+            "in_SA (op_val l2_last) (lin_seq s)"
+            using SetA_implies_in_SA_from_LI2[OF LI2 in_SetA] .
+
+          hence in_sa_L:
+            "in_SA (op_val l2_last) L"
+            using sa_iso
+            by simp
+
+          define rest where "rest = ll2 @ [l2_last] @ [bt_act] @ l3"
+
+          have L_split:
+            "L = l1 @ rest"
+            using L_decomp l2_decomp rest_def
+            by simp
+
+          have rest_not_nil:
+            "rest \<noteq> []"
+            unfolding rest_def
+            by simp
+
+          have all_succ_not_SA:
+            "\<forall>i. i \<ge> length l1 \<and> i < length L \<and>
+                 op_name (L ! i) = enq \<longrightarrow>
+                 \<not> in_SA (op_val (L ! i)) L"
+            using l1_contains_all_SA_in_L[
+              OF di L_split rest_not_nil l1_def last_sa_pos_def
+            ]
+            by simp
+
+          let ?idx = "length pre"
+
+          have idx_ge:
+            "?idx \<ge> length l1"
+            unfolding pre_def
+            by simp
+
+          have idx_valid:
+            "?idx < length L"
+            using L_struct
+            by simp
+
+          have val_at_idx:
+            "L ! ?idx = l2_last"
+            using L_struct
+            by (simp add: nth_append)
+
+          have is_enq:
+            "op_name (L ! ?idx) = enq"
+            using val_at_idx l2_last_enq
+            by simp
+
+          have "\<not> in_SA (op_val l2_last) L"
+            using all_succ_not_SA idx_ge idx_valid is_enq val_at_idx
+            by blast
+
+          thus False
+            using in_sa_L
+            by simp
+        qed
+
+        have in_lin_seq:
+          "l2_last \<in> set (lin_seq s)"
+          using L_struct mset_eq
+          by (metis append_Cons in_set_conv_decomp mset_eq_setD)
+
+        show ?thesis
+          using LinSeq_Enq_State_Mapping_from_LI1[
+            OF LI1 in_lin_seq l2_last_enq not_SetA
+          ] .
+      qed
+    qed
+
+    thus ?thesis
+      unfolding HB_Act_def H_def .
+  qed
+
+  have "HB_consistent (pre @ [bt_act] @ [l2_last] @ l3) H"
+  proof (rule HB_swap_adjacent)
+    show "HB_consistent (pre @ [l2_last] @ [bt_act] @ l3) H"
+      using H_cons L_struct
+      by simp
+  next
+    show "\<not> HB H l2_last bt_act"
+      using not_hb .
+  qed
+
+  thus ?thesis
+    unfolding pre_def
+    by simp
+qed
+
+lemma lemma_Call_Before_Ret_local:
+  assumes HI7: "hI7_His_WF s"
+  assumes HI5: "hI5_SSN_Unique s"
+  assumes H_def: "H = his_seq s"
+  assumes k_call: "k_call < length H" "match_call H k_call b"
+  assumes k_ret:  "k_ret < length H"  "match_ret H k_ret b"
+  shows "k_call < k_ret"
+proof -
+  have is_ret:
+    "act_cr (H ! k_ret) = ret"
+    "act_pid (H ! k_ret) = op_pid b"
+    "act_ssn (H ! k_ret) = op_ssn b"
+    using k_ret(2)
+    unfolding match_ret_def Let_def
+    by auto
+
+  have is_call:
+    "act_cr (H ! k_call) = call"
+    "act_pid (H ! k_call) = op_pid b"
+    "act_ssn (H ! k_call) = op_ssn b"
+    using k_call(2)
+    unfolding match_call_def Let_def
+    by auto
+
+  obtain j where j_props:
+    "j < k_ret"
+    "act_cr (H ! j) = call"
+    "act_pid (H ! j) = op_pid b"
+    "act_ssn (H ! j) = op_ssn b"
+  proof -
+    from HI7 k_ret(1) is_ret(1)
+    have "\<exists>j < k_ret.
+            act_pid (H ! j) = act_pid (H ! k_ret) \<and>
+            act_ssn (H ! j) = act_ssn (H ! k_ret) \<and>
+            act_cr (H ! j) = call"
+      unfolding hI7_His_WF_def H_def Let_def
+      by meson
+
+    then obtain j where
+      "j < k_ret"
+      "act_cr (H ! j) = call"
+      "act_pid (H ! j) = act_pid (H ! k_ret)"
+      "act_ssn (H ! j) = act_ssn (H ! k_ret)"
+      by blast
+
+    thus ?thesis
+      using is_ret(2) is_ret(3) that
+      by simp
+  qed
+
+  have j_len:
+    "j < length H"
+    using j_props(1) k_ret(1)
+    by simp
+
+  have "j = k_call"
+  proof (rule ccontr)
+    assume neq: "j \<noteq> k_call"
+
+    have same:
+      "act_pid (H ! j) = act_pid (H ! k_call) \<and>
+       act_ssn (H ! j) = act_ssn (H ! k_call) \<and>
+       act_cr (H ! j) = act_cr (H ! k_call)"
+      using j_props is_call
+      by simp
+
+    show False
+      using HI5 j_len k_call(1) neq same
+      unfolding hI5_SSN_Unique_def H_def
+      by blast
+  qed
+
+  thus ?thesis
+    using j_props(1)
+    by simp
+qed
+
+
+lemma HB_transitive_lemma_local:
+  assumes HI7: "hI7_His_WF s"
+  assumes HI5: "hI5_SSN_Unique s"
+  assumes H_def: "H = his_seq s"
+  assumes hb_ab: "HB_Act s a b"
+  assumes hb_bc: "HB_Act s b c"
+  assumes b_unique: "op_name b = enq \<or> op_val b \<in> Val"
+  shows "HB_Act s a c"
+proof -
+  obtain kr_a kc_b where ab:
+    "kr_a < kc_b"
+    "match_ret H kr_a a"
+    "match_call H kc_b b"
+  proof -
+    from hb_ab
+    have "\<exists>k1 k2. k1 < k2 \<and> match_ret H k1 a \<and> match_call H k2 b"
+      unfolding HB_Act_def HB_def H_def[symmetric]
+      by blast
+    thus ?thesis
+      using that
+      by blast
+  qed
+
+  obtain kr_b kc_c where bc:
+    "kr_b < kc_c"
+    "match_ret H kr_b b"
+    "match_call H kc_c c"
+  proof -
+    from hb_bc
+    have "\<exists>k1 k2. k1 < k2 \<and> match_ret H k1 b \<and> match_call H k2 c"
+      unfolding HB_Act_def HB_def H_def[symmetric]
+      by blast
+    thus ?thesis
+      using that
+      by blast
+  qed
+
+  have kc_b_len:
+    "kc_b < length H"
+    using ab(3)
+    unfolding match_call_def Let_def
+    by simp
+
+  have kr_b_len:
+    "kr_b < length H"
+    using bc(2)
+    unfolding match_ret_def Let_def
+    by simp
+
+  have call_before_ret:
+    "kc_b < kr_b"
+    using lemma_Call_Before_Ret_local[
+      OF HI7 HI5 H_def kc_b_len ab(3) kr_b_len bc(2)
+    ] .
+
+  have "kr_a < kc_c"
+    using ab(1) call_before_ret bc(1)
+    by linarith
+
+  show ?thesis
+    unfolding HB_Act_def HB_def H_def[symmetric]
+    using `kr_a < kc_c` ab(2) bc(3)
+    by blast
+qed
+
+lemma modify_step_c1_consistent_local:
+  assumes H_cons: "HB_consistent L H"
+  assumes H_def: "H = his_seq s"
+  assumes mset_eq: "mset L = mset (lin_seq s)"
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes HI5: "hI5_SSN_Unique s"
+  assumes HI7: "hI7_His_WF s"
+  assumes HI16: "hI16_BO_BT_No_HB s"
+  assumes HI17: "hI17_BT_BT_No_HB s"
+  assumes L_decomp: "L = prefix @ [b_act] @ [o1] @ suffix"
+  assumes b_is_enq: "op_name b_act = enq"
+  assumes o1_is_deq: "op_name o1 = deq"
+  assumes bt_in_L: "bt_act \<in> set L"
+  assumes bt_is_enq: "op_name bt_act = enq"
+  assumes bt_val_type: "TypeBT s (op_val bt_act)"
+  assumes hb_o1_bt: "HB H o1 bt_act"
+  assumes b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
+  shows "HB_consistent (prefix @ [o1] @ [b_act] @ suffix) H"
+proof -
+  have not_hb_b_o1:
+    "\<not> HB H b_act o1"
+  proof
+    assume hb_b_o1: "HB H b_act o1"
+
+    have hb_b_bt:
+      "HB_Act s b_act bt_act"
+    proof -
+      have hb1: "HB_Act s b_act o1"
+        using hb_b_o1
+        unfolding HB_Act_def H_def
+        by simp
+
+      have hb2: "HB_Act s o1 bt_act"
+        using hb_o1_bt
+        unfolding HB_Act_def H_def
+        by simp
+
+      have o1_unique:
+        "op_name o1 = enq \<or> op_val o1 \<in> Val"
+      proof -
+        have o1_in_L: "o1 \<in> set L"
+          using L_decomp by auto
+
+        have o1_in_lin:
+          "o1 \<in> set (lin_seq s)"
+          using o1_in_L mset_eq
+          by (metis mset_eq_setD)
+
+        have val_valid:
+          "op_val o1 \<in> Val"
+        proof -
+          have o1_deq: "op_name o1 = deq"
+            using o1_is_deq .
+
+          have o1_oplin: "o1 \<in> OPLin s"
+            using o1_in_lin
+            unfolding OPLin_def
+            by simp
+
+          have o1_union:
+            "o1 \<in> OP_A_enq s \<union> OP_A_deq s \<union> OP_B_enq s"
+            using LI1 o1_oplin
+            unfolding lI1_Op_Sets_Equivalence_def
+            by blast
+
+          have not_A_enq: "o1 \<notin> OP_A_enq s"
+          proof
+            assume "o1 \<in> OP_A_enq s"
+            then obtain q v sn where
+              o1_eq: "o1 = mk_op enq v q sn"
+              unfolding OP_A_enq_def
+              by blast
+            hence "op_name o1 = enq"
+              unfolding mk_op_def op_name_def
+              by simp
+            thus False
+              using o1_deq by simp
+          qed
+
+          have not_B_enq: "o1 \<notin> OP_B_enq s"
+          proof
+            assume "o1 \<in> OP_B_enq s"
+            then obtain q v sn where
+              o1_eq: "o1 = mk_op enq v q sn"
+              unfolding OP_B_enq_def
+              by blast
+            hence "op_name o1 = enq"
+              unfolding mk_op_def op_name_def
+              by simp
+            thus False
+              using o1_deq by simp
+          qed
+
+          have o1_A_deq: "o1 \<in> OP_A_deq s"
+            using o1_union not_A_enq not_B_enq
+            by blast
+
+          hence "op_val o1 \<in> SetA s"
+            unfolding OP_A_deq_def
+            by auto
+
+          thus ?thesis
+            unfolding SetA_def
+            by auto
+        qed
+
+
+        show ?thesis
+          using val_valid by simp
+      qed
+
+      show ?thesis
+        using HB_transitive_lemma_local[
+          OF HI7 HI5 H_def hb1 hb2 o1_unique
+        ] .
+    qed
+
+    have bt_val_valid:
+      "op_val bt_act \<in> Val"
+    proof -
+      have "bt_act \<in> set (lin_seq s)"
+        using bt_in_L mset_eq
+        by (metis mset_eq_setD)
+
+      hence "op_val bt_act \<in> SetA s \<union> SetB s"
+        using lin_seq_enq_in_sets_from_LI1[OF LI1 _ bt_is_enq]
+        by simp
+
+      thus ?thesis
+        unfolding SetA_def SetB_def
+        by blast
+    qed
+
+    have bt_in_SetBT:
+      "op_val bt_act \<in> SetBT s"
+      using bt_val_type bt_val_valid
+      unfolding SetBT_def
+      by simp
+
+    have b_act_mk:
+      "mk_op enq (op_val b_act) (op_pid b_act) (op_ssn b_act) = b_act"
+      using b_is_enq
+      by (cases b_act)
+         (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+    have bt_act_mk:
+      "mk_op enq (op_val bt_act) (op_pid bt_act) (op_ssn bt_act) = bt_act"
+      using bt_is_enq
+      by (cases bt_act)
+         (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+    have hb_val:
+      "HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+      unfolding HB_EnqRetCall_def
+    proof (intro exI)
+      show "HB_Act s
+              (mk_op enq (op_val b_act) (op_pid b_act) (op_ssn b_act))
+              (mk_op enq (op_val bt_act) (op_pid bt_act) (op_ssn bt_act))"
+        using hb_b_bt b_act_mk bt_act_mk
+        by simp
+    qed
+
+    show False
+      using b_val_sets
+    proof
+      assume b_BO: "op_val b_act \<in> SetBO s"
+
+      have "\<not> HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+        using HI16 b_BO bt_in_SetBT
+        unfolding hI16_BO_BT_No_HB_def
+        by blast
+
+      thus False
+        using hb_val
+        by simp
+    next
+      assume b_BT: "op_val b_act \<in> SetBT s"
+
+      have "\<not> HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+        using HI17 b_BT bt_in_SetBT
+        unfolding hI17_BT_BT_No_HB_def
+        by blast
+
+      thus False
+        using hb_val
+        by simp
+    qed
+  qed
+
+  have "HB_consistent (prefix @ [o1] @ [b_act] @ suffix) H"
+  proof (rule HB_swap_adjacent)
+    show "HB_consistent (prefix @ [b_act] @ [o1] @ suffix) H"
+      using H_cons L_decomp
+      by simp
+  next
+    show "\<not> HB H b_act o1"
+      using not_hb_b_o1 .
+  qed
+
+  thus ?thesis .
+qed
+
+
+lemma modify_step_c2_consistent_local:
+  assumes hb_cons: "HB_consistent L H"
+  assumes H_def: "H = his_seq s"
+  assumes inv_mset: "mset L = mset (lin_seq s)"
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes HI16: "hI16_BO_BT_No_HB s"
+  assumes HI17: "hI17_BT_BT_No_HB s"
+
+  assumes L_def: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
+  assumes l22_not_nil: "l22 \<noteq> []"
+
+  assumes bt_enq: "op_name bt_act = enq"
+  assumes bt_type: "TypeBT s (op_val bt_act)"
+  assumes bt_in: "bt_act \<in> set L"
+
+  assumes o1_def: "o1 = hd l22"
+  assumes b_enq: "op_name b_act = enq"
+  assumes b_val: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
+
+  assumes not_c1: "\<not> HB H o1 bt_act"
+  assumes c2: "HB H b_act o1"
+
+  assumes l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
+
+  shows "HB_consistent (l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3) H"
+proof -
+  define pre where "pre = l1 @ l21"
+  define middle where "middle = [b_act] @ l22"
+
+  have L_struct:
+    "L = pre @ middle @ [bt_act] @ l3"
+    using L_def pre_def middle_def
+    by simp
+
+  have L_struct_simple:
+    "L = pre @ [b_act] @ l22 @ [bt_act] @ l3"
+    using L_def pre_def
+    by simp
+
+  have bt_val_valid:
+    "op_val bt_act \<in> Val"
+  proof -
+    have "bt_act \<in> set (lin_seq s)"
+      using bt_in inv_mset
+      by (metis mset_eq_setD)
+
+    hence "op_val bt_act \<in> SetA s \<union> SetB s"
+      using lin_seq_enq_in_sets_from_LI1[OF LI1 _ bt_enq]
+      by simp
+
+    thus ?thesis
+      unfolding SetA_def SetB_def
+      by blast
+  qed
+
+  have bt_in_SetBT:
+    "op_val bt_act \<in> SetBT s"
+    using bt_type bt_val_valid
+    unfolding SetBT_def
+    by simp
+
+  have not_hb_b_bt:
+    "\<not> HB H b_act bt_act"
+  proof
+    assume hb_b_bt: "HB H b_act bt_act"
+
+    have hb_b_bt_act:
+      "HB_Act s b_act bt_act"
+      using hb_b_bt H_def
+      unfolding HB_Act_def
+      by simp
+
+    have b_act_mk:
+      "mk_op enq (op_val b_act) (op_pid b_act) (op_ssn b_act) = b_act"
+      using b_enq
+      by (cases b_act)
+         (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+    have bt_act_mk:
+      "mk_op enq (op_val bt_act) (op_pid bt_act) (op_ssn bt_act) = bt_act"
+      using bt_enq
+      by (cases bt_act)
+         (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+    have hb_rel:
+      "HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+      unfolding HB_EnqRetCall_def
+    proof -
+      have "HB_Act s
+              (mk_op enq (op_val b_act) (op_pid b_act) (op_ssn b_act))
+              (mk_op enq (op_val bt_act) (op_pid bt_act) (op_ssn bt_act))"
+        using hb_b_bt_act b_act_mk bt_act_mk
+        by simp
+
+      thus "\<exists>p1 p2 sn1 sn2.
+              HB_Act s
+                (mk_op enq (op_val b_act) p1 sn1)
+                (mk_op enq (op_val bt_act) p2 sn2)"
+        by blast
+    qed
+
+    show False
+      using b_val
+    proof
+      assume in_BO: "op_val b_act \<in> SetBO s"
+
+      have "\<not> HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+        using HI16 in_BO bt_in_SetBT
+        unfolding hI16_BO_BT_No_HB_def
+        by blast
+
+      thus False
+        using hb_rel
+        by simp
+    next
+      assume in_BT_b: "op_val b_act \<in> SetBT s"
+
+      have "\<not> HB_EnqRetCall s (op_val b_act) (op_val bt_act)"
+        using HI17 in_BT_b bt_in_SetBT
+        unfolding hI17_BT_BT_No_HB_def
+        by blast
+
+      thus False
+        using hb_rel
+        by simp
+    qed
+  qed
+
+  have no_hb_l22:
+    "\<forall>d \<in> set l22. \<not> HB H d bt_act"
+  proof
+    fix d
+    assume d_in: "d \<in> set l22"
+
+    define idx_o1 where "idx_o1 = length pre + 1"
+
+    obtain k where
+      k_valid: "k < length l22"
+      and d_at_k: "l22 ! k = d"
+      using d_in
+      by (auto simp: in_set_conv_nth)
+
+    define idx_d where "idx_d = idx_o1 + k"
+
+    have idx_o1_valid:
+      "idx_o1 < length L"
+      using L_struct_simple l22_not_nil idx_o1_def
+      by simp
+
+    have idx_d_valid:
+      "idx_d < length L"
+      using L_struct_simple idx_o1_def idx_d_def k_valid
+      by simp
+
+    have L_at_idx_o1:
+      "L ! idx_o1 = o1"
+    proof -
+      obtain xs where l22_cons:
+        "l22 = o1 # xs"
+      proof -
+        obtain y ys where l22_y:
+          "l22 = y # ys"
+          using l22_not_nil
+          by (cases l22) auto
+
+        hence "y = o1"
+          using o1_def
+          by simp
+
+        hence "l22 = o1 # ys"
+          using l22_y
+          by simp
+
+        thus ?thesis
+          using that
+          by blast
+      qed
+
+      have L_cons:
+        "L = pre @ [b_act] @ [o1] @ xs @ [bt_act] @ l3"
+        using L_struct_simple l22_cons
+        by simp
+
+      show ?thesis
+        unfolding idx_o1_def
+        using L_cons
+        by (simp add: nth_append)
+    qed
+
+    have idx_val:
+      "idx_d = length pre + 1 + k"
+      using idx_d_def idx_o1_def
+      by simp
+
+    have L_at_idx_d:
+      "L ! idx_d = d"
+      unfolding L_struct_simple idx_val
+      using d_at_k k_valid
+      by (simp add: nth_append)
+
+    have order:
+      "idx_o1 \<le> idx_d"
+      unfolding idx_d_def
+      by simp
+
+    have o1_is_deq:
+      "op_name o1 = deq"
+      using o1_def l22_not_nil l22_deqs
+      by auto
+
+    show "\<not> HB H d bt_act"
+      by (rule HB_barrier_protection[OF hb_cons
+            idx_o1_valid idx_d_valid
+            L_at_idx_o1 L_at_idx_d order
+            c2 not_hb_b_bt bt_enq o1_is_deq])
+  qed
+
+  have middle_safe:
+    "\<forall>m \<in> set middle. \<not> HB H m bt_act"
+    using not_hb_b_bt no_hb_l22
+    unfolding middle_def
+    by auto
+
+  have list_eq:
+    "l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 =
+     pre @ [bt_act] @ middle @ l3"
+    unfolding pre_def middle_def
+    by simp
+
+  show ?thesis
+    unfolding list_eq
+  proof (rule HB_jump_left)
+    show "HB_consistent (pre @ middle @ [bt_act] @ l3) H"
+      using hb_cons L_struct
+      by simp
+  next
+    show "\<forall>m\<in>set middle. \<not> HB H m bt_act"
+      using middle_safe .
+  qed
+qed
+
+lemma modify_preserves_HB_consistent_from_local_invs:
+  assumes H_EQ: "H = his_seq s"
+  assumes HB: "HB_consistent L H"
+  assumes DI: "data_independent L"
+  assumes TYPEBT: "TypeBT s bt_val"
+  assumes MSET: "mset L = mset (lin_seq s)"
+  assumes SA: "\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)"
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes LI4: "lI4_FIFO_Semantics s"
+  assumes HI5: "hI5_SSN_Unique s"
+  assumes HI7: "hI7_His_WF s"
+  assumes HI16: "hI16_BO_BT_No_HB s"
+  assumes HI17: "hI17_BT_BT_No_HB s"
+  assumes HI20: "hI20_Enq_Val_Valid s"
+  shows "HB_consistent (modify_lin L H bt_val) H"
+proof -
+  show ?thesis
+    using HB DI H_EQ TYPEBT MSET SA
+  proof (induct L H bt_val rule: modify_lin.induct)
+    case (1 L H bt_val)
+
+    have H_def_local: "H = his_seq s"
+      using "1.prems"(3) .
+
+    show ?case
+    proof (cases "should_modify L H bt_val")
+      case False
+      then show ?thesis using "1.prems"(1)
+        by (subst modify_lin.simps, simp)
+    next
+      case True
+      note do_modify = True
+
+      define last_sa_pos where "last_sa_pos = find_last_SA L"
+      define remaining where "remaining = drop (nat (last_sa_pos + 1)) L"
+
+      have search_not_none: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
+      proof (rule ccontr)
+        assume "\<not> ?thesis"
+        hence "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = None" by simp
+        thus False using do_modify unfolding should_modify_def Let_def remaining_def last_sa_pos_def by simp
+      qed
+
+      then obtain bt_idx where bt_idx_def:
+        "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
+        by auto
+
+      have bt_idx_valid: "bt_idx < length remaining"
+        using bt_idx_def by (rule find_unique_index_Some_less_length)
+
+      define l1 where "l1 = take (nat (last_sa_pos + 1)) L"
+      define l2 where "l2 = take bt_idx remaining"
+      define l3 where "l3 = drop (Suc bt_idx) remaining"
+      define bt_act where "bt_act = remaining ! bt_idx"
+
+      (* Basic prove *)
+      have bt_in_L: "bt_act \<in> set L"
+        unfolding bt_act_def remaining_def
+        by (metis bt_idx_valid in_set_dropD nth_mem remaining_def)
+
+      have bt_is_enq: "op_name bt_act = enq"
+        using bt_idx_def unfolding bt_act_def
+        using find_unique_index_prop by auto
+
+      have bt_val_eq: "op_val bt_act = bt_val"
+        using bt_idx_def unfolding bt_act_def
+        using find_unique_index_prop by auto
+
+      have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
+        unfolding l1_def remaining_def using bt_idx_valid l2_def l3_def bt_act_def Cons_nth_drop_Suc
+        using remaining_def
+        by (metis append.left_neutral append_Cons append_take_drop_id)
+
+      have l2_not_nil: "l2 \<noteq> []"
+      proof (cases "l2 = []")
+        case True
+        have "bt_idx = 0" using True l2_def
+          using bt_idx_valid by force
+        have False using do_modify unfolding should_modify_def Let_def
+          using `bt_idx = 0` bt_idx_def last_sa_pos_def remaining_def by force
+        then show ?thesis ..
+      next
+        case False then show ?thesis by simp
+      qed
+
+      define l2_last where "l2_last = last l2"
+
+      show ?thesis
+      proof (cases "op_name l2_last = enq")
+
+        case True (* === c0: Enq Case === *)
+        note l2_last_enq = True
+        define ll2 where "ll2 = butlast l2"
+        define new_L where "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"
+
+        have local_di: "data_independent L" using "1.prems"(2) by blast
+        have l2_split_exact: "l2 = ll2 @ [l2_last]" using l2_not_nil l2_last_def ll2_def by simp
+
+        (* === decomposefact, after aligngoaluse === *)
+        have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
+          unfolding l2_def l3_def bt_act_def
+          using bt_idx_valid by (simp add: id_take_nth_drop)
+
+        (* Prove new_L preserveinvariant *)
+        have mset_new: "mset new_L = mset (lin_seq s)"
+          unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def ll2_def remaining_def
+          using L_decomp l2_split_exact "1.prems"(5)
+          by (metis bt_act_def case1 l1_def l2_def l2_not_nil l3_def
+              remaining_def)
+
+        have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
+          using "1.prems"(6) in_SA_mset_eq mset_new "1.prems"(5) by  blast
+
+        have di_new: "data_independent new_L"
+          using local_di data_independent_cong mset_new "1.prems"(5) by blast
+
+        have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
+          unfolding l1_def remaining_def l2_def l3_def bt_act_def l2_last_def last_sa_pos_def
+          using bt_idx_def do_modify True apply (subst modify_lin.simps)
+          apply (simp only: Let_def case_prod_unfold)
+          by (simp add: bt_act_def l1_def l2_def l2_last_def l3_def
+              last_sa_pos_def ll2_def new_L_def remaining_def)
+
+        have bt_val_type':
+          "TypeBT s (op_val bt_act)"
+          using "1.prems"(4) bt_val_eq
+          by simp
+
+        have hb_new_L: "HB_consistent new_L H"
+          unfolding new_L_def
+          by (rule modify_step_c0_consistent_local[
+                OF "1.prems"(1) "1.prems"(3) local_di
+                   "1.prems"(5) "1.prems"(6)
+                   LI1 LI2 HI16 HI17
+                   L_decomp l2_split_exact
+                   last_sa_pos_def l1_def
+                   l2_last_enq bt_is_enq bt_val_type'
+              ])
+
+
+        (* 1. should_modify of or *)
+        have fact_modify: "should_modify L H bt_val" by (fact do_modify)
+
+        (* 2. Let of explicit mapping (key!) *)
+        (* Since in use of is the (find_unique_index...), we then for it form *)
+        have fact_bt_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
+          using bt_idx_def by simp
+
+        (* 3. prove guard (op_name l2_last = enq) *)
+        have fop_name: "op_name (last (take bt_idx remaining)) = enq"
+          using True l2_last_def l2_def by simp
+
+        (* 4. newlist of HB_consistent *)
+        (* Note: heremust new_L_def already complete unfold as induct then of original take/drop form *)
+        have fact_hb_new: "HB_consistent new_L H" by (fact hb_new_L)
+
+        have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
+          unfolding l1_def remaining_def l2_def l3_def bt_act_def l2_last_def last_sa_pos_def
+          using bt_idx_def do_modify True apply (subst modify_lin.simps)
+          apply (simp only: Let_def case_prod_unfold)
+          by (simp add: bt_act_def l1_def l2_def l2_last_def l3_def
+              last_sa_pos_def ll2_def new_L_def remaining_def)
+
+        show ?thesis
+          (* 1. onlyunfold one, do not unfold new_L definition *)
+          unfolding step1
+
+          (* 2. apply. Note: in outside [where...],
+             Make rule matchwhen before of modify_lin (new_L) H bt_val *)
+          apply (rule "1.hyps"(1))
+
+          (* 3. core: unfold modify_lin, only Let definition and physicalfact *)
+          (* We all of definition for No. one apply, it large Let goal *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
+                            bt_act_def l2_last_def ll2_def new_L_def bt_idx_def} ))\<close>)
+
+          (* 4. 4 in list decompose of goal (Goal 1-4) *)
+          using L_decomp remaining_decomp l2_split_exact
+          using fact_modify apply auto[1]
+
+
+          (* 5. (the (Some x) = x) *)
+          apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
+
+          (* 6. last in physicalpropertyconclusion (Goal 5-9) *)
+          using do_modify True hb_new_L di_new mset_new sa_new "1.prems"
+                 apply simp_all
+          subgoal
+            (* Unfoldlocaldefinition, its original as goal in of form *)
+            using l2_last_def l2_def remaining_def last_sa_pos_def
+            (* In when before branch of premise: op_name l2_last = enq *)
+            using True by simp
+          subgoal
+            (* Unfold new_L of construct, align *)
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            (* In previously already of physicalfact *)
+            using hb_new_L by simp
+          subgoal
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            using di_new by simp
+          subgoal
+            (* Physicalfact: mset new_L = mset (lin_seq s) *)
+            using mset_new
+            (* Unfold new_L of definition, make multiset match *)
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            by (simp add: ac_simps)
+          subgoal
+            using sa_new
+            unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            by simp
+          done
+      next
+        case False (* === Deq Cases === *)
+        note not_enq = False
+
+        have find_enq_valid: "find_last_enq l2 \<noteq> None"
+          using do_modify False l2_not_nil unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def
+          using bt_idx_def by (smt (verit) last_sa_pos_def option.simps(4,5) remaining_def)
+
+        obtain l21 b_act l22 where l2_split: "find_last_enq l2 = Some (l21, b_act, l22)"
+          using find_enq_valid by (cases "find_last_enq l2", auto)
+
+        have b_act_enq: "op_name b_act = enq"
+          using l2_split by (simp add: find_last_enq_props(2))
+
+        define o1 where "o1 = hd l22"
+
+        have l22_not_nil: "l22 \<noteq> []"
+          using l2_split l2_not_nil not_enq unfolding find_last_enq_def l2_last_def
+          by (metis find_last_enq_props(1,2) l2_split last_snoc self_append_conv)
+
+        have L_split_c1: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
+          using L_decomp l2_split find_last_enq_props(1) by auto
+
+        (* (and previously one) *)
+        define b_idx where "b_idx = length l1 + length l21"
+        have b_idx_props: "L ! b_idx = b_act" "b_idx \<ge> length l1" "b_idx < length L"
+          unfolding b_idx_def using L_split_c1 by (auto simp: nth_append)
+
+        have b_act_active: "b_act \<in> active_enqs s"
+        proof -
+          (* 1.: L and remaining of *)
+          have L_rest: "L = l1 @ remaining"
+            unfolding l1_def remaining_def by simp
+
+          have rem_not_nil: "remaining \<noteq> []"
+            using bt_idx_valid by auto
+
+          (* 2. use core, prove l1 afterwards of all enq all in SA in *)
+          have all_after_l1_not_sa: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
+            using l1_contains_all_SA_in_L[OF "1.prems"(2) L_rest rem_not_nil l1_def last_sa_pos_def] .
+
+          have not_sa_L: "\<not> in_SA (op_val b_act) L"
+            using all_after_l1_not_sa b_idx_props b_act_enq by auto
+
+          (* 3. mapping list lin_seq s *)
+          have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)"
+            using not_sa_L "1.prems"(6) by simp
+
+          have b_in_s: "b_act \<in> set (lin_seq s)"
+            using b_idx_props(1) b_idx_props(3) "1.prems"(5)
+            by (metis nth_mem set_mset_mset)
+
+          have inv1: "lI1_Op_Sets_Equivalence s"
+            using LI1 .
+          have inv2: "lI2_Op_Cardinality s"
+            using LI2 .
+
+          (* Fix: only use inv1 inv2, its blast derivation *)
+          show ?thesis
+            using non_SA_enqs_are_active[OF inv1 inv2] b_in_s b_act_enq not_sa_s by blast
+        qed
+
+        have b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
+        proof -
+          (* 1. of list fact *)
+          have L_rest: "L = l1 @ remaining"
+            unfolding l1_def remaining_def by simp
+
+          have rem_not_nil: "remaining \<noteq> []"
+            using bt_idx_valid by auto
+
+          (* 2. use: oldold use 1.prems(2) in local of data_independent fact *)
+          have all_after_l1_not_sa: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> \<not> in_SA (op_val (L ! i)) L"
+            using l1_contains_all_SA_in_L[OF "1.prems"(2) L_rest rem_not_nil l1_def last_sa_pos_def] .
+
+          (* 3., out b_act in SA in *)
+          have not_sa_L: "\<not> in_SA (op_val b_act) L"
+            using all_after_l1_not_sa b_idx_props b_act_enq by auto
+
+          have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)"
+            using not_sa_L "1.prems"(6) by simp
+
+          (* 4. prove b_act is of has element *)
+          have b_in_s: "b_act \<in> set (lin_seq s)"
+            using b_idx_props(1) b_idx_props(3) "1.prems"(5)
+            by (metis nth_mem set_mset_mset)
+
+          (* 5. use out b_act of value in SetA in *)
+          have not_SetA: "op_val b_act \<notin> SetA s"
+          proof
+            assume in_SetA: "op_val b_act \<in> SetA s"
+
+            have in_sa_s:
+              "in_SA (op_val b_act) (lin_seq s)"
+              using SetA_implies_in_SA_from_LI2[OF LI2 in_SetA] .
+
+            show False
+              using not_sa_s in_sa_s
+              by simp
+          qed
+
+          show ?thesis
+            using LinSeq_Enq_State_Mapping_from_LI1[
+              OF LI1 b_in_s b_act_enq not_SetA
+            ]
+            by simp
+        qed
+
+        have o1_deq: "op_name o1 = deq"
+          using l22_are_all_deq[OF l2_split l22_not_nil] o1_def
+          by (simp add: l22_not_nil)
+
+        have b_neq_bt: "b_act \<noteq> bt_act"
+        proof
+          assume eq: "b_act = bt_act"
+
+          (* 1. definition bt_act in L in of definitely *)
+          define bt_idx_abs where "bt_idx_abs = length l1 + length l21 + 1 + length l22"
+
+          (* 2. prove L in of value then is bt_act *)
+          have L_bt: "L ! bt_idx_abs = bt_act"
+            unfolding bt_idx_abs_def L_split_c1 by (auto simp: nth_append)
+
+          have bt_idx_abs_less: "bt_idx_abs < length L"
+            unfolding bt_idx_abs_def L_split_c1 by simp
+
+          (* 3. extract same_enq_value_same_index need of premise *)
+          have val_eq: "op_val (L ! b_idx) = op_val (L ! bt_idx_abs)"
+            using b_idx_props(1) L_bt eq by simp
+
+          have op_b: "op_name (L ! b_idx) = enq"
+            using b_idx_props(1) b_act_enq by simp
+
+          have op_bt: "op_name (L ! bt_idx_abs) = enq"
+            using L_bt bt_is_enq by simp
+
+          (* 4. use: becauseoperation and value all, therefore must *)
+          have "b_idx = bt_idx_abs"
+            using same_enq_value_same_index[OF "1.prems"(2) b_idx_props(3) bt_idx_abs_less op_b op_bt val_eq] .
+
+          (* 5. from in out of large small, derive a contradiction *)
+          moreover have "b_idx < bt_idx_abs"
+            unfolding b_idx_def bt_idx_abs_def by simp
+
+          ultimately show False by simp
+        qed
+
+        (* --- branch --- *)
+        consider
+          (c1) "happens_before o1 bt_act H" |
+          (c2) "\<not> happens_before o1 bt_act H \<and> happens_before b_act o1 H" |
+          (c3) "\<not> happens_before o1 bt_act H \<and> \<not> happens_before b_act o1 H"
+          by blast
+
+        then show ?thesis
+        proof cases
+          case c1 (* === c1 === *)
+          define new_l22 where "new_l22 = tl l22"
+          define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
+
+          (* 1. original has of c1 decomposefact (preserve) *)
+          have c1_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)"
+            using L_split_c1 l22_not_nil o1_def new_l22_def by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
+
+          (* 2.  new: as new_L, prefix and suffix *)
+          have new_L_struct: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (new_l22 @ [bt_act] @ l3)"
+            unfolding new_L_def by simp
+
+          have hb_new_L: "HB_consistent new_L H"
+            unfolding new_L_struct
+            by (rule modify_step_c1_consistent_local[
+                  OF "1.prems"(1) "1.prems"(3) "1.prems"(5)
+                     LI1 LI2 HI5 HI7 HI16 HI17
+                     c1_decomp b_act_enq o1_deq bt_in_L bt_is_enq
+                     _ _ b_val_sets
+                ])
+               (use "1.prems"(4) bt_val_eq c1 in simp_all)
+
+          have mset_new: "mset new_L = mset (lin_seq s)"
+            unfolding new_L_def using L_split_c1 l22_not_nil o1_def new_l22_def "1.prems"(5)
+            by (metis append.assoc case2)
+
+          have di_new: "data_independent new_L"
+            using "1.prems"(2) data_independent_cong mset_new "1.prems"(5) by blast
+
+          have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
+            using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
+
+          have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
+          (* 1. unfold definition *)
+          apply (subst modify_lin.simps)
+          (* 2. Let and outside *)
+          apply (simp only: Let_def case_prod_unfold)
+
+          (* 3. core: No. one! can of original listoperation local *)
+          (* Small goal, simp in no *)
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
+                            l3_def[symmetric] l2_last_def[symmetric])
+          using bt_act_def bt_idx_def c1 do_modify l2_def l2_last_def l2_split
+              l3_def new_L_def new_l22_def not_enq o1_def by force
+
+
+        (* === in show?thesis previouslyinsert fact === *)
+        have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
+          unfolding l2_def l3_def bt_act_def
+          using bt_idx_valid by (simp add: id_take_nth_drop)
+
+        (* === fix after of === *)
+        show ?thesis
+          (* 1. onlyunfold one *)
+          unfolding step1
+
+          (* 2. apply *)
+          apply (rule "1.hyps"(2))
+
+          (* 3. core tactic: unfoldlocaldefinition, goalalign *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+            addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
+                            bt_act_def l2_last_def o1_def new_l22_def new_L_def bt_idx_def} ))\<close>)
+
+          (* 4. align (Goals 1-4) *)
+          (* Fix: of fact_modify replace as do_modify *)
+          using L_decomp remaining_decomp l2_split do_modify
+          apply auto[1]
+
+          (* 5. (the (Some x) = x) *)
+          apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
+
+          (* 6. in physicalfact *)
+          using do_modify not_enq c1 hb_new_L di_new mset_new sa_new "1.prems"
+          apply simp_all
+
+          (* === 7. Subgoal === *)
+
+          (* Subgoal: op_name l2_last \<noteq> enq *)
+          subgoal
+            using l2_last_def l2_def remaining_def last_sa_pos_def
+            using not_enq by simp
+
+          (* Subgoal: find_last_enq match *)
+          subgoal
+            using l2_split l2_def remaining_def last_sa_pos_def option.sel by simp
+
+          (* Subgoal: happens_before branch match *)
+          subgoal
+            using c1 o1_def l2_def remaining_def last_sa_pos_def
+            using bt_act_def by blast
+
+          (* Subgoal: HB_consistent new_L *)
+          subgoal
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            using hb_new_L by simp
+
+          (* Subgoal: data_independent new_L *)
+          subgoal
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            using di_new by simp
+
+          (* Subgoal: mset new_L *)
+          subgoal
+            using mset_new
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            by (simp add: ac_simps)
+
+          (* Subgoal: in_SA new_L *)
+          subgoal
+            using sa_new
+            unfolding new_L_def o1_def new_l22_def l1_def l2_def l3_def bt_act_def l2_last_def
+                      remaining_def last_sa_pos_def bt_idx_def
+            by simp
+
+          done
+
+      next
+        case c2 (* === c2 branch === *)
+
+        (* 1. extract c2 branch of premise (since happens_before \<equiv> HB, can use directly) *)
+        have not_hb_strict: "\<not> HB H o1 bt_act"
+          using c2 by simp
+
+        have hb_b_o1_strict: "HB H b_act o1"
+          using c2 by simp
+
+        (* 2. real of list *)
+        have c2_decomp: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
+          using L_split_c1 by auto
+
+        have l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
+          using l22_are_all_deq[OF l2_split l22_not_nil]
+          by simp
+
+        define new_L where "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
+
+        (* 3. precise use already of modify_step_c2_consistent *)
+        have hb_new_L: "HB_consistent new_L H"
+          unfolding new_L_def
+          by (rule modify_step_c2_consistent_local[
+                OF "1.prems"(1) "1.prems"(3) "1.prems"(5)
+                   LI1 HI16 HI17
+                   c2_decomp l22_not_nil
+                   bt_is_enq _ bt_in_L
+                   o1_def b_act_enq b_val_sets
+                   not_hb_strict hb_b_o1_strict
+                   l22_deqs
+              ])
+             (use "1.prems"(4) bt_val_eq in simp)
+
+        (* 4. preserve its *)
+        have mset_new: "mset new_L = mset (lin_seq s)"
+          unfolding new_L_def using L_split_c1 "1.prems"(5)
+          by (metis append_assoc case3)
+
+        have di_new: "data_independent new_L"
+          using "1.prems"(2) data_independent_cong mset_new "1.prems"(5) by blast
+
+        have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
+          using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
+
+        (* 5. unfold and (and c1 of operation) *)
+        have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
+          apply (subst modify_lin.simps)
+          apply (simp only: Let_def case_prod_unfold)
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
+                            l3_def[symmetric] l2_last_def[symmetric])
+          using bt_act_def bt_idx_def c2 do_modify l2_def l2_last_def l2_split
+                l3_def new_L_def not_enq o1_def by force
+
+        have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
+          unfolding l2_def l3_def bt_act_def
+          using bt_idx_valid by (simp add: id_take_nth_drop)
+
+        (* 6. final closure: use Tactic match *)
+        show ?thesis
+          unfolding step1
+          (* : make rule when before of modify_lin goal *)
+          apply (rule "1.hyps"(3))
+
+          (* Core Tactic: alldefinition, unfold *)
+          apply (tactic \<open>ALLGOALS (simp_tac (put_simpset HOL_basic_ss @{context}
+                 addsimps @{thms last_sa_pos_def remaining_def l1_def l2_def l3_def
+                                 bt_act_def l2_last_def o1_def new_L_def bt_idx_def} ))\<close>)
+
+          (* And boundarygoal *)
+          using L_decomp remaining_decomp l2_split do_modify
+          apply auto[1]
+          apply (metis (no_types, lifting) bt_idx_def last_sa_pos_def remaining_def option.sel)
+
+          (* In all of physical *)
+          using do_modify not_enq c2 hb_new_L di_new mset_new sa_new "1.prems"
+          apply simp_all
+
+          (* === Subgoal (precisealign) === *)
+          subgoal using l2_last_def l2_def remaining_def last_sa_pos_def not_enq by simp
+          subgoal using l2_split l2_def remaining_def last_sa_pos_def option.sel by simp
+          subgoal using c2 o1_def l2_def remaining_def last_sa_pos_def bt_act_def by blast
+          subgoal using c2 o1_def l2_def remaining_def last_sa_pos_def bt_act_def by blast
+          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
+                            remaining_def last_sa_pos_def bt_idx_def using hb_new_L by simp
+          subgoal unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
+                            remaining_def last_sa_pos_def bt_idx_def using di_new by simp
+          subgoal using mset_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
+                            remaining_def last_sa_pos_def bt_idx_def by (simp add: ac_simps)
+          subgoal using sa_new unfolding new_L_def o1_def l1_def l2_def l3_def bt_act_def l2_last_def
+                            remaining_def last_sa_pos_def bt_idx_def by simp
+          done
+
+        next
+        case c3 (* === c3 === *)
+        define new_l22 where "new_l22 = tl l22"
+        define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
+
+        (* 1. original has of c3 physical prove(fix) *)
+        (* Explicitly package L of, hd and tl of decompose *)
+        have c3_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)"
+          using L_split_c1 l22_not_nil o1_def new_l22_def
+          by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
+
+        (* Explicitly package new_L of, complete align c3_decomp of *)
+        have new_L_struct: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (new_l22 @ [bt_act] @ l3)"
+          unfolding new_L_def by simp
+        have not_hb_b_o1:
+          "\<not> HB H b_act o1"
+          using c3
+          by simp
+
+        have old_hb_struct:
+          "HB_consistent ((l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)) H"
+          using "1.prems"(1) c3_decomp
+          by simp
+
+        have swapped_hb_struct:
+          "HB_consistent ((l1 @ l21) @ [o1] @ [b_act] @ (new_l22 @ [bt_act] @ l3)) H"
+        proof (rule HB_swap_adjacent)
+          show "HB_consistent ((l1 @ l21) @ [b_act] @ [o1] @ (new_l22 @ [bt_act] @ l3)) H"
+            using old_hb_struct .
+        next
+          show "\<not> HB H b_act o1"
+            using not_hb_b_o1 .
+        qed
+
+        have hb_new_L:
+          "HB_consistent new_L H"
+          using swapped_hb_struct new_L_struct
+          by simp
+
+        have mset_new: "mset new_L = mset (lin_seq s)"
+          unfolding new_L_def using L_split_c1 l22_not_nil o1_def new_l22_def "1.prems"(5)
+          by (metis append_assoc case2)
+
+        have di_new: "data_independent new_L"
+          using "1.prems"(2) data_independent_cong mset_new "1.prems"(5) by blast
+
+        have sa_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)"
+          using in_SA_mset_eq[OF mset_new] "1.prems"(5) "1.prems"(6) by blast
+
+        (* 2. unfold and (of blow-up avoidance operation) *)
+        have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
+          apply (subst modify_lin.simps)
+          apply (simp only: Let_def case_prod_unfold)
+          apply (simp only: last_sa_pos_def[symmetric] remaining_def[symmetric]
+                            l1_def[symmetric] bt_idx_def[symmetric]
+                            bt_act_def[symmetric] l2_def[symmetric]
+                            l3_def[symmetric] l2_last_def[symmetric])
+          using bt_act_def bt_idx_def c3 do_modify l2_def l2_last_def l2_split
+                l3_def new_L_def new_l22_def not_enq o1_def by force
+
+        (* Remaining of decompose, alignuse *)
+        have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
+          unfolding l2_def l3_def bt_act_def
+          using bt_idx_valid by (simp add: id_take_nth_drop)
+
+        (* 3. final closure: prove *)
+        (* --- first step: Option value as, is core --- *)
+        have fact_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
+          using bt_idx_def by simp
+
+        have fact_enq: "the (find_last_enq l2) = (l21, b_act, l22)"
+          using l2_split by simp
+
+        (* --- second step: unfold as of no original form --- *)
+        have fact_hb: "HB_consistent (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) H"
+          using hb_new_L unfolding new_L_def by simp
+
+        have fact_di: "data_independent (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3)"
+          using di_new unfolding new_L_def by simp
+
+        have fact_ms: "mset (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) = mset (lin_seq s)"
+          using mset_new unfolding new_L_def by simp
+
+        have fact_sa: "\<forall>v. in_SA v (l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3) = in_SA v (lin_seq s)"
+          using sa_new unfolding new_L_def by simp
+
+        (* 3. final closure: original original of *)
+        (* Before Option value *)
+        have fact_idx: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining) = bt_idx"
+          using bt_idx_def by simp
+
+        have fact_enq: "the (find_last_enq l2) = (l21, b_act, l22)"
+          using l2_split by simp
+
+        (* [keyalign]: construct has # of, precise simp of *)
+        have fact_hb: "HB_consistent (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) (his_seq s)"
+          using hb_new_L H_def_local unfolding new_L_def
+          using "1.prems"(3)
+          using hb_new_L new_L_def by auto
+
+        have fact_di: "data_independent (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3)"
+          using di_new unfolding new_L_def by simp
+
+        have fact_ms: "mset (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) = mset (lin_seq s)"
+          using mset_new unfolding new_L_def by simp
+
+        have fact_sa: "\<forall>v. in_SA v (l1 @ l21 @ o1 # b_act # new_l22 @ bt_act # l3) = in_SA v (lin_seq s)"
+          using sa_new unfolding new_L_def by simp
+
+        (* --- No. four: and --- *)
+        show ?thesis
+          unfolding step1 new_L_def
+          apply (rule "1.hyps"(4))
+
+          (* : is one 27, and does not list of *)
+          apply (simp_all add: last_sa_pos_def[symmetric])
+          apply (simp_all add: remaining_def[symmetric])
+          apply (simp_all add: fact_idx)
+          apply (simp_all add: l2_def[symmetric])
+          apply (simp_all add: fact_enq)
+          apply (simp_all add: l2_last_def[symmetric] not_enq)
+          apply (simp_all add: o1_def[symmetric] bt_act_def[symmetric] c3 H_def_local)
+                    apply (simp_all add: new_l22_def[symmetric])
+
+          apply (simp_all add: do_modify fact_hb fact_di fact_ms fact_sa
+                               "1.prems"(1) "1.prems"(2) "1.prems"(3)
+                               "1.prems"(4) "1.prems"(5) "1.prems"(6) )
+
+          (* 1. should_modify(in H and his_seq s of equalfact) *)
+          subgoal using do_modify H_def_local
+            by (simp add: "1.prems"(3))
+
+          (* 2. l1 of definition original *)
+          subgoal unfolding l1_def by simp
+
+          (* 3. l3 of definition original (Suc bt_idx its then is bt_idx + 1) *)
+          subgoal unfolding l3_def
+            by (simp add: bt_act_def)
+
+          (* 4. mset goal(use ac_simps make set of + and add_mset align) *)
+          subgoal using fact_ms
+            using l3_def
+            using H_def_local c3 by blast
+
+          subgoal
+            using c3 H_def_local
+            by simp
+
+          subgoal
+            using fact_ms by force
+          done
+        qed
+      qed
+    qed
+  qed
+qed
+
+
+(* Helper lemma: one of append one newelement e *)
+(* Fix: \<not> HB H e e of, because HB of only from list derive *)
 lemma HB_consistent_append:
   assumes "HB_consistent L H"
   assumes "\<forall>x \<in> set L. \<not> HB H e x"
-  assumes "\<not> HB H e e"  (* < *)
+  assumes "\<not> HB H e e"  (* <--- keynew *)
   shows "HB_consistent (L @ [e]) H"
   unfolding HB_consistent_def
 proof (intro allI impI)
   fix i j
   assume asm: "i < length (L @ [e]) \<and> j < length (L @ [e]) \<and> HB H ((L @ [e]) ! i) ((L @ [e]) ! j)"
-  from asm have valid_i: "i < length (L @ [e])" 
-            and valid_j: "j < length (L @ [e])" 
-            and hb: "HB H ((L @ [e]) ! i) ((L @ [e]) ! j)" 
+  from asm have valid_i: "i < length (L @ [e])"
+            and valid_j: "j < length (L @ [e])"
+            and hb: "HB H ((L @ [e]) ! i) ((L @ [e]) ! j)"
     by simp_all
 
   show "i < j"
   proof (cases "j < length L")
     case True
-    (* Case 1: j L *)
+    (* Case 1: j in L in *)
     have "i < length L"
     proof (rule ccontr)
       assume "\<not> i < length L"
@@ -3034,7 +4822,7 @@ proof (intro allI impI)
     then show "i < j" using assms(1) unfolding HB_consistent_def using `i < length L` True by blast
   next
     case False
-    (* Case 2: j e *)
+    (* Case 2: j is newelement e *)
     then have j_eq: "j = length L" using valid_j by simp
     show "i < j"
     proof (cases "i < length L")
@@ -3045,8 +4833,8 @@ proof (intro allI impI)
       then have "i = length L" using valid_i by simp
       then have "i = j" using j_eq by simp
       with hb have "HB H e e"
-        by (simp add: j_eq) 
-      (* Proof note. *)
+        by (simp add: j_eq)
+      (* Use directlynew of derive a contradiction *)
       then show ?thesis using assms(3) by blast
     qed
   qed
@@ -3060,7 +4848,7 @@ lemma modify_lin_structural_props:
   assumes independent_L_global: "data_independent L"
   assumes lI5_SA_Prefix_global: "lI5_SA_Prefix_list L"
   assumes v_pending: "\<forall>k < length L. op_val (L!k) = v \<longrightarrow> op_name (L!k) \<noteq> deq"
-  shows 
+  shows
     "(\<forall>kA' kD' A. kD' < length new_L \<and> kA' < length new_L \<longrightarrow>
         op_name (new_L!kD') = deq \<and> op_val (new_L!kD') = A \<longrightarrow>
         op_name (new_L!kA') = enq \<and> op_val (new_L!kA') = A \<longrightarrow> (kA' < kD')) \<and>
@@ -3070,119 +4858,119 @@ lemma modify_lin_structural_props:
         (op_name (new_L!kV') = enq \<and> op_val (new_L!kV') = v) \<longrightarrow> kA' < kV')"
 proof -
   (* ==================================================================== *)
-  (* 1: ( , structural_preservation) *)
+  (* Step 1: basic (no, basic structural_preservation) *)
   (* ==================================================================== *)
   let ?idx = "nat (find_last_SA L + 1)"
-  
+
   have take_eq: "take ?idx new_L = take ?idx L"
     using modify_lin_structural_preservation[OF independent_L_global] new_L_def by simp
-    
+
   have drop_mset: "mset (drop ?idx new_L) = mset (drop ?idx L)"
     using modify_lin_structural_preservation[OF independent_L_global] new_L_def by simp
-    
+
   have mset_eq: "mset new_L = mset L"
     by (metis append_take_drop_id drop_mset mset_append take_eq)
-    
+
   have len_eq: "length new_L = length L"
     using mset_eq by (metis mset_eq_length)
-    
+
   have in_SA_eq: "\<forall>a. in_SA a new_L = in_SA a L"
     using in_SA_mset_eq mset_eq by blast
-    
+
   have indep_new: "data_independent new_L"
     using independent_L_global mset_eq data_independent_cong by blast
 
   (* ==================================================================== *)
-  (* 2: lI5_SA_Prefix ( , ) *)
+  (* Step 2: extract large of lI5_SA_Prefix (no, one) *)
   (* ==================================================================== *)
   have lI5_SA_Prefix_new: "lI5_SA_Prefix_list new_L"
     using modify_preserves_lI5_SA_Prefix[OF lin_L_global new_L_def independent_L_global lI5_SA_Prefix_global v_pending] .
 
   have sa_stable: "find_last_SA new_L = find_last_SA L"
   proof (rule find_last_SA_stable_prefix[OF len_eq take_eq])
-    (* 1: L SA Enq *)
+    (* Goal 1: prove L of suffix in has SA in of Enq *)
     show "\<forall>i\<in>{?idx..<length L}. \<not> (op_name (L ! i) = enq \<and> in_SA (op_val (L ! i)) L)"
     proof (intro ballI notI, elim conjE)
       fix i assume range: "i \<in> {?idx..<length L}"
       assume is_enq: "op_name (L ! i) = enq"
       assume in_sa: "in_SA (op_val (L ! i)) L"
-      
-      (* Step 1: 1. lI5_SA_Prefix : SA Enq, <= boundary *)
-      have "int i \<le> find_last_SA L" 
+
+      (* 1. use lI5_SA_Prefix derive: if is SA in of Enq, must <= boundary *)
+      have "int i \<le> find_last_SA L"
         using lI5_SA_Prefix_global is_enq in_sa range
         unfolding lI5_SA_Prefix_list_def by auto
-        
-      (* Step 2: 2. : > boundary *)
+
+      (* 2. use derive: its > boundary *)
       moreover have "int i > find_last_SA L"
-        using range by auto (* Isabelle nat(x+1) *)
-        
-      (* Step 3: 3. *)
+        using range by auto (* Isabelle nat(x+1) of *)
+
+      (* 3. contradiction *)
       ultimately show False by simp
     qed
 
-    (* 2: new_L SA Enq *)
+    (* Goal 2: prove new_L of suffix in also has SA in of Enq *)
     show "\<forall>i\<in>{?idx..<length new_L}. \<not> (op_name (new_L ! i) = enq \<and> in_SA (op_val (new_L ! i)) new_L)"
     proof (intro ballI notI, elim conjE)
       fix i assume range: "i \<in> {?idx..<length new_L}"
       assume is_enq: "op_name (new_L ! i) = enq"
       assume in_sa_new: "in_SA (op_val (new_L ! i)) new_L"
-      
+
       let ?x = "new_L ! i"
-      
-      (* Step 1: 1. x new_L ... *)
+
+      (* 1. since x in new_L of suffix in... *)
       have "?x \<in> set (drop ?idx new_L)"
       proof -
-        (* , *)
+        (* Definition for, and *)
         let ?k = "i - ?idx"
-        have bound: "?k < length (drop ?idx new_L)" 
+        have bound: "?k < length (drop ?idx new_L)"
           using range
           by (simp add: diff_less_mono)
-        have val: "(drop ?idx new_L) ! ?k = ?x" 
+        have val: "(drop ?idx new_L) ! ?k = ?x"
           using range by simp
-        (* ?k in_set_conv_nth , auto *)
-        show ?thesis 
+        (* At this point?k precise in_set_conv_nth of, auto close the goal directly *)
+        show ?thesis
           using bound val by (auto simp: in_set_conv_nth)
       qed
-        
-      (* Step 2: 2. , L *)
+
+      (* 2., it one also in L of suffix in *)
       then have "?x \<in> set (drop ?idx L)"
         using drop_mset by (metis set_mset_mset)
-        
-      (* Step 3: 3. L ( k) *)
+
+      (* 3. therefore L of suffix in one element (we to it of k) *)
       then obtain j where j_bound: "j < length (drop ?idx L)" and val_eq: "(drop ?idx L) ! j = ?x"
         by (auto simp: in_set_conv_nth)
-      
+
       let ?k = "?idx + j"
       have k_in_range: "?k \<in> {?idx..<length L}"
         using j_bound by auto
       have L_k_is_x: "L ! ?k = ?x"
         using val_eq j_bound by simp
-        
-      (* Step 4: 4. L *)
+
+      (* 4. L *)
       have "op_name (L ! ?k) = enq" using is_enq L_k_is_x by simp
-      moreover have "in_SA (op_val (L ! ?k)) L" 
+      moreover have "in_SA (op_val (L ! ?k)) L"
         using in_sa_new in_SA_eq L_k_is_x by simp
-      
-      (* Step 5: 5. 1 (L SA Enq) *)
-      (* lI5_SA_Prefix , *)
+
+      (* 5. and goal 1 (L of suffixno SA Enq) contradiction! *)
+      (* Note: here we need then use lI5_SA_Prefix one, use of property can *)
       ultimately have "\<not> (op_name (L ! ?k) = enq \<and> in_SA (op_val (L ! ?k)) L)"
-        using k_in_range (* range *)
+        using k_in_range (* In range *)
         using `\<forall>i\<in>{?idx..<length L}. \<not> (op_name (L ! i) = enq \<and> in_SA (op_val (L ! i)) L)`
         by blast
-        
+
       thus False
         using L_k_is_x
           \<open>in_SA (op_val (L ! (nat (find_last_SA L + 1) + j))) L\<close> is_enq
-        by auto 
+        by auto
     qed
 
-    (* 3: in_SA *)
-    show "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L" 
+    (* Goal 3: in_SA consistency *)
+    show "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L"
       using in_SA_eq by blast
   qed
 
   (* ==================================================================== *)
-  (* 1 (Part 1): kA' < kD', *)
+  (* Conclusion 1 (Part 1): kA' < kD', usesynchronizeprefixdefinitely be of physicalfactdirect closure *)
   (* ==================================================================== *)
   have part1: "\<forall>kA' kD' A. kD' < length new_L \<and> kA' < length new_L \<longrightarrow>
                op_name (new_L!kD') = deq \<and> op_val (new_L!kD') = A \<longrightarrow>
@@ -3192,8 +4980,8 @@ proof -
     assume r: "kD' < length new_L \<and> kA' < length new_L"
     assume d: "op_name (new_L!kD') = deq \<and> op_val (new_L!kD') = A"
     assume e: "op_name (new_L!kA') = enq \<and> op_val (new_L!kA') = A"
-    
-    (* Step 1: 1. A Deq Enq, SA *)
+
+    (* 1. since A in for of Deq and Enq, it in SA set in *)
     have in_sa_A: "in_SA A new_L"
     proof -
       have "find_indices (\<lambda>x. op_name x = enq \<and> op_val x = A) new_L = [kA']"
@@ -3202,35 +4990,35 @@ proof -
         using d indep_new r unique_deq_index by auto
       ultimately show ?thesis unfolding in_SA_def find_unique_index_def Let_def by simp
     qed
-      
-    (* Step 2: 2. lI5_SA_Prefix: SA Enq, *)
+
+    (* 2. use lI5_SA_PreFix: in SA in of Enq, its necessarily in boundary inside *)
     have kA'_bound: "int kA' \<le> find_last_SA new_L"
       using lI5_SA_Prefix_new[unfolded lI5_SA_Prefix_list_def Let_def, THEN spec, of kA'] r e in_sa_A by blast
-      
+
     have kA'_lt_idx: "kA' < ?idx"
       using kA'_bound sa_stable by auto
-      
-    (* Step 3: 3. : kD' kA' *)
+
+    (* 3.: kD' to kA' before *)
     show "kA' < kD'"
     proof (rule ccontr)
       assume "\<not> kA' < kD'"
       hence "kD' \<le> kA'" by simp
       hence kD'_lt_idx: "kD' < ?idx" using kA'_lt_idx by simp
-      
-      (* kD' kA' , new_L L *)
+
+      (* Key: because kD' and kA' all in boundary inside, and boundary inside of element in new_L and L in is complete of! *)
       have "new_L ! kA' = L ! kA'" using kA'_lt_idx take_eq by (metis nth_take)
       have "new_L ! kD' = L ! kD'" using kD'_lt_idx take_eq by (metis nth_take)
-      
+
       have "op_name (L!kD') = deq" "op_val (L!kD') = A" using d `new_L ! kD' = L ! kD'` by auto
       have "op_name (L!kA') = enq" "op_val (L!kA') = A" using e `new_L ! kA' = L ! kA'` by auto
       have "kA' < length L" "kD' < length L" using r len_eq by auto
-      
-      (* lI4_FIFO_Semantics *)
+
+      (* Original has of lI4_FIFO_Semantics *)
       obtain kA_old where "kA_old < kD'" "op_name (L!kA_old) = enq" "op_val (L!kA_old) = A"
         using lin_L_global[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD']
         using `kD' < length L` `op_name (L!kD') = deq` `op_val (L!kD') = A` by blast
-        
-      (* kA' *)
+
+      (* Data old of match then is now of kA' *)
       have "kA_old = kA'"
       proof (rule same_enq_value_same_index[OF independent_L_global])
         show "kA_old < length L" using `kA_old < kD'` `kD' < length L` by simp
@@ -3239,14 +5027,14 @@ proof -
         show "op_name (L!kA') = enq" using `op_name (L!kA') = enq` .
         show "op_val (L!kA_old) = op_val (L!kA')" using `op_val (L!kA_old) = A` `op_val (L!kA') = A` by simp
       qed
-        
-      (* kA' < kD' kD' <= kA' *)
+
+      (* Contradiction: kA' < kD' and kD' <= kA' *)
       thus False using `kA_old < kD'` `kD' \<le> kA'` by simp
     qed
   qed
 
   (* ==================================================================== *)
-  (* 2 (Part 2): kA' < kV', SA *)
+  (* Conclusion 2 (Part 2): kA' < kV', use SA boundary inside outside of close the goal directly *)
   (* ==================================================================== *)
   have part2: "\<forall>kA' kV' A. kA' < length new_L \<and> kV' < length new_L \<longrightarrow>
                (op_name (new_L!kA') = enq \<and> op_val (new_L!kA') = A) \<longrightarrow>
@@ -3259,7 +5047,7 @@ proof -
     assume paired: "\<exists>kD' < length new_L. op_name (new_L!kD') = deq \<and> op_val (new_L!kD') = A"
     assume ev: "op_name (new_L!kV') = enq \<and> op_val (new_L!kV') = v"
 
-    (* A SA *)
+    (* A in SA inside *)
     have in_sa_A: "in_SA A new_L"
     proof -
       have "find_indices (\<lambda>x. op_name x = enq \<and> op_val x = A) new_L = [kA']"
@@ -3269,8 +5057,8 @@ proof -
         using unique_deq_index[OF indep_new] by simp
       ultimately show ?thesis unfolding in_SA_def find_unique_index_def Let_def by simp
     qed
-      
-    (* v (bt_val) SA *)
+
+    (* V (bt_val) in SA outside *)
     have not_in_sa_v: "\<not> in_SA v new_L"
     proof -
       have "\<forall>k < length new_L. op_val (new_L!k) = v \<longrightarrow> op_name (new_L!k) \<noteq> deq"
@@ -3280,10 +5068,10 @@ proof -
       thus ?thesis unfolding in_SA_def find_unique_index_def Let_def by simp
     qed
 
-    (* lI5_SA_Prefix : kA' <= , kV' > *)
+    (* Use lI5_SA_PreFix: kA' must <= boundary, and kV' must > boundary *)
     have "int kA' \<le> find_last_SA new_L"
       using lI5_SA_Prefix_new[unfolded lI5_SA_Prefix_list_def Let_def, THEN spec, of kA'] r ea in_sa_A by blast
-      
+
     have "int kV' > find_last_SA new_L"
     proof (rule ccontr)
       assume "\<not> int kV' > find_last_SA new_L"
@@ -3292,8 +5080,8 @@ proof -
         using lI5_SA_Prefix_new[unfolded lI5_SA_Prefix_list_def Let_def, THEN spec, of kV'] r ev by blast
       thus False using not_in_sa_v ev by simp
     qed
-    
-    (* , kA' kV' *)
+
+    (* , kA' necessarilyless than kV' *)
     thus "kA' < kV'" using `int kA' \<le> find_last_SA new_L` by linarith
   qed
 
@@ -3306,13 +5094,13 @@ lemma move_pending_enq_preserves_lI4_FIFO_Semantics:
   fixes L L' :: "OpRec list" and H :: "ActRec list" and v :: nat
   assumes lI4_FIFO_Semantics_L: "lI4_FIFO_Semantics_list L"
   assumes L'_def: "L' = modify_lin L H v"
-  assumes indep_L: "data_independent L"  
-  assumes lI5_SA_Prefix_L: "lI5_SA_Prefix_list L"        
+  assumes indep_L: "data_independent L"
+  assumes lI5_SA_Prefix_L: "lI5_SA_Prefix_list L"
   assumes v_pending: "\<forall>k < length L. op_val (L!k) = v \<longrightarrow> op_name (L!k) \<noteq> deq"
   shows "lI4_FIFO_Semantics_list L'"
 proof -
-  (* Step 0: 0. *)
-  have struct_props: 
+  (* 0. before extract fact *)
+  have struct_props:
     "(\<forall>kA' kD' A. kD' < length L' \<and> kA' < length L' \<longrightarrow>
         op_name (L'!kD') = deq \<and> op_val (L'!kD') = A \<longrightarrow>
         op_name (L'!kA') = enq \<and> op_val (L'!kA') = A \<longrightarrow> kA' < kD') \<and>
@@ -3322,7 +5110,7 @@ proof -
         (op_name (L'!kV') = enq \<and> op_val (L'!kV') = v) \<longrightarrow> kA' < kV')"
     using modify_lin_structural_props[OF L'_def lI4_FIFO_Semantics_L indep_L lI5_SA_Prefix_L v_pending] .
 
-  (* Step 1: 1. Filter *)
+  (* 1. Filter order preservation *)
   let ?P_enq = "\<lambda>x. op_name x = enq \<and> op_val x \<noteq> v"
   let ?P_deq = "\<lambda>x. op_name x = deq"
 
@@ -3334,35 +5122,35 @@ proof -
   have deq_ord: "filter ?P_deq L' = filter ?P_deq L"
   proof -
     have no_deq_v_L: "\<forall>x \<in> set L. op_name x = deq \<longrightarrow> op_val x \<noteq> v"
-      using v_pending by (metis in_set_conv_nth) 
+      using v_pending by (metis in_set_conv_nth)
     have "mset L' = mset L" unfolding L'_def
-      using modify_preserves_mset by auto 
+      using modify_preserves_mset by auto
     then have no_deq_v_L': "\<forall>x \<in> set L'. op_name x = deq \<longrightarrow> op_val x \<noteq> v"
       using no_deq_v_L by (metis set_mset_mset)
-    
+
     have "filter ?P_deq L' = filter (\<lambda>x. op_name x = deq \<and> op_val x \<noteq> v) L'"
       using no_deq_v_L' by (auto intro: filter_cong)
     also have "... = filter (\<lambda>x. op_name x = deq \<and> op_val x \<noteq> v) L"
-      using L'_def modify_lin_preserves_orders by blast 
+      using L'_def modify_lin_preserves_orders by blast
     also have "... = filter ?P_deq L"
       using no_deq_v_L by (auto intro: filter_cong)
     finally show ?thesis .
   qed
 
-  (* Step 2: 2. lI4_FIFO_Semantics_list *)
+  (* 2. unfold lI4_FIFO_Semantics_list definition *)
   show ?thesis
     unfolding lI4_FIFO_Semantics_list_def Let_def
   proof (intro allI impI)
-    (* Step 2: 2.1 *)
-    fix k_deq_A' 
+    (* 2.1 in and *)
+    fix k_deq_A'
     assume k_bound: "k_deq_A' < length L'"
     assume is_deq: "op_name (L' ! k_deq_A') = deq"
-    
+
     let ?act_deq = "L' ! k_deq_A'"
     let ?A = "op_val ?act_deq"
 
-    (* Step 2: 2.2 A : A != v ( distinct ) *)
-    have A_not_v: "?A \<noteq> v" 
+    (* 2.2 A of: A!= v (distinct of derivation) *)
+    have A_not_v: "?A \<noteq> v"
     proof -
       have "?act_deq \<in> set L'" using k_bound by simp
       moreover have "mset L' = mset L" using L'_def modify_preserves_mset by auto
@@ -3371,56 +5159,56 @@ proof -
         by (metis in_set_conv_nth)
     qed
 
-    (* Step 2: 2.3 Deq(A) L *)
+    (* 2.3 mapping Deq(A) L *)
     let ?rank_deq = "length (filter (\<lambda>x. op_name x = deq) (take k_deq_A' L'))"
-    
+
     obtain k_deq_A_L where k_deq_A_L_def:
       "k_deq_A_L < length L"
       "L ! k_deq_A_L = ?act_deq"
       "length (filter (\<lambda>x. op_name x = deq) (take k_deq_A_L L)) = ?rank_deq"
       using deq_ord filter_nth_ex_rank is_deq k_bound by blast
 
-    (* Step 2: 2.4 L lI4_FIFO_Semantics *)
-    have lin_L_unfolded: 
+    (* 2.4 in L in apply lI4_FIFO_Semantics *)
+    have lin_L_unfolded:
       "\<exists>k2 < k_deq_A_L. op_name (L!k2) = enq \<and> op_val (L!k2) = ?A \<and>
-        (\<forall>k3 < k2. op_name (L!k3) = enq \<longrightarrow> 
+        (\<forall>k3 < k2. op_name (L!k3) = enq \<longrightarrow>
            (\<exists>k4. k3 < k4 \<and> k4 < k_deq_A_L \<and> op_name (L!k4) = deq \<and> op_val (L!k4) = op_val (L!k3)))"
       using lI4_FIFO_Semantics_L k_deq_A_L_def(1,2) is_deq unfolding lI4_FIFO_Semantics_list_def Let_def by fastforce
-    
+
     obtain k_enq_A_L where enq_A_L_props:
       "k_enq_A_L < k_deq_A_L"
       "op_name (L!k_enq_A_L) = enq" "op_val (L!k_enq_A_L) = ?A"
-      and fifo_L: "\<forall>k3 < k_enq_A_L. op_name (L!k3) = enq \<longrightarrow> 
+      and fifo_L: "\<forall>k3 < k_enq_A_L. op_name (L!k3) = enq \<longrightarrow>
                (\<exists>k4. k3 < k4 \<and> k4 < k_deq_A_L \<and> op_name (L!k4) = deq \<and> op_val (L!k4) = op_val (L!k3))"
       using lin_L_unfolded by blast
 
-    (* Step 2: 2.5 Enq(A) L' *)
+    (* 2.5 mapping Enq(A) L' *)
     let ?rank_enq_A = "length (filter ?P_enq (take k_enq_A_L L))"
-    
+
     obtain k_enq_A' where k_enq_A'_def:
       "k_enq_A' < length L'"
       "L' ! k_enq_A' = L ! k_enq_A_L"
       "length (filter ?P_enq (take k_enq_A' L')) = ?rank_enq_A"
-      using enq_ord filter_nth_ex_rank[where P="?P_enq" and i="k_enq_A_L"] 
+      using enq_ord filter_nth_ex_rank[where P="?P_enq" and i="k_enq_A_L"]
       enq_A_L_props(2,3) A_not_v
       by (smt (verit, ccfv_SIG) A_not_v enq_A_L_props(1,2,3) enq_ord
           filter_nth_ex_rank k_deq_A_L_def(1) order.strict_trans)
 
-    (* Step 2: 2.6 : Enq(A) Deq(A) *)
+    (* 2.6 prove: Enq(A) in Deq(A) previously *)
     have "k_enq_A' < k_deq_A'"
       using struct_props
       by (metis enq_A_L_props(2,3) is_deq k_bound k_enq_A'_def(1,2))
 
-    (* Step 2: 2.7 L' FIFO *)
-    show "\<exists>k2 < k_deq_A'. op_name (L' ! k2) = enq \<and> op_val (L' ! k2) = ?A \<and> 
-          (\<forall>k3 < k2. op_name (L' ! k3) = enq \<longrightarrow> 
-             (\<exists>k4. k3 < k4 \<and> k4 < k_deq_A' \<and> 
+    (* 2.7 prove L' FIFO *)
+    show "\<exists>k2 < k_deq_A'. op_name (L' ! k2) = enq \<and> op_val (L' ! k2) = ?A \<and>
+          (\<forall>k3 < k2. op_name (L' ! k3) = enq \<longrightarrow>
+             (\<exists>k4. k3 < k4 \<and> k4 < k_deq_A' \<and>
                    op_name (L' ! k4) = deq \<and> op_val (L' ! k4) = op_val (L' ! k3)))"
     proof (rule exI[where x=k_enq_A'], intro conjI impI allI)
       show "k_enq_A' < k_deq_A'" using `k_enq_A' < k_deq_A'` .
       show "op_name (L' ! k_enq_A') = enq" using k_enq_A'_def(2) enq_A_L_props(2) by simp
       show "op_val (L' ! k_enq_A') = ?A" using k_enq_A'_def(2) enq_A_L_props(3) by simp
-      
+
       fix k3 assume "k3 < k_enq_A'"
       assume is_enq_B: "op_name (L' ! k3) = enq"
       let ?B = "op_val (L' ! k3)"
@@ -3430,12 +5218,12 @@ proof -
         case True
         have exists_deq_A: "\<exists>kD' < length L'. op_name (L' ! kD') = deq \<and> op_val (L' ! kD') = ?A"
           using k_bound is_deq by auto
-          
+
         have "k_enq_A' < k3"
           using struct_props k_enq_A'_def(1) `k3 < k_enq_A'` order.strict_trans
           using enq_A_L_props(2,3) k_enq_A'_def(2) exists_deq_A is_enq_B True
           by (smt (verit, del_insts))
-          
+
         then show ?thesis using `k3 < k_enq_A'` by simp
       next
         case False
@@ -3447,7 +5235,7 @@ proof -
             by (metis Cons_nth_drop_Suc One_nat_def Suc_pred add.right_neutral
                 add_Suc_right add_diff_cancel_left' add_strict_mono
                 less_imp_add_positive take_Suc_Cons take_add)
-          then have "filter ?P_enq (take k_enq_A' L') = 
+          then have "filter ?P_enq (take k_enq_A' L') =
                      filter ?P_enq (take k3 L') @ filter ?P_enq [L' ! k3] @ filter ?P_enq (take (k_enq_A' - k3 - 1) (drop (k3 + 1) L'))"
             by simp
           moreover have "?P_enq (L' ! k3)" using is_enq_B False by simp
@@ -3464,7 +5252,7 @@ proof -
           using \<open>k3 < k_enq_A'\<close> k_enq_A'_def(1) order.strict_trans
           by blast
 
-        (* SMT *)
+        (* Zero SMT prove: in prefixpropertyderivation monotonicity *)
         have "k_enq_B_L < k_enq_A_L"
         proof (rule ccontr)
           assume "\<not> k_enq_B_L < k_enq_A_L"
@@ -3486,7 +5274,7 @@ proof -
              using is_enq_B k_enq_B_L_def(2) by auto
 
         let ?rank_deq_B = "length (filter ?P_deq (take k_deq_B_L L))"
-        
+
         obtain k4 where k4_def:
              "k4 < length L'"
              "L' ! k4 = L ! k_deq_B_L"
@@ -3506,8 +5294,8 @@ proof -
               by simp
             have "take (Suc k_deq_B_L) L = take k_deq_B_L L @ [L ! k_deq_B_L]"
               using deq_B_L(2) k_deq_A_L_def(1) by (simp add: take_Suc_conv_app_nth)
-            have "filter ?P_deq (take k_deq_A_L L) = 
-                  filter ?P_deq (take k_deq_B_L L) @ filter ?P_deq [L ! k_deq_B_L] @ 
+            have "filter ?P_deq (take k_deq_A_L L) =
+                  filter ?P_deq (take k_deq_B_L L) @ filter ?P_deq [L ! k_deq_B_L] @
                   filter ?P_deq (drop (Suc k_deq_B_L) (take k_deq_A_L L))"
               by (metis
                   \<open>take (Suc k_deq_B_L) L = take (Suc k_deq_B_L) (take k_deq_A_L L)\<close>
@@ -3520,8 +5308,8 @@ proof -
           qed
           then have rank_rel: "length (filter ?P_deq (take k4 L')) < ?rank_deq"
             using k4_def(3) k_deq_A_L_def(3) by simp
-            
-          (* SMT : rank index *)
+
+          (* Zero SMT prove: rank index *)
           show ?thesis
           proof (rule ccontr)
             assume "\<not> k4 < k_deq_A'"
@@ -3558,7 +5346,7 @@ qed
 
 
 (* ----------------------------------------------------------------- *)
-(* modify_lin Distance = 0 *)
+(* Core: prove modify_lin necessarily in Distance = 0 of *)
 (* ----------------------------------------------------------------- *)
 lemma modify_lin_Distance_zero_internal:
   assumes "data_independent L"
@@ -3570,7 +5358,7 @@ lemma modify_lin_Distance_zero_internal:
   using assms
 proof (induction L H v rule: modify_lin.induct)
   case (1 L_curr H bt_val)
-  (* Step 1: 1. *)
+  (* 1. extractwhen before of premise *)
   note IH = 1(1)
   note DI_L = 1(2)
   note lI4_FIFO_Semantics_L = 1(3)
@@ -3581,25 +5369,25 @@ proof (induction L H v rule: modify_lin.induct)
   have independent_L_curr: "data_independent L_curr" using "1.prems" by blast
   have lin_L_curr: "lI4_FIFO_Semantics_list L_curr" using "1.prems" by blast
   have lin_I5_curr: "lI5_SA_Prefix_list L_curr" using "1.prems" by blast
-  have pending_L: "\<forall>k < length L_curr. op_val (L_curr!k) = bt_val \<longrightarrow> op_name (L_curr!k) \<noteq> deq" 
+  have pending_L: "\<forall>k < length L_curr. op_val (L_curr!k) = bt_val \<longrightarrow> op_name (L_curr!k) \<noteq> deq"
     using "1.prems" by blast
-  have exists_L: "\<exists>k < length L_curr. op_name (L_curr!k) = enq \<and> op_val (L_curr!k) = bt_val" 
+  have exists_L: "\<exists>k < length L_curr. op_name (L_curr!k) = enq \<and> op_val (L_curr!k) = bt_val"
     using "1.prems" by blast
 
   show ?case
   proof (cases "should_modify L_curr H bt_val")
     (* ========================================================== *)
-    (* Case False: , *)
+    (* Case False: final step, usecomplete contradiction *)
     (* ========================================================== *)
     case False
-    have res_eq: "modify_lin L_curr H bt_val = L_curr" 
+    have res_eq: "modify_lin L_curr H bt_val = L_curr"
       using False by (subst modify_lin.simps, simp)
-      
+
     have "Distance L_curr bt_val = 0"
     proof (rule ccontr)
       assume dist_not_zero: "Distance L_curr bt_val \<noteq> 0"
-      
-      (* , Distance 0, should_modify True *)
+
+      (* Complete: in valid, if Distance as 0, should_modify must as True *)
       have "should_modify L_curr H bt_val"
         apply (rule should_modify_completeness)
         apply (simp add: independent_L_curr)
@@ -3607,27 +5395,27 @@ proof (induction L H v rule: modify_lin.induct)
         apply (simp add: pending_L)
         apply (simp add: exists_L)
         by (simp add: dist_not_zero)
-      
-      (* should_modify True False *)
+
+      (* Contradiction: should_modify is True is False *)
       thus False using False by contradiction
     qed
-    
+
     thus ?thesis using res_eq by simp
 
   next
     (* ========================================================== *)
-    (* Case True: , 6 *)
+    (* Case True: unfold, 6 case one *)
     (* ========================================================== *)
     case True
     note do_modify = True
-    
-        (* 2. ( mset ) *)
+
+        (* --- 2. definition (complete source and mset prove) --- *)
         define last_sa_pos where "last_sa_pos = find_last_SA L_curr"
         define remaining where "remaining = drop (nat (last_sa_pos + 1)) L_curr"
-        
+
         have idx_exists: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
           using True unfolding should_modify_def last_sa_pos_def remaining_def by (metis option.simps(4))
-        
+
         obtain bt_idx where bt_idx_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
           using idx_exists by blast
 
@@ -3639,14 +5427,14 @@ proof (induction L H v rule: modify_lin.induct)
         define l3 where "l3 = drop (bt_idx + 1) remaining"
         define bt_act where "bt_act = remaining ! bt_idx"
 
-        (* 3. : l2 *)
+        (* --- 3. keystep: prove l2 empty --- *)
         have l2_not_nil: "l2 \<noteq> []"
         proof (cases "l2 = []")
           case True
           have "remaining \<noteq> []"
             using bt_idx_def apply (cases remaining) apply (auto simp: find_unique_index_def)
             using bt_idx_def find_unique_index_Some_less_length by force
-          have "bt_idx = 0" 
+          have "bt_idx = 0"
             using True l2_def `remaining \<noteq> []` by (metis take_eq_Nil)
           have False
             using do_modify unfolding should_modify_def find_last_enq_def
@@ -3661,15 +5449,15 @@ proof (induction L H v rule: modify_lin.induct)
 
     show ?thesis
     proof (cases "op_name l2_last = enq")
-      (* === Case c0: Enq === *)
+      (* === Case c0: two Enq === *)
       case True
       note c0 = True
 
       define new_L where "new_L = l1 @ butlast l2 @ [bt_act] @ [l2_last] @ l3"
-      
+
       have mod_eq: "modify_lin L_curr H bt_val = modify_lin new_L H bt_val"
       proof -
-        (* 2: new_L , SMT *)
+        (* Correction point 2: left unfold into and new_L of, SMT *)
         have "modify_lin L_curr H bt_val = modify_lin (l1 @ butlast l2 @ [bt_act] @ [l2_last] @ l3) H bt_val"
           unfolding l1_def remaining_def l2_def l3_def bt_act_def l2_last_def last_sa_pos_def
           using bt_idx_def do_modify c0
@@ -3681,34 +5469,34 @@ proof (induction L H v rule: modify_lin.induct)
       qed
 
 
-            (* Step 1: 1. *)
+            (* 1. definition prefix of as *)
             let ?pre = "l1 @ butlast l2"
             let ?idx = "length ?pre"
-            
-            (* Step 2: 2. L_curr new_L *)
+
+            (* 2. L_curr and new_L of *)
              have L_curr_eq: "L_curr = ?pre @ [l2_last, bt_act] @ l3"
             proof -
               have "l2 = butlast l2 @ [l2_last]" using l2_not_nil l2_last_def by simp
-              moreover have "remaining = l2 @ [bt_act] @ l3" 
+              moreover have "remaining = l2 @ [bt_act] @ l3"
                 unfolding l2_def l3_def bt_act_def using bt_idx_valid by (simp add: id_take_nth_drop)
               ultimately show ?thesis unfolding l1_def remaining_def
                 by (metis Cons_eq_appendI append_assoc append_take_drop_id
-                    eq_Nil_appendI) 
+                    eq_Nil_appendI)
             qed
-            
+
             have new_L_eq: "new_L = ?pre @ [bt_act, l2_last] @ l3"
               unfolding new_L_def by simp
 
             have len_eq: "length new_L = length L_curr"
               using L_curr_eq new_L_eq by simp
-              
+
             have l2_last_enq: "op_name l2_last = enq"
-              by (simp add: c0) 
-            have bt_act_enq: "op_name bt_act = enq" 
+              by (simp add: c0)
+            have bt_act_enq: "op_name bt_act = enq"
               using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def
               by (simp add: c0)
 
-            (* Step 1: 1. *)
+            (* 1. premise *)
             have mset_eq: "mset new_L = mset L_curr"
             proof -
               have "mset new_L = mset (?pre @ [bt_act, l2_last] @ l3)" using new_L_eq by simp
@@ -3718,20 +5506,20 @@ proof (induction L H v rule: modify_lin.induct)
             qed
 
 
-      (* IH 5 ( ) *)
-      have indep_new: "data_independent new_L" 
+      (* IH need of 5 premise (all) *)
+      have indep_new: "data_independent new_L"
            by (metis data_independent_cong independent_L_curr mod_eq
-                modify_preserves_mset) 
+                modify_preserves_mset)
 
-      have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L" 
+      have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L"
           proof -
-            (* Step 3: 3. , Let_def *)
+            (* 3. unfolddefinition and derivation, Let_def all *)
             show ?thesis unfolding lI4_FIFO_Semantics_list_def Let_def
             proof (intro allI impI)
-              fix kD assume kD_len: "kD < length new_L" 
+              fix kD assume kD_len: "kD < length new_L"
               assume kD_deq: "op_name (new_L ! kD) = deq"
-              
-              (* A. kD *)
+
+              (* A. prove kD has and *)
               have kD_not_idx: "kD \<noteq> ?idx \<and> kD \<noteq> ?idx + 1"
               proof (rule ccontr)
                 assume "\<not> (kD \<noteq> ?idx \<and> kD \<noteq> ?idx + 1)"
@@ -3746,24 +5534,24 @@ proof (induction L H v rule: modify_lin.induct)
                   with kD_deq l2_last_enq show False by simp
                 qed
               qed
-              
-              (* B. SMT : kD, *)
+
+              (* B. SMT: kD, provenewoldlistelement one *)
               have L_new_kD: "L_curr ! kD = new_L ! kD"
               proof -
-                (* kD \<noteq> ?idx kD \<noteq> ?idx + 1 *)
+                (* Use we of kD \<noteq>?idx and kD \<noteq>?idx + 1 *)
                 consider (before) "kD < ?idx" | (after) "kD \<ge> ?idx + 2"
                   using kD_not_idx by linarith
                 then show ?thesis
                 proof cases
                   case before
-                  (* 1: kD ?pre , *)
-                  then show ?thesis 
+                  (* Case 1: kD in?pre in, equal *)
+                  then show ?thesis
                     using L_curr_eq new_L_eq
-                    by (metis nth_append_left) 
+                    by (metis nth_append_left)
                 next
                   case after
-                  (* 2: kD l3 . A @ (B @ C) *)
-                  
+                  (* Case 2: kD in l3 in. we use right A @ (B @ C) two *)
+
                   have "L_curr ! kD = (?pre @ ([l2_last, bt_act] @ l3)) ! kD"
                     using L_curr_eq by simp
                   also have "... = ([l2_last, bt_act] @ l3) ! (kD - ?idx)"
@@ -3771,7 +5559,7 @@ proof (induction L H v rule: modify_lin.induct)
                   also have "... = l3 ! (kD - ?idx - 2)"
                     using after by (auto simp add: nth_append)
                   finally have eq1: "L_curr ! kD = l3 ! (kD - ?idx - 2)" .
-                  
+
                   have "new_L ! kD = (?pre @ ([bt_act, l2_last] @ l3)) ! kD"
                     using new_L_eq by simp
                   also have "... = ([bt_act, l2_last] @ l3) ! (kD - ?idx)"
@@ -3779,38 +5567,38 @@ proof (induction L H v rule: modify_lin.induct)
                   also have "... = l3 ! (kD - ?idx - 2)"
                     using after by (auto simp add: nth_append)
                   finally have eq2: "new_L ! kD = l3 ! (kD - ?idx - 2)" .
-                  
+
                   show ?thesis using eq1 eq2 by simp
                 qed
               qed
 
-                
-              (* C. k2 ( 4 ) *)
-              obtain k2 where k2_props: 
-                "k2 < kD" 
-                "op_name (L_curr ! k2) = enq" 
+
+              (* C. from oldlist in extract for of k2 its (must 4) *)
+              obtain k2 where k2_props:
+                "k2 < kD"
+                "op_name (L_curr ! k2) = enq"
                 "op_val (L_curr ! k2) = op_val (L_curr ! kD)"
-                "\<forall>k3<k2. op_name (L_curr ! k3) = enq \<longrightarrow> 
+                "\<forall>k3<k2. op_name (L_curr ! k3) = enq \<longrightarrow>
                   (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (L_curr ! k4) = deq \<and> op_val (L_curr ! k4) = op_val (L_curr ! k3))"
                 using lin_L_curr[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD]
                 using `kD < length new_L` len_eq L_new_kD kD_deq
                 by auto
-                
-              (* D. : lI5_SA_Prefix k2 *)
+
+              (* D. provecore: use lI5_SA_Prefix prove k2 its before of allelement all and *)
               show "\<exists>k2<kD. op_name (new_L ! k2) = enq \<and> op_val (new_L ! k2) = op_val (new_L ! kD) \<and>
                       (\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow>
                         (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)))"
               proof -
                 define a where "a = op_val (L_curr ! kD)"
                 have a_eq: "op_val (new_L ! kD) = a" using L_new_kD a_def by simp
-                
-                have "in_SA a L_curr" 
+
+                have "in_SA a L_curr"
                 proof -
-                  (* Proof note. *)
+                  (* Fill in of list *)
                   have k2_len: "k2 < length L_curr" using k2_props(1) kD_len len_eq by simp
                   have kD_len_curr: "kD < length L_curr" using kD_len len_eq by simp
-                  
-                  (* Step 1: 1. Enq *)
+
+                  (* 1. provecorresponds to of Enq one in *)
                   have enq_not_none: "find_unique_index (\<lambda>x. op_name x = enq \<and> op_val x = a) L_curr \<noteq> None"
                   proof -
                     have "op_val (L_curr ! k2) = a" using k2_props(3) a_def by simp
@@ -3818,8 +5606,8 @@ proof (induction L H v rule: modify_lin.induct)
                       using k2_props(2) k2_len independent_L_curr unique_enq_index by blast
                     thus ?thesis unfolding find_unique_index_def by simp
                   qed
-                  
-                  (* Step 2: 2. Deq *)
+
+                  (* 2. provecorresponds to of Deq one in *)
                   moreover have deq_not_none: "find_unique_index (\<lambda>x. op_name x = deq \<and> op_val x = a) L_curr \<noteq> None"
                   proof -
                     have kD_is_deq: "op_name (L_curr ! kD) = deq" using kD_deq L_new_kD by simp
@@ -3827,62 +5615,62 @@ proof (induction L H v rule: modify_lin.induct)
                       using kD_is_deq kD_len_curr a_def independent_L_curr unique_deq_index by blast
                     thus ?thesis unfolding find_unique_index_def by simp
                   qed
-                  
-                  ultimately show ?thesis unfolding in_SA_def by (auto split: option.splits)
-                qed      
 
-                (* lI5_SA_Prefix_list *)
+                  ultimately show ?thesis unfolding in_SA_def by (auto split: option.splits)
+                qed
+
+                (* Use lI5_SA_Prefix_list *)
                 have k2_bound: "int k2 \<le> find_last_SA L_curr"
                   using lin_I5_curr[unfolded lI5_SA_Prefix_list_def] `in_SA a L_curr` k2_props(2) k2_props(3) a_def
-                  by (metis k2_props(1) kD_len len_eq order.strict_trans) 
-                  
+                  by (metis k2_props(1) kD_len len_eq order.strict_trans)
+
                 have k2_before_swap: "k2 < ?idx"
                 proof -
-                  (* remaining bt_idx, drop , *)
+                  (* Fill in derivation: because remaining in bt_idx, note drop afterwardslistnonempty, prefix has *)
                   have bound: "nat (find_last_SA L_curr + 1) \<le> length L_curr"
                     using bt_idx_valid unfolding remaining_def last_sa_pos_def by simp
 
                   have "?idx = length l1 + length (butlast l2)" by simp
-                  (* bound min , nat (x + 1) *)
-                  also have "... = nat (find_last_SA L_curr + 1) + length (butlast l2)" 
+                  (* Use bound min, preserve one of nat (x + 1) form *)
+                  also have "... = nat (find_last_SA L_curr + 1) + length (butlast l2)"
                     unfolding l1_def last_sa_pos_def using bound by simp
                   finally have "?idx \<ge> nat (find_last_SA L_curr + 1)" by simp
-                  
-                  (* k2 : SA , <= find_last_SA *)
-                  moreover have "k2 \<le> nat (find_last_SA L_curr)" 
+
+                  (* K2 of: it in old SA in, thereforenecessarily <= find_last_SA *)
+                  moreover have "k2 \<le> nat (find_last_SA L_curr)"
                     using k2_bound by linarith
-                    
-                  (* Step 0: 0 : nat (x) nat (x + 1) > 0 . SMT , linarith *)
-                  ultimately show ?thesis 
+
+                  (* 0 boundary: nat (x) strictly less than nat (x + 1) when > 0. butsince SMT in heremay, for linarith precondition *)
+                  ultimately show ?thesis
                     using k2_bound by linarith
                 qed
-                
+
                 have L_new_k2: "new_L ! k2 = L_curr ! k2"
                   using k2_before_swap L_curr_eq new_L_eq
-                  by (metis nth_append_cases(1)) 
-                  
-                (* Proof note. *)
+                  by (metis nth_append_cases(1))
+
+                (* Precisemapping goal *)
                 show ?thesis
                 proof (rule exI[where x=k2], intro conjI)
                   show "k2 < kD" using k2_props(1) .
                   show "op_name (new_L ! k2) = enq" using k2_props(2) L_new_k2 by simp
                   show "op_val (new_L ! k2) = op_val (new_L ! kD)" using k2_props(3) L_new_k2 L_new_kD by simp
-                  
+
                   show "\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow>
                         (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3))"
                   proof (intro allI impI)
                     fix k3 assume "k3 < k2" and k3_enq: "op_name (new_L ! k3) = enq"
-                    
+
                     have k3_before_swap: "k3 < ?idx" using `k3 < k2` k2_before_swap by simp
                     have L_new_k3: "new_L ! k3 = L_curr ! k3" using k3_before_swap L_curr_eq new_L_eq
-                      by (metis nth_append_cases(1)) 
-                    
+                      by (metis nth_append_cases(1))
+
                     have "op_name (L_curr ! k3) = enq" using k3_enq L_new_k3 by simp
-                    
-                    obtain k4 where k4_props: "k3 < k4" "k4 < kD" "op_name (L_curr ! k4) = deq" 
+
+                    obtain k4 where k4_props: "k3 < k4" "k4 < kD" "op_name (L_curr ! k4) = deq"
                                               "op_val (L_curr ! k4) = op_val (L_curr ! k3)"
                       using k2_props(4)[rule_format, OF `k3 < k2` `op_name (L_curr ! k3) = enq`] by blast
-                      
+
                     have k4_not_idx: "k4 \<noteq> ?idx \<and> k4 \<noteq> ?idx + 1"
                     proof (rule ccontr)
                       assume "\<not> (k4 \<noteq> ?idx \<and> k4 \<noteq> ?idx + 1)"
@@ -3897,14 +5685,14 @@ proof (induction L H v rule: modify_lin.induct)
                         with k4_props(3) bt_act_enq show False by simp
                       qed
                     qed
-                    
+
                     have L_new_k4: "new_L ! k4 = L_curr ! k4"
                     proof -
                       consider (before) "k4 < ?idx" | (after) "k4 \<ge> ?idx + 2" using k4_not_idx by linarith
                       then show ?thesis
                       proof cases
                         case before then show ?thesis using L_curr_eq new_L_eq
-                          by (metis nth_append_cases(1)) 
+                          by (metis nth_append_cases(1))
                       next
                         case after
                         have "L_curr ! k4 = l3 ! (k4 - ?idx - 2)" using L_curr_eq after by (auto simp add: nth_append)
@@ -3912,7 +5700,7 @@ proof (induction L H v rule: modify_lin.induct)
                         ultimately show ?thesis by simp
                       qed
                     qed
-                    
+
                     show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)"
                     proof (rule exI[where x=k4], intro conjI)
                       show "k3 < k4" "k4 < kD" using k4_props by auto
@@ -3925,9 +5713,9 @@ proof (induction L H v rule: modify_lin.induct)
             qed
           qed
 
-      have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L" 
-          proof -            
-            (* Step 3: 3. last_sa_pos  *)
+      have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L"
+          proof -
+            (* 3. provenewoldlist in last_sa_pos its left complete one (prefixequal) *)
             have prefix_eq: "take (nat (last_sa_pos + 1)) new_L = take (nat (last_sa_pos + 1)) L_curr"
             proof -
               have "take (nat (last_sa_pos + 1)) L_curr = l1" unfolding l1_def by simp
@@ -3943,16 +5731,16 @@ proof (induction L H v rule: modify_lin.induct)
               ultimately show ?thesis by simp
             qed
 
-            (* Step 2: 2. in_SA *)
+            (* 2. in_SA of equivalence: equal elementcomplete *)
             have in_SA_eq: "\<And>a. in_SA a new_L = in_SA a L_curr"
               using in_SA_mset_eq mset_eq by blast
-               
-            (* Step 3: 3. find_last_SA : PureLib.thy *)
+
+            (* 3. find_last_SA of equivalence: use PureLib.thy in of *)
             have sa_eq: "find_last_SA new_L = find_last_SA L_curr"
             proof -
               let ?n = "nat (last_sa_pos + 1)"
-              
-              (* A. L_curr Enq *)
+
+              (* A. prove L_curr in boundary right has be synchronize of Enq *)
               have suffix_L_curr: "\<forall>i \<in> {?n..<length L_curr}. \<not> (op_name (L_curr ! i) = enq \<and> in_SA (op_val (L_curr ! i)) L_curr)"
               proof (intro ballI notI)
                 fix i assume "i \<in> {?n..<length L_curr}"
@@ -3960,24 +5748,24 @@ proof (induction L H v rule: modify_lin.induct)
                   unfolding last_sa_pos_def by auto
                 assume "op_name (L_curr ! i) = enq \<and> in_SA (op_val (L_curr ! i)) L_curr"
                 then have "op_name (L_curr ! i) = enq" and in_sa: "in_SA (op_val (L_curr ! i)) L_curr" by auto
-                
-                (* PureLib enqs_after_last_sa_are_not_in_sa *)
+
+                (* Use PureLib in of enqs_after_last_sa_are_not_in_sa *)
                 from enqs_after_last_sa_are_not_in_sa[OF `i < length L_curr` `int i > find_last_SA L_curr` `op_name (L_curr ! i) = enq`]
                 show False using in_sa by simp
               qed
 
-              (* B. new_L Enq ( , SMT) *)
+              (* B. prove new_L in boundary right also has be synchronize of Enq (use mapping, SMT) *)
               have suffix_new_L: "\<forall>i \<in> {?n..<length new_L}. \<not> (op_name (new_L ! i) = enq \<and> in_SA (op_val (new_L ! i)) new_L)"
               proof (intro ballI notI)
                 fix i assume "i \<in> {?n..<length new_L}"
                 assume bad: "op_name (new_L ! i) = enq \<and> in_SA (op_val (new_L ! i)) new_L"
                 then have is_enq: "op_name (new_L ! i) = enq" and in_sa: "in_SA (op_val (new_L ! i)) new_L" by auto
-                
-                (* in_SA in_SA *)
+
+                (* Equivalence: newlist in_SA oldlist also in_SA *)
                 have in_sa_curr: "in_SA (op_val (new_L ! i)) L_curr"
                   using in_sa in_SA_eq by simp
-                
-                (* k_old *)
+
+                (* To newlistelement in oldlist in of corresponds to k_old *)
                 have "\<exists>k_old \<ge> ?n. k_old < length L_curr \<and> L_curr ! k_old = new_L ! i"
                 proof -
                   consider (before) "i < ?idx" | (at_bt) "i = ?idx" | (at_l2) "i = ?idx + 1" | (after) "i \<ge> ?idx + 2" by linarith
@@ -3985,11 +5773,11 @@ proof (induction L H v rule: modify_lin.induct)
                   proof cases
                     case before
                     have "new_L ! i = L_curr ! i" using before L_curr_eq new_L_eq
-                      by (metis nth_append_cases(1)) 
+                      by (metis nth_append_cases(1))
                     moreover have "i \<ge> ?n" using `i \<in> {?n..<length new_L}` by simp
                     moreover have "i < length L_curr" using `i \<in> {?n..<length new_L}` len_eq by simp
                     ultimately show ?thesis
-                      by auto 
+                      by auto
                   next
                     case at_bt
                     have "new_L ! i = bt_act" using at_bt new_L_eq by (simp add: nth_append)
@@ -3997,9 +5785,9 @@ proof (induction L H v rule: modify_lin.induct)
                     moreover have "?idx + 1 \<ge> ?n"
                       by (metis \<open>i \<in> {nat (last_sa_pos + 1)..<length new_L}\<close> add.commute
                           atLeastLessThan_iff at_bt trans_le_add2)
-                    (* 1: L_curr_eq ?idx + 1 *)
+                    (* Key fix 1: use L_curr_eq prove directly?idx + 1 *)
                     moreover have "?idx + 1 < length L_curr" using L_curr_eq by simp
-                    (* 2: SMT , *)
+                    (* Key fix 2: then make SMT, *)
                     ultimately show ?thesis by (rule_tac x="?idx + 1" in exI, simp)
                   next
                     case at_l2
@@ -4009,8 +5797,8 @@ proof (induction L H v rule: modify_lin.induct)
                       by (metis L_curr_eq List.nth_append_length
                           \<open>i \<in> {nat (last_sa_pos + 1)..<length new_L}\<close> append_Cons in_sa is_enq
                           linorder_le_less_linear new_L_eq nth_take prefix_eq
-                          suffix_L_curr) 
-                    (* 3 *)
+                          suffix_L_curr)
+                    (* Key fix 3: additional proof block prove *)
                     moreover have "?idx < length L_curr" using L_curr_eq by simp
                     ultimately show ?thesis by (rule_tac x="?idx" in exI, simp)
                   next
@@ -4024,21 +5812,21 @@ proof (induction L H v rule: modify_lin.induct)
                     moreover have "i \<ge> ?n" using `i \<in> {?n..<length new_L}` by simp
                     moreover have "i < length L_curr" using `i \<in> {?n..<length new_L}` len_eq by simp
                     ultimately show ?thesis
-                      by auto 
+                      by auto
                   qed
                 qed
                 then obtain k_old where k_old_props: "k_old < length L_curr" "k_old \<ge> ?n" "L_curr ! k_old = new_L ! i" by blast
-                
-                (* Proof note. *)
+
+                (* Useoldlist of propertyderive a contradiction *)
                 have "k_old \<in> {?n..<length L_curr}" using k_old_props by simp
                 with suffix_L_curr have "\<not> (op_name (L_curr ! k_old) = enq \<and> in_SA (op_val (L_curr ! k_old)) L_curr)" by blast
                 moreover have "op_name (L_curr ! k_old) = enq" using is_enq k_old_props(3) by simp
                 ultimately have "\<not> in_SA (op_val (L_curr ! k_old)) L_curr" by simp
-                
+
                 with in_sa_curr k_old_props(3) show False by simp
               qed
-              
-              (* C. PureLib.thy find_last_SA_stable_prefix *)
+
+              (* C. apply PureLib.thy in of find_last_SA_stable_prefix direct closuregoal *)
               show ?thesis
               proof (rule find_last_SA_stable_prefix[of new_L L_curr "?n"])
                 show "length new_L = length L_curr" using len_eq .
@@ -4049,58 +5837,58 @@ proof (induction L H v rule: modify_lin.induct)
               qed
             qed
 
-            (* Step 4: 4. lI5_SA_Prefix_list_def (, 100%) *)
+            (* 4. unfold lI5_SA_Prefix_list_def casederivation (core, 100%match) *)
             show ?thesis unfolding lI5_SA_Prefix_list_def
             proof (intro allI impI)
-              fix k assume k_len: "k < length new_L" 
+              fix k assume k_len: "k < length new_L"
               assume k_enq: "op_name (new_L ! k) = enq"
-              
+
               show "in_SA (op_val (new_L ! k)) new_L \<longleftrightarrow> int k \<le> find_last_SA new_L"
               proof -
-                (* new_L L_curr *)
-                have lhs_eq: "in_SA (op_val (new_L ! k)) new_L = in_SA (op_val (new_L ! k)) L_curr" 
+                (* Useequivalence new_L of L_curr *)
+                have lhs_eq: "in_SA (op_val (new_L ! k)) new_L = in_SA (op_val (new_L ! k)) L_curr"
                   using in_SA_eq by simp
-                  
-                (* nat (last_sa_pos + 1) , -1 *)
+
+                (* Key Fix: use directly nat (last_sa_pos + 1) as boundary, precise -1 into of *)
                 consider (in_prefix) "k < nat (last_sa_pos + 1)" | (in_suffix) "k \<ge> nat (last_sa_pos + 1)" by linarith
                 then show ?thesis
                 proof cases
                   case in_prefix
-                  (* A: k , *)
+                  (* Case A: k in synchronizeprefix in, elementcomplete *)
                   have k_eq: "new_L ! k = L_curr ! k"
                   proof -
                     have "take (nat (last_sa_pos + 1)) new_L ! k = take (nat (last_sa_pos + 1)) L_curr ! k"
                       using prefix_eq by simp
                     thus ?thesis using in_prefix k_len len_eq by simp
                   qed
-                  
-                  (* k < nat (last_sa_pos + 1), last_sa_pos >= 0, int k <= last_sa_pos *)
+
+                  (* Since k < nat (last_sa_pos + 1), note last_sa_pos >= 0, therefore int k <= last_sa_pos necessarily into *)
                   have rhs_true: "int k \<le> last_sa_pos"
                     using in_prefix by linarith
-                    
-                  (* lI5_SA_Prefix lhs True *)
+
+                  (* Oldlist of lI5_SA_Prefix derivation lhs as True *)
                   have "in_SA (op_val (L_curr ! k)) L_curr"
                     by (metis k_enq k_eq k_len last_sa_pos_def lI5_SA_Prefix_list_def lin_I5_curr
                         mset_eq rhs_true size_mset)
-                    
+
                   thus ?thesis using lhs_eq k_eq rhs_true sa_eq last_sa_pos_def by simp
-                  
+
                 next
                   case in_suffix
-                  (* B: k *)
-                  (* Step 1: 1. False: k >= nat (last_sa_pos + 1), int k > last_sa_pos *)
+                  (* Case B: k in suffix in *)
+                  (* 1. prove right as False: because k >= nat (last_sa_pos + 1), int k > last_sa_pos *)
                   have rhs_false: "\<not> (int k \<le> find_last_SA new_L)"
                     using in_suffix sa_eq last_sa_pos_def by linarith
-                    
-                  (* Step 2: 2. False: suffix_new_L *)
+
+                  (* 2. prove left as False: use we of suffix_new_L *)
                   have lhs_false: "\<not> in_SA (op_val (new_L ! k)) new_L"
                   proof -
                     have "k \<in> {nat (last_sa_pos + 1)..<length new_L}" using in_suffix k_len by simp
                     with k_enq show ?thesis
                       using enqs_after_last_sa_are_not_in_sa k_enq k_len rhs_false
-                        verit_comp_simplify1(3) by blast 
+                        verit_comp_simplify1(3) by blast
                   qed
-                  
+
                   show ?thesis using rhs_false lhs_false by simp
                 qed
               qed
@@ -4112,7 +5900,7 @@ proof (induction L H v rule: modify_lin.induct)
       have p_exists: "\<exists>k<length new_L. op_name (new_L ! k) = enq \<and> op_val (new_L ! k) = bt_val"
         by (metis exists_L in_set_conv_nth mod_eq modify_preserves_mset set_mset_mset)
 
-      (* 1(1) *)
+      (* Use 1(1) *)
       show ?thesis
         unfolding mod_eq
         using "1.IH"(1) do_modify True bt_idx_def
@@ -4124,115 +5912,115 @@ proof (induction L H v rule: modify_lin.induct)
       (* === Case c1/c2/c3: Deq === *)
       case False
       note not_enq = False
-      
+
       have find_enq_valid: "find_last_enq l2 \<noteq> None"
-        using do_modify False l2_not_nil 
-        unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def 
+        using do_modify False l2_not_nil
+        unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def
         using bt_idx_def
-        by (smt (verit) last_sa_pos_def option.simps(4,5) remaining_def) 
+        by (smt (verit) last_sa_pos_def option.simps(4,5) remaining_def)
 
       obtain l21 b_act l22 where l2_split: "find_last_enq l2 = Some (l21, b_act, l22)"
         using find_enq_valid by (cases "find_last_enq l2", auto)
-        
+
       define o1 where "o1 = hd l22"
 
           have l22_not_nil: "l22 \<noteq> []"
             using do_modify not_enq l2_last_def l2_split l2_not_nil unfolding find_last_enq_def using l2_def remaining_def
-            by (metis find_last_enq_props(1,2) l2_split last_snoc self_append_conv)       
+            by (metis find_last_enq_props(1,2) l2_split last_snoc self_append_conv)
 
           have l2_eq: "l2 = l21 @ [b_act] @ l22"
             using find_last_enq_props(1)[OF l2_split] by simp
-            
+
           have l22_eq: "l22 = o1 # tl l22"
             using l22_not_nil o1_def by simp
-            
+
           have l2_eq_expanded: "l2 = l21 @ [b_act, o1] @ tl l22"
             using l2_eq l22_eq by simp
-            
+
           have b_act_enq: "op_name b_act = enq"
             using find_last_enq_props(2)[OF l2_split] by simp
-            
+
           have o1_deq: "op_name o1 = deq"
           proof -
             have "\<forall>x\<in>set l22. op_name x = deq"
               using find_last_enq_props(3)[OF l2_split]
-              using mname.exhaust by auto 
+              using mname.exhaust by auto
             moreover have "o1 \<in> set l22" using l22_not_nil o1_def by simp
             ultimately show ?thesis by simp
           qed
-          
-          have bt_act_enq: "op_name bt_act = enq" 
+
+          have bt_act_enq: "op_name bt_act = enq"
             using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def by auto
 
-          (* ?idx ( b_act) ?idx+1 ( o1) *)
+          (* Definition one of: in?idx (original b_act) and?idx+1 (original o1) *)
           let ?pre = "l1 @ l21"
           let ?idx = "length ?pre"
-          
+
           have L_curr_eq: "L_curr = ?pre @ [b_act, o1] @ tl l22 @ [bt_act] @ l3"
           proof -
-            have "remaining = l2 @ [bt_act] @ l3" 
+            have "remaining = l2 @ [bt_act] @ l3"
               unfolding l2_def l3_def bt_act_def using bt_idx_valid by (simp add: id_take_nth_drop)
             hence "L_curr = l1 @ l2 @ [bt_act] @ l3" unfolding l1_def remaining_def
-              by (metis append_take_drop_id) 
+              by (metis append_take_drop_id)
             thus ?thesis using l2_eq_expanded by auto
           qed
 
-              (* Enq Deq , data_independent *)
+              (* Core: be of Enq and Deq impossible in one value, then data_independent *)
               have val_neq: "op_val b_act \<noteq> op_val o1"
               proof (rule ccontr)
                 assume "\<not> (op_val b_act \<noteq> op_val o1)"
                 hence val_eq: "op_val b_act = op_val o1" by simp
-                
-                (* Step 1: 1. b_act (Enq) *)
+
+                (* 1. extract b_act (Enq) in oldlist in of *)
                 have idx_b_bound: "?idx < length L_curr" using L_curr_eq by simp
                 have idx_b_val: "L_curr ! ?idx = b_act" using L_curr_eq by (simp add: nth_append)
                 have b_is_enq: "op_name (L_curr ! ?idx) = enq" using idx_b_val b_act_enq by simp
-                
-                (* Step 2: 2. b_act SA *)
+
+                (* 2. prove b_act in SA synchronizeboundaryafterwards *)
                 have idx_after_sa: "int ?idx > find_last_SA L_curr"
                 proof -
-                  have bound: "nat (last_sa_pos + 1) \<le> length L_curr" 
+                  have bound: "nat (last_sa_pos + 1) \<le> length L_curr"
                     using bt_idx_valid unfolding remaining_def by auto
                   have "?idx = length l1 + length l21" by simp
-                  also have "... = (nat (last_sa_pos + 1)) + length l21" 
+                  also have "... = (nat (last_sa_pos + 1)) + length l21"
                     unfolding l1_def using bound by simp
                   finally show ?thesis unfolding last_sa_pos_def by linarith
                 qed
-                
-                (* Step 3: 3. PureLib , SA Enq SA *)
+
+                (* 3. use PureLib in of, SA afterwards of Enq its value in SA set in *)
                 have not_in_sa: "\<not> in_SA (op_val b_act) L_curr"
                   using enqs_after_last_sa_are_not_in_sa[OF idx_b_bound idx_after_sa b_is_enq]
                   using idx_b_val by simp
-                  
-                (* Step 4: 4. : o1 Deq , SA *)
+
+                (* 4. construct contradiction: because o1 is Deq and valueequal, then it form SA match for *)
                 have "in_SA (op_val b_act) L_curr"
                 proof -
-                  (* a. Enq *)
+                  (* A. useuniqueness Enq *)
                   have enq_indices: "find_indices (\<lambda>a. op_name a = enq \<and> op_val a = op_val b_act) L_curr = [?idx]"
                     using unique_enq_index[OF independent_L_curr b_is_enq _ idx_b_bound] idx_b_val by simp
-                  
-                  (* b. Deq *)
+
+                  (* B. useuniqueness Deq *)
                   have idx_o_bound: "?idx + 1 < length L_curr" using L_curr_eq by simp
                   have idx_o_val: "L_curr ! (?idx + 1) = o1" using L_curr_eq by (simp add: nth_append)
                   have o_is_deq: "op_name (L_curr ! (?idx + 1)) = deq" using idx_o_val o1_deq by simp
                   have o_val_match: "op_val (L_curr ! (?idx + 1)) = op_val b_act" using idx_o_val val_eq by simp
-                  
+
                   have deq_indices: "find_indices (\<lambda>a. op_name a = deq \<and> op_val a = op_val b_act) L_curr = [?idx + 1]"
                     using unique_deq_index[OF independent_L_curr o_is_deq o_val_match idx_o_bound] by simp
-                    
-                  (* c. in_SA , SA *)
-                  show ?thesis 
+
+                  (* C. in_SA of definition, left right for success prove it in SA *)
+                  show ?thesis
                     unfolding in_SA_def find_unique_index_def Let_def
                     using enq_indices deq_indices by (auto split: option.splits if_splits)
                 qed
-                
-                (* Step 5: 5. *)
+
+                (* 5. contradiction *)
                 with not_in_sa show False by simp
               qed
 
-      (* Step 3: 3 *)
-      consider 
-          (c1) "happens_before o1 bt_act H" 
+      (* 3 branch *)
+      consider
+          (c1) "happens_before o1 bt_act H"
         | (c2) "\<not> happens_before o1 bt_act H \<and> happens_before b_act o1 H"
         | (c3) "\<not> happens_before o1 bt_act H \<and> \<not> happens_before b_act o1 H"
           by blast
@@ -4241,11 +6029,11 @@ proof (induction L H v rule: modify_lin.induct)
       proof cases
         case c1 (* === c1 === *)
         define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ tl l22 @ [bt_act] @ l3"
-        
-            (* new_L L_curr , [o1, b_act] *)
+
+            (* New_L and L_curr align, only [o1, b_act] *)
             have new_L_eq: "new_L = ?pre @ [o1, b_act] @ tl l22 @ [bt_act] @ l3"
               unfolding new_L_def by simp
-              
+
             have len_eq: "length new_L = length L_curr"
               using L_curr_eq new_L_eq by simp
 
@@ -4268,38 +6056,38 @@ proof (induction L H v rule: modify_lin.induct)
         have indep_new: "data_independent new_L"
           by (metis data_independent_cong independent_L_curr mod_eq modify_preserves_mset)
 
-        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L" 
+        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L"
             proof -
-              (* ?map *)
+              (* Derivation: in coordinatemapping then?map *)
               show ?thesis unfolding lI4_FIFO_Semantics_list_def Let_def
               proof (intro allI impI)
-                fix kD assume kD_len: "kD < length new_L" 
+                fix kD assume kD_len: "kD < length new_L"
                 assume kD_deq: "op_name (new_L ! kD) = deq"
-                
-                (* Proof note. *)
+
+                (* Definitioncore of *)
                 let ?map = "\<lambda>k. if k = ?idx then ?idx + 1 else if k = ?idx + 1 then ?idx else k"
-                
+
                 have kD_not_idx1: "kD \<noteq> ?idx + 1"
                 proof (rule ccontr)
                   assume "\<not> (kD \<noteq> ?idx + 1)"
                   hence "new_L ! kD = b_act" using new_L_eq by (simp add: nth_append)
                   with kD_deq b_act_enq show False by simp
                 qed
-                
-                (* kD *)
+
+                (* For kD mapping *)
                 define kD_old where "kD_old = ?map kD"
-                
-                (* Auxiliary lemma L_new_kD *)
+
+                (* Use of helper lemma L_new_kD! *)
                 have L_new_kD: "new_L ! kD = L_curr ! kD_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq kD_old_def by simp
-                  
+
                 have kD_old_len: "kD_old < length L_curr"
                   using kD_len len_eq kD_old_def kD_not_idx1 L_curr_eq by auto
 
                 have kD_old_deq: "op_name (L_curr ! kD_old) = deq" using L_new_kD kD_deq by simp
-                
-                obtain k2_old where k2_old_props: 
+
+                obtain k2_old where k2_old_props:
                   "k2_old < kD_old" "op_name (L_curr ! k2_old) = enq" "op_val (L_curr ! k2_old) = op_val (L_curr ! kD_old)"
                   "\<forall>k3<k2_old. op_name (L_curr ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD_old \<and> op_name (L_curr ! k4) = deq \<and> op_val (L_curr ! k4) = op_val (L_curr ! k3))"
                   using lin_L_curr[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD_old] using kD_old_len kD_old_deq by blast
@@ -4311,10 +6099,10 @@ proof (induction L H v rule: modify_lin.induct)
                   with k2_old_props(2) o1_deq show False by simp
                 qed
 
-                (* k2 *)
+                (* For k2 mapping *)
                 define k2 where "k2 = ?map k2_old"
-                
-                (* Proof note. *)
+
+                (* Then direct closure! *)
                 have L_new_k2: "new_L ! k2 = L_curr ! k2_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq k2_def by simp
@@ -4322,13 +6110,13 @@ proof (induction L H v rule: modify_lin.induct)
                 show "\<exists>k2<kD. op_name (new_L ! k2) = enq \<and> op_val (new_L ! k2) = op_val (new_L ! kD) \<and>
                         (\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)))"
                 proof (rule exI[where x=k2], intro conjI)
-                  
+
                   show "k2 < kD"
                   proof -
                     have kD_old_not_idx: "kD_old \<noteq> ?idx"
                       using kD_old_def kD_not_idx1 by (auto split: if_splits)
-                      
-                    (* val_neq , *)
+
+                    (* Use we of val_neq guard, of case *)
                     have "k2_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1"
                     proof (rule ccontr)
                       assume "\<not> (k2_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1)"
@@ -4337,82 +6125,82 @@ proof (induction L H v rule: modify_lin.induct)
                       hence "op_val b_act = op_val o1" using k2_old_props(3) by simp
                       thus False using val_neq by simp
                     qed
-                    
-                    (* , auto *)
+
+                    (* , make auto close the goal directly *)
                     thus ?thesis using k2_old_props(1) k2_def kD_old_def kD_not_idx1 k2_old_not_idx1 kD_old_not_idx
-                      by (metis Suc_eq_plus1 linorder_cases not_less_eq) 
+                      by (metis Suc_eq_plus1 linorder_cases not_less_eq)
                   qed
-                  
+
                   show "op_name (new_L ! k2) = enq" using k2_old_props(2) L_new_k2 by simp
                   show "op_val (new_L ! k2) = op_val (new_L ! kD)" using k2_old_props(3) L_new_k2 L_new_kD by simp
-                  
+
                   show "\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3))"
                   proof (intro allI impI)
                     fix k3 assume "k3 < k2" and k3_enq: "op_name (new_L ! k3) = enq"
-                    
+
                     have k3_not_idx: "k3 \<noteq> ?idx"
                     proof (rule ccontr)
                       assume "\<not> (k3 \<noteq> ?idx)"
                       hence "new_L ! k3 = o1" using new_L_eq by (simp add: nth_append)
                       with k3_enq o1_deq show False by simp
                     qed
-                    
-                    (* k3 *)
+
+                    (* K3 mapping *)
                     define k3_old where "k3_old = ?map k3"
-                    
+
                     have L_new_k3: "new_L ! k3 = L_curr ! k3_old"
                       using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                       using L_curr_eq new_L_eq k3_old_def by simp
-                      
+
                     have "k3_old < k2_old"
                     proof -
                       have "k3_old \<noteq> ?idx \<or> k2_old \<noteq> ?idx + 1" using k2_old_not_idx1 by simp
                       thus ?thesis using `k3 < k2` k3_old_def k2_def k3_not_idx k2_old_not_idx1
                         by (metis le_antisym less_iff_succ_less_eq nat_less_le
-                            nat_neq_iff) 
+                            nat_neq_iff)
                     qed
-                    
-                    obtain k4_old where k4_old_props: "k3_old < k4_old" "k4_old < kD_old" "op_name (L_curr ! k4_old) = deq" 
+
+                    obtain k4_old where k4_old_props: "k3_old < k4_old" "k4_old < kD_old" "op_name (L_curr ! k4_old) = deq"
                                               "op_val (L_curr ! k4_old) = op_val (L_curr ! k3_old)"
                       using L_new_k3 \<open>k3_old < k2_old\<close> k2_old_props(4) k3_enq by auto
-                      
+
                     have k4_old_not_idx: "k4_old \<noteq> ?idx"
                     proof (rule ccontr)
                       assume "\<not> (k4_old \<noteq> ?idx)"
                       hence "L_curr ! k4_old = b_act" using L_curr_eq by (simp add: nth_append)
                       with k4_old_props(3) b_act_enq show False by simp
                     qed
-                    
-                    (* k4 *)
+
+                    (* K4 mapping *)
                     define k4 where "k4 = ?map k4_old"
-                    
+
                     have L_new_k4: "new_L ! k4 = L_curr ! k4_old"
                       using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                       using L_curr_eq new_L_eq k4_def by simp
-                      
+
                     show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)"
                     proof (rule exI[where x=k4], intro conjI)
                       show "k3 < k4"
                       proof -
-                        (* k3_old k4_old *)
+                        (* Core: prove k3_old and k4_old definitelyimpossible is be of for element *)
                         have no_reverse: "k3_old \<noteq> ?idx \<or> k4_old \<noteq> ?idx + 1"
                         proof (rule ccontr)
                           assume "\<not> (k3_old \<noteq> ?idx \<or> k4_old \<noteq> ?idx + 1)"
                           hence "k3_old = ?idx" and "k4_old = ?idx + 1" by auto
-                          
-                          (* Proof note. *)
-                          hence "L_curr ! k3_old = b_act" and "L_curr ! k4_old = o1" 
+
+                          (* Extract it in oldlist in of corresponds toelement *)
+                          hence "L_curr ! k3_old = b_act" and "L_curr ! k4_old = o1"
                             using L_curr_eq by (auto simp add: nth_append)
-                            
-                          (* k4_old_props, *)
-                          hence "op_val o1 = op_val b_act" 
+
+                          (* K4_old_props, it of valuemustequal *)
+                          hence "op_val o1 = op_val b_act"
                             using k4_old_props(4) by simp
-                            
-                          (* val_neq, *)
+
+                          (* But we previously out of val_neq, contradiction! *)
                           thus False using val_neq by auto
                         qed
-                        
-                        (* , , auto *)
+
+                        (* Case after, mapping, auto complete into *)
                         thus ?thesis using k4_old_props(1) k3_old_def k4_def k3_not_idx k4_old_not_idx
                           by (metis Suc_eq_plus1 Suc_leI le_neq_implies_less less_SucE)
                       qed
@@ -4421,7 +6209,7 @@ proof (induction L H v rule: modify_lin.induct)
                         have kD_old_not_idx: "kD_old \<noteq> ?idx" using kD_old_def kD_not_idx1 by (auto split: if_splits)
                         have "k4_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1" using k4_old_not_idx by simp
                         thus ?thesis using k4_old_props(2) k4_def kD_old_def k4_old_not_idx kD_old_not_idx kD_not_idx1
-                          by (metis add.commute add_lessD1 less_SucE plus_1_eq_Suc) 
+                          by (metis add.commute add_lessD1 less_SucE plus_1_eq_Suc)
                       qed
                       show "op_name (new_L ! k4) = deq" using k4_old_props(3) L_new_k4 by simp
                       show "op_val (new_L ! k4) = op_val (new_L ! k3)" using k4_old_props(4) L_new_k4 L_new_k3 by simp
@@ -4431,12 +6219,12 @@ proof (induction L H v rule: modify_lin.induct)
               qed
             qed
 
-        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L" 
+        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L"
             proof -
               let ?n = "nat (last_sa_pos + 1)"
               let ?map = "\<lambda>k. if k = ?idx then ?idx + 1 else if k = ?idx + 1 then ?idx else k"
-              
-              (* Proof note. *)
+
+              (* Definitely in synchronizeboundaryafterwards of *)
               have sa_bound: "?n \<le> ?idx"
               proof -
                 have bound: "?n \<le> length L_curr" using bt_idx_valid unfolding remaining_def by auto
@@ -4445,7 +6233,7 @@ proof (induction L H v rule: modify_lin.induct)
                 finally show ?thesis by linarith
               qed
 
-              (* Step 1: 1. *)
+              (* 1. prefixcomplete one *)
               have prefix_eq: "take ?n new_L = take ?n L_curr"
               proof -
                 have "take ?n L_curr = l1" unfolding l1_def by simp
@@ -4454,19 +6242,19 @@ proof (induction L H v rule: modify_lin.induct)
                   have "new_L = l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3)" using new_L_eq by simp
                   hence "take (length l1) new_L = take (length l1) (l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3))" by simp
                   also have "... = l1" by simp
-                  finally show ?thesis unfolding l1_def 
+                  finally show ?thesis unfolding l1_def
                     by (metis add_left_imp_eq append_eq_append_conv append_take_drop_id len_eq length_append length_drop)
                 qed
                 ultimately show ?thesis by simp
               qed
 
-              (* Step 2: 2. in_SA *)
+              (* 2. in_SA globalequivalence *)
               have in_SA_eq: "\<And>a. in_SA a new_L = in_SA a L_curr"
               proof -
                 fix a
                 have eq1: "L_curr = l1 @ remaining" unfolding l1_def remaining_def by simp
                 have eq2: "new_L = l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3)" unfolding new_L_def l1_def by simp
-                have rem_not_nil: "remaining \<noteq> []" 
+                have rem_not_nil: "remaining \<noteq> []"
                 proof (cases remaining)
                   case Nil with bt_idx_valid show ?thesis by simp
                 next
@@ -4475,11 +6263,11 @@ proof (induction L H v rule: modify_lin.induct)
                 have "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L_curr"
                   using L_and_new_L_have_same_SA[of L_curr l1 remaining new_L "l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" last_sa_pos]
                   using independent_L_curr eq1 eq2 rem_not_nil mset_eq l1_def last_sa_pos_def
-                  by metis 
+                  by metis
                 thus "in_SA a new_L = in_SA a L_curr" by simp
               qed
 
-              (* Step 3: 3. find_last_SA *)
+              (* 3. find_last_SA boundaryequivalence *)
               have sa_eq: "find_last_SA new_L = find_last_SA L_curr"
               proof -
                 have suffix_L_curr: "\<forall>i \<in> {?n..<length L_curr}. \<not> (op_name (L_curr ! i) = enq \<and> in_SA (op_val (L_curr ! i)) L_curr)"
@@ -4498,27 +6286,27 @@ proof (induction L H v rule: modify_lin.induct)
                   assume bad: "op_name (new_L ! i) = enq \<and> in_SA (op_val (new_L ! i)) new_L"
                   then have is_enq: "op_name (new_L ! i) = enq" and in_sa: "in_SA (op_val (new_L ! i)) new_L" by auto
                   have in_sa_curr: "in_SA (op_val (new_L ! i)) L_curr" using in_sa in_SA_eq by simp
-                  
-                  (* ?map L_curr *)
+
+                  (* --- mapping!use?map mapping L_curr --- *)
                   define k_old where "k_old = ?map i"
                   have "new_L ! i = L_curr ! k_old"
                     using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                     using L_curr_eq new_L_eq k_old_def by simp
                   moreover have "k_old \<ge> ?n" using `i \<in> {?n..<length new_L}` sa_bound k_old_def by auto
-                  (* 【 】: L_curr_eq , Isabelle +1 *)
+                  (* [key fix]: use L_curr_eq, Isabelle prove +1 definitely *)
                   moreover have "k_old < length L_curr"
                   proof -
                     have "?idx + 1 < length L_curr" using L_curr_eq by simp
                     thus ?thesis using `i \<in> {?n..<length new_L}` len_eq k_old_def by auto
                   qed
                   ultimately have "k_old \<in> {?n..<length L_curr}" by simp
-                  
+
                   with suffix_L_curr have "\<not> (op_name (L_curr ! k_old) = enq \<and> in_SA (op_val (L_curr ! k_old)) L_curr)" by blast
                   moreover have "op_name (L_curr ! k_old) = enq" using is_enq `new_L ! i = L_curr ! k_old` by simp
                   ultimately have "\<not> in_SA (op_val (L_curr ! k_old)) L_curr" by simp
                   with in_sa_curr `new_L ! i = L_curr ! k_old` show False by simp
                 qed
-                
+
                 show ?thesis
                 proof (rule find_last_SA_stable_prefix[of new_L L_curr "?n"])
                   show "length new_L = length L_curr" using len_eq .
@@ -4529,92 +6317,92 @@ proof (induction L H v rule: modify_lin.induct)
                 qed
               qed
 
-              (* Step 4: 4. lI5_SA_Prefix_list_def  *)
+              (* 4. unfold lI5_SA_Prefix_list_def casederivation (core) *)
               show ?thesis unfolding lI5_SA_Prefix_list_def
               proof (intro allI impI)
-                fix k assume k_len: "k < length new_L" 
+                fix k assume k_len: "k < length new_L"
                 assume k_enq: "op_name (new_L ! k) = enq"
-                
-                (* Proof note. *)
+
+                (* --- mapping! --- *)
                 define k_old where "k_old = ?map k"
                 have L_new_k: "new_L ! k = L_curr ! k_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq k_old_def by simp
-                
-                (* 【 】: , k_old *)
-                have k_old_len: "k_old < length L_curr" 
+
+                (* [key fix]: in, fill in k_old of boundaryprove *)
+                have k_old_len: "k_old < length L_curr"
                 proof -
                   have "?idx + 1 < length L_curr" using L_curr_eq by simp
                   thus ?thesis using k_len len_eq k_old_def by auto
                 qed
-                
+
                 have lhs_eq: "in_SA (op_val (new_L ! k)) new_L = in_SA (op_val (new_L ! k)) L_curr" using in_SA_eq by simp
-                
-                (* 【 】: nat (last_sa_pos + 1) *)
+
+                (* [key fix]: one use nat (last_sa_pos + 1)! *)
                 consider (in_prefix) "k < nat (last_sa_pos + 1)" | (in_suffix) "k \<ge> nat (last_sa_pos + 1)" by linarith
                 then show "in_SA (op_val (new_L ! k)) new_L \<longleftrightarrow> int k \<le> find_last_SA new_L"
                 proof cases
                   case in_prefix
-                  (* A: prefix , k ?idx, ?map k_old = k *)
+                  (* Case A: in prefix in, k strictly less than start?idx, therefore?map k_old = k *)
                   have "k < ?idx" using in_prefix sa_bound by linarith
                   hence "k_old = k" using k_old_def by simp
                   hence "new_L ! k = L_curr ! k" using L_new_k by simp
-                  
+
                   hence "op_name (L_curr ! k) = enq" using k_enq by simp
                   moreover have "k < length L_curr" using k_len len_eq by simp
-                  (* int *)
+                  (* Derivation out int boundary *)
                   moreover have rhs_true: "int k \<le> last_sa_pos" using in_prefix by linarith
                   ultimately have "in_SA (op_val (L_curr ! k)) L_curr"
                     using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k] unfolding last_sa_pos_def by blast
                   thus ?thesis using `new_L ! k = L_curr ! k` lhs_eq sa_eq last_sa_pos_def rhs_true by simp
-                  
+
                 next
                   case in_suffix
-                  (* B: suffix . swap, k_old >= *)
-                  (* Step 1: 1. k_old >= nat (last_sa_pos + 1) *)
+                  (* Case B: in suffix in. swap, k_old >= synchronizeboundary *)
+                  (* 1. prove k_old >= nat (last_sa_pos + 1) *)
                   have k_old_ge_bound: "k_old \<ge> nat (last_sa_pos + 1)"
                   proof -
-                    (* k >= , , *)
+                    (* Because k >= boundary, and also in boundaryafterwards, mappingonly in boundaryafterwards *)
                     have "k \<ge> nat (last_sa_pos + 1)" using in_suffix by simp
                     moreover have "nat (last_sa_pos + 1) \<le> ?idx" using sa_bound by simp
                     ultimately show ?thesis unfolding k_old_def by auto
                   qed
-                  
-                  (* Step 2: 2. int , nat(-1)=0 *)
-                  (* int k_old > last_sa_pos *)
+
+                  (* 2. into int, nat(-1)=0 of *)
+                  (* Goal: prove int k_old > last_sa_pos *)
                   have "int k_old > last_sa_pos"
                   proof -
-                    (* 1: int (nat X) >= X *)
+                    (* Fact1: arithmetic fact: int (nat X) >= X always holds *)
                     have "int (nat (last_sa_pos + 1)) \<ge> last_sa_pos + 1" by simp
-                    (* 2 *)
-                    moreover have "int k_old \<ge> int (nat (last_sa_pos + 1))" 
+                    (* Fact2: change *)
+                    moreover have "int k_old \<ge> int (nat (last_sa_pos + 1))"
                       using k_old_ge_bound by linarith
-                    (* linarith *)
+                    (* Two fact for linarith close the goal directly! *)
                     ultimately show ?thesis by linarith
                   qed
-                  
-                  (* Step 3: 3. lI5_SA_Prefix *)
+
+                  (* 3. use lI5_SA_Prefix derive a contradiction *)
                   have "op_name (L_curr ! k_old) = enq" using k_enq L_new_k by simp
                   hence "\<not> in_SA (op_val (L_curr ! k_old)) L_curr"
-                    using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k_old] 
+                    using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k_old]
                     using `int k_old > last_sa_pos` k_old_len
-                    by (simp add: last_sa_pos_def) 
+                    by (simp add: last_sa_pos_def)
                   hence "\<not> in_SA (op_val (new_L ! k)) new_L" using L_new_k lhs_eq by simp
-                  
-                  (* Step 4: 4. False ( int ) *)
-                  moreover have "\<not> (int k \<le> find_last_SA new_L)" 
+
+                  (* 4. prove right also as False (similarly int operation) *)
+                  moreover have "\<not> (int k \<le> find_last_SA new_L)"
                   proof -
-                    (* 1: int (nat X) >= X *)
+                    (* Fact1: arithmetic fact: int (nat X) >= X always holds *)
                     have "int (nat (last_sa_pos + 1)) \<ge> last_sa_pos + 1" by simp
-                    (* 2: in_suffix ( k >= nat (last_sa_pos + 1)) int *)
-                    moreover have "int k \<ge> int (nat (last_sa_pos + 1))" 
+                    (* Fact2: use in_suffix (k >= nat (last_sa_pos + 1)) to int *)
+                    moreover have "int k \<ge> int (nat (last_sa_pos + 1))"
                       using in_suffix by linarith
-                    (* , linarith *)
+                    (* Two, linarith can obtain greater than *)
                     ultimately have "int k > last_sa_pos" by linarith
-                    (* Proof note. *)
+                    (* Last in definition prove *)
                     thus ?thesis using sa_eq last_sa_pos_def by simp
                   qed
-                  
+
                   ultimately show ?thesis by simp
                 qed
               qed
@@ -4626,20 +6414,20 @@ proof (induction L H v rule: modify_lin.induct)
           by (metis exists_L in_set_conv_nth mod_eq modify_preserves_mset set_mset_mset)
 
         (* === SMT === *)
-        (* Step 1: 1. , 1.IH(2) AST 100% *)
+        (* 1. packagingprecise of unfoldform, and 1.IH(2) of AST 100% align *)
         define L_inner where "L_inner = take (nat (find_last_SA L_curr + 1)) L_curr @ l21 @ [hd l22] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L_curr + 1)) L_curr)"
-        
+
         have new_L_eq_L_inner: "new_L = L_inner"
           unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def o1_def L_inner_def by simp
-          
-        (* Step 2: 2. L_inner , new_L *)
+
+        (* 2. validitypremise to L_inner, analyze new_L of packaging *)
         have p1_in: "data_independent L_inner" using indep_new unfolding new_L_eq_L_inner .
         have p2_in: "lI4_FIFO_Semantics_list L_inner" using p_lI4_FIFO_Semantics unfolding new_L_eq_L_inner .
         have p3_in: "lI5_SA_Prefix_list L_inner" using p_lI5_SA_Prefix unfolding new_L_eq_L_inner .
         have p4_in: "\<forall>k<length L_inner. op_val (L_inner ! k) = bt_val \<longrightarrow> op_name (L_inner ! k) \<noteq> deq" using p_pending unfolding new_L_eq_L_inner .
         have p5_in: "\<exists>k<length L_inner. op_name (L_inner ! k) = enq \<and> op_val (L_inner ! k) = bt_val" using p_exists unfolding new_L_eq_L_inner .
 
-        (* Step 3: 3. IH 5 , *)
+        (* 3. IH of 5 premise, *)
         have pre1: "should_modify L_curr H bt_val" using do_modify .
         have pre2: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) (drop (nat (find_last_SA L_curr + 1)) L_curr) = Some bt_idx"
           using bt_idx_def unfolding remaining_def[symmetric] last_sa_pos_def[symmetric] .
@@ -4650,8 +6438,8 @@ proof (induction L H v rule: modify_lin.induct)
         have pre5: "happens_before (hd l22) (drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx) H"
           using c1 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] o1_def[symmetric] .
 
-        (* Step 4: 4. simp , metis *)
-        show ?thesis 
+        (* 4. use simp, use metis of list *)
+        show ?thesis
           unfolding mod_eq new_L_eq_L_inner
           unfolding L_inner_def
           using "1.IH"(2) pre1 pre2 pre3 pre4 pre5 p1_in p2_in p3_in p4_in p5_in
@@ -4662,10 +6450,10 @@ proof (induction L H v rule: modify_lin.induct)
       next
         case c2 (* === c2 === *)
         define new_L where "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
-        
+
             have new_L_eq: "new_L = ?pre @ [bt_act, b_act] @ l22 @ l3"
               unfolding new_L_def by simp
-              
+
             have len_eq: "length new_L = length L_curr"
             proof -
               have "L_curr = ?pre @ [b_act] @ l22 @ [bt_act] @ l3"
@@ -4679,53 +6467,53 @@ proof (induction L H v rule: modify_lin.induct)
           apply (simp only: Let_def case_prod_unfold) apply (subst if_not_P, simp)
           by (simp add: bt_act_def l1_def l2_def l2_last_def l3_def last_sa_pos_def new_L_def remaining_def)
 
-            (* Step 3: 3. (, ) *)
+            (* 3. prove (in large in, use precondition of) *)
             have indep_new: "data_independent new_L"
               by (metis data_independent_cong independent_L_curr mod_eq modify_preserves_mset)
 
-        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L" 
+        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L"
             proof -
               let ?m_len = "length l22"
-              
-              (* Step 1: 1. (: -> ) *)
-              let ?map_back = "\<lambda>k. if k < ?idx then k 
-                                  else if k = ?idx then ?idx + ?m_len + 1 
-                                  else if k \<le> ?idx + ?m_len + 1 then k - 1 
-                                  else k"
-                                  
-              (* Step 2: 2. (: -> ) *)
-              (* 3 & 4 : bt_act , deq l22 , *)
-              let ?map_fwd = "\<lambda>k. if k < ?idx then k 
-                                  else if k \<le> ?idx + ?m_len then k + 1 
+
+              (* 1. definition mapping (: new -> old) *)
+              let ?map_back = "\<lambda>k. if k < ?idx then k
+                                  else if k = ?idx then ?idx + ?m_len + 1
+                                  else if k \<le> ?idx + ?m_len + 1 then k - 1
                                   else k"
 
-              (* bt_act *)
+              (* 2. definitionforwardmapping (: old -> new) *)
+              (* 3 & 4 core: bt_act after, original of deq elementonly in l22 right translate one, definitely for *)
+              let ?map_fwd = "\<lambda>k. if k < ?idx then k
+                                  else if k \<le> ?idx + ?m_len then k + 1
+                                  else k"
+
+              (* Fact: oldlist in bt_act of *)
               have bt_act_old_pos: "L_curr ! (?idx + ?m_len + 1) = bt_act"
               proof -
-                (* "bt_act " "bt_act " *)
+                (* : list as "bt_actpreviously of all " and "bt_act its afterwards" two *)
                 have "L_curr = (?pre @ [b_act] @ l22) @ (bt_act # l3)"
                   using L_curr_eq l22_eq by simp
-                
-                (* Proof note. *)
+
+                (* Prove left of then is we of goal *)
                 moreover have "length (?pre @ [b_act] @ l22) = ?idx + ?m_len + 1"
                   by simp
-                
-                (* (A @ B) ! length A = B ! 0, *)
-                ultimately show ?thesis 
+
+                (* Use (A @ B)! length A = B! 0, close the goal directly *)
+                ultimately show ?thesis
                   by (simp add: nth_append)
               qed
 
               show ?thesis unfolding lI4_FIFO_Semantics_list_def Let_def
               proof (intro allI impI)
-                fix kD assume kD_len: "kD < length new_L" 
+                fix kD assume kD_len: "kD < length new_L"
                 assume kD_deq: "op_name (new_L ! kD) = deq"
-                
-                (* kD bt_act *)
-                have kD_not_idx: "kD \<noteq> ?idx" 
+
+                (* KD is bt_act of case *)
+                have kD_not_idx: "kD \<noteq> ?idx"
                   using kD_deq bt_act_enq new_L_eq by (auto simp: nth_append)
 
                 define kD_old where "kD_old = ?map_back kD"
-                
+
                 have L_new_kD: "new_L ! kD = L_curr ! kD_old"
                 proof -
                   have L_exp: "L_curr = ?pre @ [b_act] @ l22 @ [bt_act] @ l3" using L_curr_eq l22_eq by simp
@@ -4734,17 +6522,17 @@ proof (induction L H v rule: modify_lin.induct)
                 qed
 
                 have kD_old_len: "kD_old < length L_curr" using kD_len len_eq kD_old_def
-                  using kD_not_idx by auto 
+                  using kD_not_idx by auto
                 have kD_old_deq: "op_name (L_curr ! kD_old) = deq" using L_new_kD kD_deq by simp
-                
-                obtain k2_old where k2_old_props: 
-                  "k2_old < kD_old" "op_name (L_curr ! k2_old) = enq" 
+
+                obtain k2_old where k2_old_props:
+                  "k2_old < kD_old" "op_name (L_curr ! k2_old) = enq"
                   "op_val (L_curr ! k2_old) = op_val (L_curr ! kD_old)"
                   "\<forall>k3<k2_old. op_name (L_curr ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD_old \<and> op_name (L_curr ! k4) = deq \<and> op_val (L_curr ! k4) = op_val (L_curr ! k3))"
                   using lin_L_curr[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD_old] using kD_old_len L_new_kD kD_deq by auto
 
                 (* ================================================================= *)
-                (* 1: kD_old Enq SA, l1 *)
+                (* Core 1: match kD_old of Enq necessarily in SA, necessarily in l1 inside *)
                 (* ================================================================= *)
                 have k2_old_in_SA: "k2_old < length l1"
                 proof -
@@ -4761,20 +6549,20 @@ proof (induction L H v rule: modify_lin.induct)
                     using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k2_old] using k2_old_props(1,2) kD_old_len
                     using V_def k2_old_props(3) by auto
                   moreover have "find_last_SA L_curr = last_sa_pos"
-                    by (simp add: last_sa_pos_def) 
+                    by (simp add: last_sa_pos_def)
                   moreover have "length l1 = nat (last_sa_pos + 1)"
                   proof -
                     have bound: "nat (last_sa_pos + 1) \<le> length L_curr" using bt_idx_valid unfolding remaining_def last_sa_pos_def
-                      by simp 
+                      by simp
                     show ?thesis unfolding l1_def using bound by (simp add: min_absorb2)
                   qed
                   ultimately show ?thesis by linarith
                 qed
 
-                (* k2_old k3 ?idx *)
+                (* : k2_old and all k3 necessarily all strictly less than?idx *)
                 have k2_old_lt_idx: "k2_old < ?idx" using k2_old_in_SA by simp
 
-                (* k2 , *)
+                (* Since k2 in prefix, mapping is of *)
                 define k2 where "k2 = k2_old"
 
                 have L_new_k2: "new_L ! k2 = L_curr ! k2_old"
@@ -4787,7 +6575,7 @@ proof (induction L H v rule: modify_lin.induct)
                 show "\<exists>k2<kD. op_name (new_L ! k2) = enq \<and> op_val (new_L ! k2) = op_val (new_L ! kD) \<and>
                         (\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)))"
                 proof (rule exI[where x=k2], intro conjI)
-                  
+
                   show "k2 < kD"
                   proof -
                     have "kD_old > k2_old" using k2_old_props(1) .
@@ -4798,16 +6586,16 @@ proof (induction L H v rule: modify_lin.induct)
                   show "op_val (new_L ! k2) = op_val (new_L ! kD)" using k2_old_props(3) L_new_k2 L_new_kD by simp
 
                   (* ================================================================= *)
-                  (* 2: SA , Deq *)
+                  (* Core 2: of match similarly in SA inside mapping, and Deq definitely *)
                   (* ================================================================= *)
                   show "\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3))"
                   proof (intro allI impI)
                     fix k3 assume "k3 < k2" and k3_enq: "op_name (new_L ! k3) = enq"
-                    
-                    (* , k3 *)
+
+                    (* Similarly, k3 also in prefix *)
                     have k3_lt_idx: "k3 < ?idx" using `k3 < k2` k2_def k2_old_lt_idx by simp
                     define k3_old where "k3_old = k3"
-                    
+
                     have L_new_k3: "new_L ! k3 = L_curr ! k3_old"
                     proof -
                       have L_exp: "L_curr = ?pre @ [b_act] @ l22 @ [bt_act] @ l3" using L_curr_eq l22_eq by simp
@@ -4817,19 +6605,19 @@ proof (induction L H v rule: modify_lin.induct)
 
                     have k3_old_enq: "op_name (L_curr ! k3_old) = enq" using k3_enq L_new_k3 by simp
                     have k3_old_lt_k2_old: "k3_old < k2_old" unfolding k3_old_def k2_def using `k3 < k2`
-                      by (simp add: k2_def) 
+                      by (simp add: k2_def)
 
-                    (* Deq k4_old *)
-                    obtain k4_old where k4_old_props: 
-                      "k3_old < k4_old" "k4_old < kD_old" 
-                      "op_name (L_curr ! k4_old) = deq" 
+                    (* From old in match of Deq k4_old *)
+                    obtain k4_old where k4_old_props:
+                      "k3_old < k4_old" "k4_old < kD_old"
+                      "op_name (L_curr ! k4_old) = deq"
                       "op_val (L_curr ! k4_old) = op_val (L_curr ! k3_old)"
                       using k2_old_props(4)[rule_format, OF k3_old_lt_k2_old] k3_old_enq by blast
 
-                    (* 3: , Deq *)
+                    (* 3: constructforwardmapping, Deq of for *)
                     define k4 where "k4 = ?map_fwd k4_old"
 
-                    (* k4_old bt_act, deq *)
+                    (* Core: k4_old impossible is of bt_act, because it is deq *)
                     have k4_old_not_bt: "k4_old \<noteq> ?idx + ?m_len + 1"
                     proof
                       assume "k4_old = ?idx + ?m_len + 1"
@@ -4839,42 +6627,42 @@ proof (induction L H v rule: modify_lin.induct)
 
                     have L_new_k4: "new_L ! k4 = L_curr ! k4_old"
                     proof -
-                      have L_exp: "L_curr = ?pre @ [b_act] @ l22 @ [bt_act] @ l3" 
+                      have L_exp: "L_curr = ?pre @ [b_act] @ l22 @ [bt_act] @ l3"
                         using L_curr_eq l22_eq by simp
-                      have N_exp: "new_L = ?pre @ [bt_act] @ [b_act] @ l22 @ l3" 
+                      have N_exp: "new_L = ?pre @ [bt_act] @ [b_act] @ l22 @ l3"
                         using new_L_eq by simp
-                      
-                      (* Step 1: 1. k4 jump_back_nth *)
+
+                      (* 1. newlist of k4 for jump_back_nth *)
                       have "new_L ! k4 = L_curr ! (
                         if k4 < ?idx then k4
-                        else if k4 = ?idx then ?idx + ?m_len + 1  
-                        else if k4 \<le> ?idx + ?m_len + 1 then k4 - 1 
+                        else if k4 = ?idx then ?idx + ?m_len + 1
+                        else if k4 \<le> ?idx + ?m_len + 1 then k4 - 1
                         else k4)"
                         using jump_back_nth[OF L_exp N_exp refl refl, of k4] .
-                        
-                      (* Step 2: 2. : ?map_back (?map_fwd k4_old) = k4_old *)
-                      (* k4_old_not_bt, auto *)
+
+                      (* 2. prove two mapping as: ?map_back (?map_fwd k4_old) = k4_old *)
+                      (* In k4_old_not_bt, auto then complete into *)
                       moreover have "(
                         if k4 < ?idx then k4
-                        else if k4 = ?idx then ?idx + ?m_len + 1  
-                        else if k4 \<le> ?idx + ?m_len + 1 then k4 - 1 
+                        else if k4 = ?idx then ?idx + ?m_len + 1
+                        else if k4 \<le> ?idx + ?m_len + 1 then k4 - 1
                         else k4) = k4_old"
                         unfolding k4_def using k4_old_not_bt by auto
-                        
+
                       ultimately show ?thesis by simp
                     qed
 
                     show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)"
                     proof (rule exI[where x=k4], intro conjI)
-                      
-                      (* k3 < k4 *)
+
+                      (* : k3 < k4 *)
                       show "k3 < k4"
                       proof -
                         have "k3_old < k4_old" using k4_old_props(1) .
                         thus ?thesis unfolding k3_old_def k4_def using k3_lt_idx by (auto split: if_splits)
                       qed
-                      
-                      (* bt_act k4_old kD_old, *)
+
+                      (* : since bt_act k4_old and kD_old, mappingcomplete *)
                       show "k4 < kD"
                       proof -
                         have kD_old_not_bt: "kD_old \<noteq> ?idx + ?m_len + 1"
@@ -4884,13 +6672,13 @@ proof (induction L H v rule: modify_lin.induct)
                           with kD_old_deq bt_act_enq show False by simp
                         qed
 
-                        (* kD kD_old , ?map_fwd *)
+                        (* KD from kD_old mapping and, in?map_fwd *)
                         have kD_is_fwd: "kD = ?map_fwd kD_old"
                           unfolding kD_old_def using kD_not_idx by (auto split: if_splits)
 
                         have "k4_old < kD_old" using k4_old_props(2) .
-                        
-                        (* , *)
+
+                        (* Provemonotonicity, no *)
                         thus ?thesis unfolding k4_def kD_is_fwd
                           using k4_old_not_bt kD_old_not_bt by (auto split: if_splits)
                       qed
@@ -4904,15 +6692,15 @@ proof (induction L H v rule: modify_lin.induct)
             qed
 
 
-        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L" 
+        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L"
             proof -
               let ?m_len = "length l22"
-              let ?map_back = "\<lambda>k. if k < ?idx then k 
-                                  else if k = ?idx then ?idx + ?m_len + 1 
-                                  else if k \<le> ?idx + ?m_len + 1 then k - 1 
+              let ?map_back = "\<lambda>k. if k < ?idx then k
+                                  else if k = ?idx then ?idx + ?m_len + 1
+                                  else if k \<le> ?idx + ?m_len + 1 then k - 1
                                   else k"
 
-              (* Step 1: 1.  *)
+              (* 1. prove equal (use) *)
               have mset_eq: "mset new_L = mset L_curr"
               proof -
                 have "mset L_curr = mset ?pre + mset [b_act] + mset l22 + mset [bt_act] + mset l3"
@@ -4925,162 +6713,163 @@ proof (induction L H v rule: modify_lin.induct)
                 finally show ?thesis by simp
               qed
 
-              (* Step 2: 2. SA *)
+              (* 2. SA into *)
               have sa_eq: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L_curr"
               proof -
-                have L_split: "L_curr = l1 @ (l21 @ [b_act] @ l22 @ [bt_act] @ l3)" 
+                have L_split: "L_curr = l1 @ (l21 @ [b_act] @ l22 @ [bt_act] @ l3)"
                   using L_curr_eq l1_def
-                  using l2_eq l2_eq_expanded by fastforce 
-                have N_split: "new_L = l1 @ (l21 @ [bt_act] @ [b_act] @ l22 @ l3)" 
+                  using l2_eq l2_eq_expanded by fastforce
+                have N_split: "new_L = l1 @ (l21 @ [bt_act] @ [b_act] @ l22 @ l3)"
                   using new_L_eq l1_def by auto
-                have l1_take: "l1 = take (nat (last_sa_pos + 1)) L_curr" 
-                  unfolding l1_def using bt_idx_valid remaining_def last_sa_pos_def 
+                have l1_take: "l1 = take (nat (last_sa_pos + 1)) L_curr"
+                  unfolding l1_def using bt_idx_valid remaining_def last_sa_pos_def
                   by (metis drop_eq_Nil leI min_absorb2)
                 show ?thesis
                   using in_SA_mset_eq mset_eq by blast
               qed
 
-              (* Step 3: 3. SA last_sa_pos *)
+              (* 3. prove SA boundary is last_sa_pos *)
               have boundary_eq: "find_last_SA new_L = find_last_SA L_curr"
               proof -
                 let ?n = "nat (last_sa_pos + 1)"
                 have len_eq: "length new_L = length L_curr" using mset_eq size_mset by metis
-                
+
                 have take_eq: "take ?n new_L = take ?n L_curr"
                 proof -
                    have "?n \<le> ?idx"
                      using l1_def l2_def l2_not_nil remaining_def by auto
                    thus ?thesis using L_curr_eq new_L_eq by simp
                 qed
-                
-                (* L_curr SA *)
+
+                (* L_curr boundary after no SA *)
                 have no_sa_L: "\<forall>i \<in> {?n..<length L_curr}. \<not> (op_name (L_curr ! i) = enq \<and> in_SA (op_val (L_curr ! i)) L_curr)"
                   using enqs_after_last_sa_are_not_in_sa last_sa_pos_def by force
-                  
-                (* new_L SA ( ) *)
+
+                (* New_L boundary after also no SA (mappingprove) *)
                 have no_sa_N: "\<forall>k \<in> {?n..<length new_L}. \<not> (op_name (new_L ! k) = enq \<and> in_SA (op_val (new_L ! k)) new_L)"
                 proof (intro ballI notI)
                   fix k assume "k \<in> {?n..<length new_L}"
                   assume asm: "op_name (new_L ! k) = enq \<and> in_SA (op_val (new_L ! k)) new_L"
-                  
+
                   define k_old where "k_old = ?map_back k"
-                  
-                  (* , o1 *)
-                  have L_exp: "L_curr = (l1 @ l21) @ [b_act] @ l22 @ [bt_act] @ l3" 
+
+                  (* Need of precise, o1 of *)
+                  have L_exp: "L_curr = (l1 @ l21) @ [b_act] @ l22 @ [bt_act] @ l3"
                     using L_curr_eq l22_eq by simp
-                  have N_exp: "new_L = (l1 @ l21) @ [bt_act] @ [b_act] @ l22 @ l3" 
+                  have N_exp: "new_L = (l1 @ l21) @ [bt_act] @ [b_act] @ l22 @ l3"
                     using new_L_eq by  simp
-                  
-                  (* , OF *)
-                  have "new_L ! k = L_curr ! k_old" 
+
+                  (* Now complete align, OF can with match *)
+                  have "new_L ! k = L_curr ! k_old"
                     using jump_back_nth[OF L_exp N_exp refl refl, of k]
                     unfolding k_old_def by (auto split: if_splits)
-                    
-                  hence enq_old: "op_name (L_curr ! k_old) = enq" 
+
+                  hence enq_old: "op_name (L_curr ! k_old) = enq"
                     and sa_old: "in_SA (op_val (L_curr ! k_old)) L_curr"
                     using asm sa_eq by auto
-                    
-                  (* k , k_old *)
+
+                  (* No k in boundary after of in, mapping of k_old in boundary after *)
                   have "k_old \<ge> ?n"
                   proof -
-                    (* Isabelle l1 ?n *)
+                    (* Key: Isabelle l1 of is boundary?n *)
                     have "length l1 = ?n"
                       unfolding l1_def using bt_idx_valid unfolding remaining_def last_sa_pos_def
-                      by simp 
+                      by simp
                     hence "?idx \<ge> ?n" by simp
-                    
-                    (* ?idx \<ge> ?n k > ?idx , k - 1 \<ge> ?n *)
-                    thus ?thesis 
-                      unfolding k_old_def using `k \<in> {?n..<length new_L}` 
+
+                    (* Has?idx \<ge>?n and k >?idx of, k - 1 \<ge>?n then and *)
+                    thus ?thesis
+                      unfolding k_old_def using `k \<in> {?n..<length new_L}`
                       by (auto split: if_splits)
                   qed
-                  
-                  moreover have "k_old < length L_curr" 
+
+                  moreover have "k_old < length L_curr"
                   proof -
-                    (* L_exp, L_curr *)
+                    (* Use of L_exp, out L_curr of precise *)
                     have "length L_curr = ?idx + 1 + ?m_len + 1 + length l3"
                       using L_exp by simp
-                    
-                    (* Isabelle length L_curr ?idx + ?m_len + 2, k_old *)
-                    thus ?thesis 
-                      unfolding k_old_def using `k \<in> {?n..<length new_L}` len_eq 
+
+                    (* At this point Isabelle length L_curr is?idx +?m_len + 2,
+                       K_old of mappingbranch all does not *)
+                    thus ?thesis
+                      unfolding k_old_def using `k \<in> {?n..<length new_L}` len_eq
                       by (auto split: if_splits)
                   qed
-                  
-                  (* Proof note. *)
+
+                  (* Contradiction *)
                   ultimately show False using no_sa_L enq_old sa_old by auto
                 qed
-                                    
+
                 show ?thesis using find_last_SA_stable_prefix[OF len_eq take_eq no_sa_N no_sa_L sa_eq] by simp
               qed
 
-              (* Step 4: 4. lI5_SA_Prefix  *)
+              (* 4. lI5_SA_Prefix (matchgoal of) *)
               show ?thesis unfolding lI5_SA_Prefix_list_def Let_def
               proof (intro allI impI)
                 fix k assume k_len: "k < length new_L"
                 assume k_enq: "op_name (new_L ! k) = enq"
-                
+
                 show "in_SA (op_val (new_L ! k)) new_L = (int k \<le> find_last_SA new_L)"
                 proof cases
                   assume "k < ?idx"
-                  (* 1: . , *)
-                  have L_exp_final: "L_curr = (l1 @ l21) @ [b_act] @ l22 @ [bt_act] @ l3" 
+                  (* Case 1: prefix. mapping, useoldlist of equivalence *)
+                  have L_exp_final: "L_curr = (l1 @ l21) @ [b_act] @ l22 @ [bt_act] @ l3"
                     using L_curr_eq l22_eq by  simp
-                  have N_exp_final: "new_L = (l1 @ l21) @ [bt_act] @ [b_act] @ l22 @ l3" 
+                  have N_exp_final: "new_L = (l1 @ l21) @ [bt_act] @ [b_act] @ l22 @ l3"
                     using new_L_eq by simp
-                  
-                  have "new_L ! k = L_curr ! k" 
+
+                  have "new_L ! k = L_curr ! k"
                     using jump_back_nth[OF L_exp_final N_exp_final refl refl, of k]
                     using `k < ?idx` by simp
-                    
+
                   moreover have "in_SA (op_val (L_curr ! k)) L_curr = (int k \<le> find_last_SA L_curr)"
                   proof -
                     have "k < length L_curr" using k_len len_eq by simp
                     moreover have "op_name (L_curr ! k) = enq" using k_enq `new_L ! k = L_curr ! k` by simp
                     ultimately show ?thesis using lin_I5_curr[unfolded lI5_SA_Prefix_list_def Let_def, THEN spec, of k] by auto
                   qed
-                  
+
                   ultimately show ?thesis using sa_eq boundary_eq by auto
                 next
                   assume "\<not> k < ?idx"
                   hence "k \<ge> ?idx" by simp
-                  
-                  (* 2: . SA , False *)
-                  
-                  (* Proof note. *)
+
+                  (* Case 2: . since in SA boundaryafterwards, two necessarily all is False *)
+
+                  (* Extract boundary *)
                   have len_l1: "length l1 = nat (last_sa_pos + 1)"
                     unfolding l1_def using bt_idx_valid unfolding remaining_def last_sa_pos_def by simp
                   hence idx_bound: "?idx \<ge> nat (last_sa_pos + 1)" by simp
-                  
-                  (* False: no_sa_N SA *)
+
+                  (* Left False: use prove of no_sa_N proveboundary after has SA *)
                   have left_false: "\<not> in_SA (op_val (new_L ! k)) new_L"
                   proof -
                     let ?n = "nat (last_sa_pos + 1)"
                     have "k \<ge> ?n" using `k \<ge> ?idx` idx_bound by simp
                     hence "k \<in> {?n ..< length new_L}" using k_len by auto
-                    
-                    (* auto \<forall>k \<in> {...} *)
+
+                    (* Use auto set \<forall>k \<in> {...} *)
                     have "\<not> (op_name (new_L ! k) = enq \<and> in_SA (op_val (new_L ! k)) new_L)"
                       using \<open>nat (last_sa_pos + 1) \<le> k\<close> boundary_eq
                         enqs_after_last_sa_are_not_in_sa k_len last_sa_pos_def
-                      by force 
+                      by force
 
-                      
-                    (* k_enq, in_SA False *)
+
+                    (* K_enq, derivation out in_SA as False *)
                     thus ?thesis using k_enq by simp
                   qed
-                  
-                  (* False: k SA *)
+
+                  (* Right False: k SA of last *)
                   have right_false: "\<not> (int k \<le> find_last_SA new_L)"
                   proof -
                     let ?n = "nat (last_sa_pos + 1)"
                     have "find_last_SA new_L = last_sa_pos" using boundary_eq last_sa_pos_def by simp
                     moreover have "int k \<ge> int ?n" using `k \<ge> ?idx` idx_bound by linarith
                     ultimately show ?thesis
-                      by linarith 
+                      by linarith
                   qed
-                  
-                  (* False = False, *)
+
+                  (* False = False, two precise *)
                   show ?thesis using left_false right_false by simp
                 qed
               qed
@@ -5093,21 +6882,21 @@ proof (induction L H v rule: modify_lin.induct)
           by (metis exists_L in_set_conv_nth mod_eq modify_preserves_mset set_mset_mset)
 
         (* === SMT (Case c2) === *)
-        (* Step 1: 1. , 1.IH(3) AST 100% *)
-        (* l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 *)
+        (* 1. packagingprecise of unfoldform, and 1.IH(3) of AST 100% align *)
+        (* : l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 *)
         define L_inner where "L_inner = take (nat (find_last_SA L_curr + 1)) L_curr @ l21 @ [drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx] @ [b_act] @ l22 @ drop (bt_idx + 1) (drop (nat (find_last_SA L_curr + 1)) L_curr)"
-        
+
         have new_L_eq_L_inner: "new_L = L_inner"
           unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def by simp
-          
-        (* Step 2: 2. L_inner , new_L *)
+
+        (* 2. validitypremise to L_inner, analyze new_L of packaging *)
         have p1_in: "data_independent L_inner" using indep_new unfolding new_L_eq_L_inner .
         have p2_in: "lI4_FIFO_Semantics_list L_inner" using p_lI4_FIFO_Semantics unfolding new_L_eq_L_inner .
         have p3_in: "lI5_SA_Prefix_list L_inner" using p_lI5_SA_Prefix unfolding new_L_eq_L_inner .
         have p4_in: "\<forall>k<length L_inner. op_val (L_inner ! k) = bt_val \<longrightarrow> op_name (L_inner ! k) \<noteq> deq" using p_pending unfolding new_L_eq_L_inner .
         have p5_in: "\<exists>k<length L_inner. op_name (L_inner ! k) = enq \<and> op_val (L_inner ! k) = bt_val" using p_exists unfolding new_L_eq_L_inner .
 
-        (* Step 3: 3. IH 5+2 , *)
+        (* 3. IH of 5+2 premise, *)
         have pre1: "should_modify L_curr H bt_val" using do_modify .
         have pre2: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) (drop (nat (find_last_SA L_curr + 1)) L_curr) = Some bt_idx"
           using bt_idx_def unfolding remaining_def[symmetric] last_sa_pos_def[symmetric] .
@@ -5115,15 +6904,15 @@ proof (induction L H v rule: modify_lin.induct)
           using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] .
         have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L_curr + 1)) L_curr)) = Some (l21, b_act, l22)"
           using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] .
-        
-        (* c2 HB : \<not> HB(o1, bt_act) HB(b_act, o1) *)
+
+        (* C2 has of HB: \<not> HB(o1, bt_act) and HB(b_act, o1) *)
         have pre5_1: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx) H"
           using c2 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] o1_def[symmetric] by simp
         have pre5_2: "happens_before b_act (hd l22) H"
           using c2 unfolding o1_def[symmetric] by simp
 
-        (* Step 4: 4. simp , metis *)
-        show ?thesis 
+        (* 4. use simp, use metis of list *)
+        show ?thesis
           unfolding mod_eq new_L_eq_L_inner
           unfolding L_inner_def
           using "1.IH"(3) pre1 pre2 pre3 pre4 pre5_1 pre5_2 p1_in p2_in p3_in p4_in p5_in
@@ -5131,13 +6920,13 @@ proof (induction L H v rule: modify_lin.induct)
           by simp
 
       next
-        case c3 (* === c3 ( c1) === *)
+        case c3 (* === c3 (c1) === *)
         define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ tl l22 @ [bt_act] @ l3"
-        
-            (* new_L L_curr , [o1, b_act] *)
+
+            (* New_L and L_curr align, only [o1, b_act] *)
             have new_L_eq: "new_L = ?pre @ [o1, b_act] @ tl l22 @ [bt_act] @ l3"
               unfolding new_L_def by simp
-              
+
             have len_eq: "length new_L = length L_curr"
               using L_curr_eq new_L_eq by simp
 
@@ -5160,38 +6949,38 @@ proof (induction L H v rule: modify_lin.induct)
         have indep_new: "data_independent new_L"
           by (metis data_independent_cong independent_L_curr mod_eq modify_preserves_mset)
 
-        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L" 
+        have p_lI4_FIFO_Semantics: "lI4_FIFO_Semantics_list new_L"
             proof -
-              (* ?map *)
+              (* Derivation: in coordinatemapping then?map *)
               show ?thesis unfolding lI4_FIFO_Semantics_list_def Let_def
               proof (intro allI impI)
-                fix kD assume kD_len: "kD < length new_L" 
+                fix kD assume kD_len: "kD < length new_L"
                 assume kD_deq: "op_name (new_L ! kD) = deq"
-                
-                (* Proof note. *)
+
+                (* Definitioncore of *)
                 let ?map = "\<lambda>k. if k = ?idx then ?idx + 1 else if k = ?idx + 1 then ?idx else k"
-                
+
                 have kD_not_idx1: "kD \<noteq> ?idx + 1"
                 proof (rule ccontr)
                   assume "\<not> (kD \<noteq> ?idx + 1)"
                   hence "new_L ! kD = b_act" using new_L_eq by (simp add: nth_append)
                   with kD_deq b_act_enq show False by simp
                 qed
-                
-                (* kD *)
+
+                (* For kD mapping *)
                 define kD_old where "kD_old = ?map kD"
-                
-                (* Auxiliary lemma L_new_kD *)
+
+                (* Use of helper lemma L_new_kD! *)
                 have L_new_kD: "new_L ! kD = L_curr ! kD_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq kD_old_def by simp
-                  
+
                 have kD_old_len: "kD_old < length L_curr"
                   using kD_len len_eq kD_old_def kD_not_idx1 L_curr_eq by auto
 
                 have kD_old_deq: "op_name (L_curr ! kD_old) = deq" using L_new_kD kD_deq by simp
-                
-                obtain k2_old where k2_old_props: 
+
+                obtain k2_old where k2_old_props:
                   "k2_old < kD_old" "op_name (L_curr ! k2_old) = enq" "op_val (L_curr ! k2_old) = op_val (L_curr ! kD_old)"
                   "\<forall>k3<k2_old. op_name (L_curr ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD_old \<and> op_name (L_curr ! k4) = deq \<and> op_val (L_curr ! k4) = op_val (L_curr ! k3))"
                   using lin_L_curr[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD_old] using kD_old_len kD_old_deq by blast
@@ -5203,10 +6992,10 @@ proof (induction L H v rule: modify_lin.induct)
                   with k2_old_props(2) o1_deq show False by simp
                 qed
 
-                (* k2 *)
+                (* For k2 mapping *)
                 define k2 where "k2 = ?map k2_old"
-                
-                (* Proof note. *)
+
+                (* Then direct closure! *)
                 have L_new_k2: "new_L ! k2 = L_curr ! k2_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq k2_def by simp
@@ -5214,13 +7003,13 @@ proof (induction L H v rule: modify_lin.induct)
                 show "\<exists>k2<kD. op_name (new_L ! k2) = enq \<and> op_val (new_L ! k2) = op_val (new_L ! kD) \<and>
                         (\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)))"
                 proof (rule exI[where x=k2], intro conjI)
-                  
+
                   show "k2 < kD"
                   proof -
                     have kD_old_not_idx: "kD_old \<noteq> ?idx"
                       using kD_old_def kD_not_idx1 by (auto split: if_splits)
-                      
-                    (* val_neq , *)
+
+                    (* Use we of val_neq guard, of case *)
                     have "k2_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1"
                     proof (rule ccontr)
                       assume "\<not> (k2_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1)"
@@ -5229,82 +7018,82 @@ proof (induction L H v rule: modify_lin.induct)
                       hence "op_val b_act = op_val o1" using k2_old_props(3) by simp
                       thus False using val_neq by simp
                     qed
-                    
-                    (* , auto *)
+
+                    (* , make auto close the goal directly *)
                     thus ?thesis using k2_old_props(1) k2_def kD_old_def kD_not_idx1 k2_old_not_idx1 kD_old_not_idx
-                      by (metis Suc_eq_plus1 linorder_cases not_less_eq) 
+                      by (metis Suc_eq_plus1 linorder_cases not_less_eq)
                   qed
-                  
+
                   show "op_name (new_L ! k2) = enq" using k2_old_props(2) L_new_k2 by simp
                   show "op_val (new_L ! k2) = op_val (new_L ! kD)" using k2_old_props(3) L_new_k2 L_new_kD by simp
-                  
+
                   show "\<forall>k3<k2. op_name (new_L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3))"
                   proof (intro allI impI)
                     fix k3 assume "k3 < k2" and k3_enq: "op_name (new_L ! k3) = enq"
-                    
+
                     have k3_not_idx: "k3 \<noteq> ?idx"
                     proof (rule ccontr)
                       assume "\<not> (k3 \<noteq> ?idx)"
                       hence "new_L ! k3 = o1" using new_L_eq by (simp add: nth_append)
                       with k3_enq o1_deq show False by simp
                     qed
-                    
-                    (* k3 *)
+
+                    (* K3 mapping *)
                     define k3_old where "k3_old = ?map k3"
-                    
+
                     have L_new_k3: "new_L ! k3 = L_curr ! k3_old"
                       using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                       using L_curr_eq new_L_eq k3_old_def by simp
-                      
+
                     have "k3_old < k2_old"
                     proof -
                       have "k3_old \<noteq> ?idx \<or> k2_old \<noteq> ?idx + 1" using k2_old_not_idx1 by simp
                       thus ?thesis using `k3 < k2` k3_old_def k2_def k3_not_idx k2_old_not_idx1
                         by (metis le_antisym less_iff_succ_less_eq nat_less_le
-                            nat_neq_iff) 
+                            nat_neq_iff)
                     qed
-                    
-                    obtain k4_old where k4_old_props: "k3_old < k4_old" "k4_old < kD_old" "op_name (L_curr ! k4_old) = deq" 
+
+                    obtain k4_old where k4_old_props: "k3_old < k4_old" "k4_old < kD_old" "op_name (L_curr ! k4_old) = deq"
                                               "op_val (L_curr ! k4_old) = op_val (L_curr ! k3_old)"
                       using L_new_k3 \<open>k3_old < k2_old\<close> k2_old_props(4) k3_enq by auto
-                      
+
                     have k4_old_not_idx: "k4_old \<noteq> ?idx"
                     proof (rule ccontr)
                       assume "\<not> (k4_old \<noteq> ?idx)"
                       hence "L_curr ! k4_old = b_act" using L_curr_eq by (simp add: nth_append)
                       with k4_old_props(3) b_act_enq show False by simp
                     qed
-                    
-                    (* k4 *)
+
+                    (* K4 mapping *)
                     define k4 where "k4 = ?map k4_old"
-                    
+
                     have L_new_k4: "new_L ! k4 = L_curr ! k4_old"
                       using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                       using L_curr_eq new_L_eq k4_def by simp
-                      
+
                     show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (new_L ! k4) = deq \<and> op_val (new_L ! k4) = op_val (new_L ! k3)"
                     proof (rule exI[where x=k4], intro conjI)
                       show "k3 < k4"
                       proof -
-                        (* k3_old k4_old *)
+                        (* Core: prove k3_old and k4_old definitelyimpossible is be of for element *)
                         have no_reverse: "k3_old \<noteq> ?idx \<or> k4_old \<noteq> ?idx + 1"
                         proof (rule ccontr)
                           assume "\<not> (k3_old \<noteq> ?idx \<or> k4_old \<noteq> ?idx + 1)"
                           hence "k3_old = ?idx" and "k4_old = ?idx + 1" by auto
-                          
-                          (* Proof note. *)
-                          hence "L_curr ! k3_old = b_act" and "L_curr ! k4_old = o1" 
+
+                          (* Extract it in oldlist in of corresponds toelement *)
+                          hence "L_curr ! k3_old = b_act" and "L_curr ! k4_old = o1"
                             using L_curr_eq by (auto simp add: nth_append)
-                            
-                          (* k4_old_props, *)
-                          hence "op_val o1 = op_val b_act" 
+
+                          (* K4_old_props, it of valuemustequal *)
+                          hence "op_val o1 = op_val b_act"
                             using k4_old_props(4) by simp
-                            
-                          (* val_neq, *)
+
+                          (* But we previously out of val_neq, contradiction! *)
                           thus False using val_neq by auto
                         qed
-                        
-                        (* , , auto *)
+
+                        (* Case after, mapping, auto complete into *)
                         thus ?thesis using k4_old_props(1) k3_old_def k4_def k3_not_idx k4_old_not_idx
                           by (metis Suc_eq_plus1 Suc_leI le_neq_implies_less less_SucE)
                       qed
@@ -5313,7 +7102,7 @@ proof (induction L H v rule: modify_lin.induct)
                         have kD_old_not_idx: "kD_old \<noteq> ?idx" using kD_old_def kD_not_idx1 by (auto split: if_splits)
                         have "k4_old \<noteq> ?idx \<or> kD_old \<noteq> ?idx + 1" using k4_old_not_idx by simp
                         thus ?thesis using k4_old_props(2) k4_def kD_old_def k4_old_not_idx kD_old_not_idx kD_not_idx1
-                          by (metis add.commute add_lessD1 less_SucE plus_1_eq_Suc) 
+                          by (metis add.commute add_lessD1 less_SucE plus_1_eq_Suc)
                       qed
                       show "op_name (new_L ! k4) = deq" using k4_old_props(3) L_new_k4 by simp
                       show "op_val (new_L ! k4) = op_val (new_L ! k3)" using k4_old_props(4) L_new_k4 L_new_k3 by simp
@@ -5323,12 +7112,12 @@ proof (induction L H v rule: modify_lin.induct)
               qed
             qed
 
-        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L" 
+        have p_lI5_SA_Prefix: "lI5_SA_Prefix_list new_L"
             proof -
               let ?n = "nat (last_sa_pos + 1)"
               let ?map = "\<lambda>k. if k = ?idx then ?idx + 1 else if k = ?idx + 1 then ?idx else k"
-              
-              (* Proof note. *)
+
+              (* Definitely in synchronizeboundaryafterwards of *)
               have sa_bound: "?n \<le> ?idx"
               proof -
                 have bound: "?n \<le> length L_curr" using bt_idx_valid unfolding remaining_def by auto
@@ -5337,7 +7126,7 @@ proof (induction L H v rule: modify_lin.induct)
                 finally show ?thesis by linarith
               qed
 
-              (* Step 1: 1. *)
+              (* 1. prefixcomplete one *)
               have prefix_eq: "take ?n new_L = take ?n L_curr"
               proof -
                 have "take ?n L_curr = l1" unfolding l1_def by simp
@@ -5346,19 +7135,19 @@ proof (induction L H v rule: modify_lin.induct)
                   have "new_L = l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3)" using new_L_eq by simp
                   hence "take (length l1) new_L = take (length l1) (l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3))" by simp
                   also have "... = l1" by simp
-                  finally show ?thesis unfolding l1_def 
+                  finally show ?thesis unfolding l1_def
                     by (metis add_left_imp_eq append_eq_append_conv append_take_drop_id len_eq length_append length_drop)
                 qed
                 ultimately show ?thesis by simp
               qed
 
-              (* Step 2: 2. in_SA *)
+              (* 2. in_SA globalequivalence *)
               have in_SA_eq: "\<And>a. in_SA a new_L = in_SA a L_curr"
               proof -
                 fix a
                 have eq1: "L_curr = l1 @ remaining" unfolding l1_def remaining_def by simp
                 have eq2: "new_L = l1 @ (l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3)" unfolding new_L_def l1_def by simp
-                have rem_not_nil: "remaining \<noteq> []" 
+                have rem_not_nil: "remaining \<noteq> []"
                 proof (cases remaining)
                   case Nil with bt_idx_valid show ?thesis by simp
                 next
@@ -5367,11 +7156,11 @@ proof (induction L H v rule: modify_lin.induct)
                 have "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L_curr"
                   using L_and_new_L_have_same_SA[of L_curr l1 remaining new_L "l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" last_sa_pos]
                   using independent_L_curr eq1 eq2 rem_not_nil mset_eq l1_def last_sa_pos_def
-                  by metis 
+                  by metis
                 thus "in_SA a new_L = in_SA a L_curr" by simp
               qed
 
-              (* Step 3: 3. find_last_SA *)
+              (* 3. find_last_SA boundaryequivalence *)
               have sa_eq: "find_last_SA new_L = find_last_SA L_curr"
               proof -
                 have suffix_L_curr: "\<forall>i \<in> {?n..<length L_curr}. \<not> (op_name (L_curr ! i) = enq \<and> in_SA (op_val (L_curr ! i)) L_curr)"
@@ -5390,27 +7179,27 @@ proof (induction L H v rule: modify_lin.induct)
                   assume bad: "op_name (new_L ! i) = enq \<and> in_SA (op_val (new_L ! i)) new_L"
                   then have is_enq: "op_name (new_L ! i) = enq" and in_sa: "in_SA (op_val (new_L ! i)) new_L" by auto
                   have in_sa_curr: "in_SA (op_val (new_L ! i)) L_curr" using in_sa in_SA_eq by simp
-                  
-                  (* ?map L_curr *)
+
+                  (* --- mapping!use?map mapping L_curr --- *)
                   define k_old where "k_old = ?map i"
                   have "new_L ! i = L_curr ! k_old"
                     using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                     using L_curr_eq new_L_eq k_old_def by simp
                   moreover have "k_old \<ge> ?n" using `i \<in> {?n..<length new_L}` sa_bound k_old_def by auto
-                  (* 【 】: L_curr_eq , Isabelle +1 *)
+                  (* [key fix]: use L_curr_eq, Isabelle prove +1 definitely *)
                   moreover have "k_old < length L_curr"
                   proof -
                     have "?idx + 1 < length L_curr" using L_curr_eq by simp
                     thus ?thesis using `i \<in> {?n..<length new_L}` len_eq k_old_def by auto
                   qed
                   ultimately have "k_old \<in> {?n..<length L_curr}" by simp
-                  
+
                   with suffix_L_curr have "\<not> (op_name (L_curr ! k_old) = enq \<and> in_SA (op_val (L_curr ! k_old)) L_curr)" by blast
                   moreover have "op_name (L_curr ! k_old) = enq" using is_enq `new_L ! i = L_curr ! k_old` by simp
                   ultimately have "\<not> in_SA (op_val (L_curr ! k_old)) L_curr" by simp
                   with in_sa_curr `new_L ! i = L_curr ! k_old` show False by simp
                 qed
-                
+
                 show ?thesis
                 proof (rule find_last_SA_stable_prefix[of new_L L_curr "?n"])
                   show "length new_L = length L_curr" using len_eq .
@@ -5421,92 +7210,92 @@ proof (induction L H v rule: modify_lin.induct)
                 qed
               qed
 
-              (* Step 4: 4. lI5_SA_Prefix_list_def  *)
+              (* 4. unfold lI5_SA_Prefix_list_def casederivation (core) *)
               show ?thesis unfolding lI5_SA_Prefix_list_def
               proof (intro allI impI)
-                fix k assume k_len: "k < length new_L" 
+                fix k assume k_len: "k < length new_L"
                 assume k_enq: "op_name (new_L ! k) = enq"
-                
-                (* Proof note. *)
+
+                (* --- mapping! --- *)
                 define k_old where "k_old = ?map k"
                 have L_new_k: "new_L ! k = L_curr ! k_old"
                   using swap_adjacent_nth[of L_curr ?pre b_act o1 "tl l22 @ [bt_act] @ l3" new_L ?idx]
                   using L_curr_eq new_L_eq k_old_def by simp
-                
-                (* 【 】: , k_old *)
-                have k_old_len: "k_old < length L_curr" 
+
+                (* [key fix]: in, fill in k_old of boundaryprove *)
+                have k_old_len: "k_old < length L_curr"
                 proof -
                   have "?idx + 1 < length L_curr" using L_curr_eq by simp
                   thus ?thesis using k_len len_eq k_old_def by auto
                 qed
-                
+
                 have lhs_eq: "in_SA (op_val (new_L ! k)) new_L = in_SA (op_val (new_L ! k)) L_curr" using in_SA_eq by simp
-                
-                (* 【 】: nat (last_sa_pos + 1) *)
+
+                (* [key fix]: one use nat (last_sa_pos + 1)! *)
                 consider (in_prefix) "k < nat (last_sa_pos + 1)" | (in_suffix) "k \<ge> nat (last_sa_pos + 1)" by linarith
                 then show "in_SA (op_val (new_L ! k)) new_L \<longleftrightarrow> int k \<le> find_last_SA new_L"
                 proof cases
                   case in_prefix
-                  (* A: prefix , k ?idx, ?map k_old = k *)
+                  (* Case A: in prefix in, k strictly less than start?idx, therefore?map k_old = k *)
                   have "k < ?idx" using in_prefix sa_bound by linarith
                   hence "k_old = k" using k_old_def by simp
                   hence "new_L ! k = L_curr ! k" using L_new_k by simp
-                  
+
                   hence "op_name (L_curr ! k) = enq" using k_enq by simp
                   moreover have "k < length L_curr" using k_len len_eq by simp
-                  (* int *)
+                  (* Derivation out int boundary *)
                   moreover have rhs_true: "int k \<le> last_sa_pos" using in_prefix by linarith
                   ultimately have "in_SA (op_val (L_curr ! k)) L_curr"
                     using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k] unfolding last_sa_pos_def by blast
                   thus ?thesis using `new_L ! k = L_curr ! k` lhs_eq sa_eq last_sa_pos_def rhs_true by simp
-                  
+
                 next
                   case in_suffix
-                  (* B: suffix . swap, k_old >= *)
-                  (* Step 1: 1. k_old >= nat (last_sa_pos + 1) *)
+                  (* Case B: in suffix in. swap, k_old >= synchronizeboundary *)
+                  (* 1. prove k_old >= nat (last_sa_pos + 1) *)
                   have k_old_ge_bound: "k_old \<ge> nat (last_sa_pos + 1)"
                   proof -
-                    (* k >= , , *)
+                    (* Because k >= boundary, and also in boundaryafterwards, mappingonly in boundaryafterwards *)
                     have "k \<ge> nat (last_sa_pos + 1)" using in_suffix by simp
                     moreover have "nat (last_sa_pos + 1) \<le> ?idx" using sa_bound by simp
                     ultimately show ?thesis unfolding k_old_def by auto
                   qed
-                  
-                  (* Step 2: 2. int , nat(-1)=0 *)
-                  (* int k_old > last_sa_pos *)
+
+                  (* 2. into int, nat(-1)=0 of *)
+                  (* Goal: prove int k_old > last_sa_pos *)
                   have "int k_old > last_sa_pos"
                   proof -
-                    (* 1: int (nat X) >= X *)
+                    (* Fact1: arithmetic fact: int (nat X) >= X always holds *)
                     have "int (nat (last_sa_pos + 1)) \<ge> last_sa_pos + 1" by simp
-                    (* 2 *)
-                    moreover have "int k_old \<ge> int (nat (last_sa_pos + 1))" 
+                    (* Fact2: change *)
+                    moreover have "int k_old \<ge> int (nat (last_sa_pos + 1))"
                       using k_old_ge_bound by linarith
-                    (* linarith *)
+                    (* Two fact for linarith close the goal directly! *)
                     ultimately show ?thesis by linarith
                   qed
-                  
-                  (* Step 3: 3. lI5_SA_Prefix *)
+
+                  (* 3. use lI5_SA_Prefix derive a contradiction *)
                   have "op_name (L_curr ! k_old) = enq" using k_enq L_new_k by simp
                   hence "\<not> in_SA (op_val (L_curr ! k_old)) L_curr"
-                    using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k_old] 
+                    using lin_I5_curr[unfolded lI5_SA_Prefix_list_def, THEN spec, of k_old]
                     using `int k_old > last_sa_pos` k_old_len
-                    by (simp add: last_sa_pos_def) 
+                    by (simp add: last_sa_pos_def)
                   hence "\<not> in_SA (op_val (new_L ! k)) new_L" using L_new_k lhs_eq by simp
-                  
-                  (* Step 4: 4. False ( int ) *)
-                  moreover have "\<not> (int k \<le> find_last_SA new_L)" 
+
+                  (* 4. prove right also as False (similarly int operation) *)
+                  moreover have "\<not> (int k \<le> find_last_SA new_L)"
                   proof -
-                    (* 1: int (nat X) >= X *)
+                    (* Fact1: arithmetic fact: int (nat X) >= X always holds *)
                     have "int (nat (last_sa_pos + 1)) \<ge> last_sa_pos + 1" by simp
-                    (* 2: in_suffix ( k >= nat (last_sa_pos + 1)) int *)
-                    moreover have "int k \<ge> int (nat (last_sa_pos + 1))" 
+                    (* Fact2: use in_suffix (k >= nat (last_sa_pos + 1)) to int *)
+                    moreover have "int k \<ge> int (nat (last_sa_pos + 1))"
                       using in_suffix by linarith
-                    (* , linarith *)
+                    (* Two, linarith can obtain greater than *)
                     ultimately have "int k > last_sa_pos" by linarith
-                    (* Proof note. *)
+                    (* Last in definition prove *)
                     thus ?thesis using sa_eq last_sa_pos_def by simp
                   qed
-                  
+
                   ultimately show ?thesis by simp
                 qed
               qed
@@ -5518,20 +7307,20 @@ proof (induction L H v rule: modify_lin.induct)
           by (metis exists_L in_set_conv_nth mod_eq modify_preserves_mset set_mset_mset)
 
         (* === SMT === *)
-        (* Step 1: 1. , 1.IH(4) AST 100% *)
+        (* 1. packagingprecise of unfoldform, and 1.IH(4) of AST 100% align *)
         define L_inner where "L_inner = take (nat (find_last_SA L_curr + 1)) L_curr @ l21 @ [hd l22] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L_curr + 1)) L_curr)"
-        
+
         have new_L_eq_L_inner: "new_L = L_inner"
           unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def o1_def L_inner_def by simp
-          
-        (* Step 2: 2. L_inner , new_L *)
+
+        (* 2. validitypremise to L_inner, analyze new_L of packaging *)
         have p1_in: "data_independent L_inner" using indep_new unfolding new_L_eq_L_inner .
         have p2_in: "lI4_FIFO_Semantics_list L_inner" using p_lI4_FIFO_Semantics unfolding new_L_eq_L_inner .
         have p3_in: "lI5_SA_Prefix_list L_inner" using p_lI5_SA_Prefix unfolding new_L_eq_L_inner .
         have p4_in: "\<forall>k<length L_inner. op_val (L_inner ! k) = bt_val \<longrightarrow> op_name (L_inner ! k) \<noteq> deq" using p_pending unfolding new_L_eq_L_inner .
         have p5_in: "\<exists>k<length L_inner. op_name (L_inner ! k) = enq \<and> op_val (L_inner ! k) = bt_val" using p_exists unfolding new_L_eq_L_inner .
 
-        (* Step 3: 3. IH 5 , *)
+        (* 3. IH of 5 premise, *)
         have pre1: "should_modify L_curr H bt_val" using do_modify .
         have pre2: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) (drop (nat (find_last_SA L_curr + 1)) L_curr) = Some bt_idx"
           using bt_idx_def unfolding remaining_def[symmetric] last_sa_pos_def[symmetric] .
@@ -5539,14 +7328,14 @@ proof (induction L H v rule: modify_lin.induct)
           using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] .
         have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L_curr + 1)) L_curr)) = Some (l21, b_act, l22)"
           using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] .
-        (* 【 】: c3 HB : if , if *)
+        (* [key fix]: c3 branch has of HB: before two if, No. three if *)
         have pre5_1: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L_curr + 1)) L_curr ! bt_idx) H"
           using c3 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] o1_def[symmetric] by simp
         have pre5_2: "\<not> happens_before b_act (hd l22) H"
           using c3 unfolding o1_def[symmetric] by simp
 
-        (* Step 4: 4. simp , metis *)
-        show ?thesis 
+        (* 4. use simp, use metis of list *)
+        show ?thesis
           unfolding mod_eq new_L_eq_L_inner
           unfolding L_inner_def
           using "1.IH"(4) pre1 pre2 pre3 pre4 pre5_1 pre5_2 p1_in p2_in p3_in p4_in p5_in
@@ -5559,7 +7348,7 @@ qed
 
 
 (* ==================================================================== *)
-(* Auxiliary lemma: Distance = 0 , Deq lI4_FIFO_Semantics (Enq-Deq) *)
+(* Helper lemma: when Distance = 0, append Deq does not lI4_FIFO_Semantics (Enq-Deqmatch) *)
 (* ==================================================================== *)
 lemma lI4_FIFO_Semantics_append_deq_success:
   fixes L :: "OpRec list" and deq_act :: "OpRec" and v :: nat
@@ -5574,10 +7363,10 @@ lemma lI4_FIFO_Semantics_append_deq_success:
 proof -
   let ?L' = "L @ [deq_act]"
 
-  (* Step 1: 1. k_v, Distance=0 Enq SA *)
+  (* 1. k_v, and use Distance=0 prove its before of all Enq all already in SA in *)
   obtain k_v where kv_props: "k_v < length L" "op_name (L ! k_v) = enq" "op_val (L ! k_v) = v"
     using enq_exists by blast
-    
+
   have all_before_in_sa: "\<forall>k < k_v. op_name (L ! k) = enq \<longrightarrow> in_SA (op_val (L ! k)) L"
   proof (intro allI impI)
     fix k assume "k < k_v" and k_enq: "op_name (L ! k) = enq"
@@ -5585,23 +7374,23 @@ proof -
     proof (rule ccontr)
       assume not_in: "\<not> in_SA (op_val (L ! k)) L"
       define x where "x = op_val (L ! k)"
-      
+
       have x_idx: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = x) L = Some k"
-        using unique_enq_index[OF DI] k_enq `k < k_v` kv_props(1) x_def 
+        using unique_enq_index[OF DI] k_enq `k < k_v` kv_props(1) x_def
         unfolding find_unique_index_def by force
 
       have v_idx: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some k_v"
-        using unique_enq_index[OF DI] kv_props 
+        using unique_enq_index[OF DI] kv_props
         unfolding find_unique_index_def by force
 
       have dist_x_v: "distance_func x v L > 0"
         unfolding distance_func_def using not_in[folded x_def] x_idx v_idx `k < k_v` by simp
-      
+
       have "Distance L v > 0"
       proof -
         let ?all_enqs = "filter (\<lambda>a. op_name a = enq) L"
         let ?vals = "set (map op_val ?all_enqs)"
-        have "x \<in> ?vals" 
+        have "x \<in> ?vals"
           using `k < k_v` kv_props(1) k_enq unfolding x_def by auto
         hence in_sorted: "x \<in> set (sorted_list_of_set ?vals)" by simp
         thus ?thesis unfolding Distance_def Let_def using dist_x_v
@@ -5612,46 +7401,46 @@ proof -
     qed
   qed
 
-  (* Step 2: 2. lI4_FIFO_Semantics_list *)
+  (* 2. unfold lI4_FIFO_Semantics_list definition caseprove *)
   show ?thesis unfolding lI4_FIFO_Semantics_list_def Let_def
   proof (intro allI impI)
     fix kD assume kD_len: "kD < length ?L'"
     assume kD_deq: "op_name (?L' ! kD) = deq"
-    
-    (* , *)
+
+    (* Verify as: in oldlist inside, is is append of newelement *)
     consider (old) "kD < length L" | (new) "kD = length L"
       using kD_len
-      by force 
+      by force
     then show "\<exists>k2<kD. op_name (?L' ! k2) = enq \<and> op_val (?L' ! k2) = op_val (?L' ! kD) \<and>
-              (\<forall>k3<k2. op_name (?L' ! k3) = enq \<longrightarrow> 
+              (\<forall>k3<k2. op_name (?L' ! k3) = enq \<longrightarrow>
                 (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (?L' ! k4) = deq \<and> op_val (?L' ! k4) = op_val (?L' ! k3)))"
     proof cases
       case old
-      (* A: kD L , lI4_FIFO_Semantics *)
+      (* CaseA: kD in originallist L in, use originallist of lI4_FIFO_Semantics propertymapping *)
       have "L ! kD = ?L' ! kD" using old by (simp add: nth_append)
       hence "op_name (L ! kD) = deq" using kD_deq by simp
-      
+
       obtain k2 where k2_props: "k2 < kD" "op_name (L ! k2) = enq" "op_val (L ! k2) = op_val (L ! kD)"
          "\<forall>k3<k2. op_name (L ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (L ! k4) = deq \<and> op_val (L ! k4) = op_val (L ! k3))"
         using I4[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of kD] old `op_name (L ! kD) = deq` by blast
-        
+
       show ?thesis
       proof (rule exI[where x=k2], intro conjI)
         show "k2 < kD" using k2_props(1) .
         show "op_name (?L' ! k2) = enq" using k2_props(2) `k2 < kD` old by (simp add: nth_append)
         show "op_val (?L' ! k2) = op_val (?L' ! kD)" using k2_props(3) `k2 < kD` old by (simp add: nth_append)
-        
+
         show "\<forall>k3<k2. op_name (?L' ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (?L' ! k4) = deq \<and> op_val (?L' ! k4) = op_val (?L' ! k3))"
         proof (intro allI impI)
           fix k3 assume "k3 < k2" and "op_name (?L' ! k3) = enq"
           have "k3 < length L" using `k3 < k2` `k2 < kD` old by simp
           hence "op_name (L ! k3) = enq" using `op_name (?L' ! k3) = enq` by (simp add: nth_append)
-          
+
           obtain k4 where k4_props: "k3 < k4" "k4 < kD" "op_name (L ! k4) = deq" "op_val (L ! k4) = op_val (L ! k3)"
             using k2_props(4)[rule_format, OF `k3 < k2` `op_name (L ! k3) = enq`] by blast
-            
+
           have "k4 < length L" using `k4 < kD` old by simp
-          
+
           show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (?L' ! k4) = deq \<and> op_val (?L' ! k4) = op_val (?L' ! k3)"
           proof (rule exI[where x=k4], intro conjI)
             show "k3 < k4" "k4 < kD" using k4_props by auto
@@ -5660,71 +7449,71 @@ proof -
           qed
         qed
       qed
-      
+
     next
       case new
-      (* B: kD Deq_act *)
+      (* CaseB: kD is newappend of Deq_act *)
       have kD_eq: "kD = length L" using new by simp
       hence val_kD: "op_val (?L' ! kD) = v" using deq_val by (simp add: nth_append)
-      
-      (* Enq k_v *)
+
+      (* Corresponds to of Enq is we of k_v *)
       show ?thesis
       proof (rule exI[where x=k_v], intro conjI)
         show "k_v < kD" using kv_props(1) kD_eq by simp
         show "op_name (?L' ! k_v) = enq" using kv_props(2) kv_props(1) by (simp add: nth_append)
         show "op_val (?L' ! k_v) = op_val (?L' ! kD)" using kv_props(3) val_kD kv_props(1) by (simp add: nth_append)
-        
-        (* k_v Enq, Deq, Deq kD *)
+
+        (* Prove: k_v previously of Enq, necessarily already match Deq, and Deq in kD previously *)
         show "\<forall>k3<k_v. op_name (?L' ! k3) = enq \<longrightarrow> (\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (?L' ! k4) = deq \<and> op_val (?L' ! k4) = op_val (?L' ! k3))"
         proof (intro allI impI)
           fix k3 assume "k3 < k_v" and k3_enq_L': "op_name (?L' ! k3) = enq"
           have k3_len: "k3 < length L" using `k3 < k_v` kv_props(1) by simp
           have k3_enq: "op_name (L ! k3) = enq" using k3_enq_L' k3_len by (simp add: nth_append)
-          
-          (* Distance=0 : SA *)
+
+          (* Use we previouslyprove of Distance=0 physical: it necessarily in SA in *)
           have "in_SA (op_val (L ! k3)) L" using all_before_in_sa `k3 < k_v` k3_enq by simp
-          
+
           define x where "x = op_val (L ! k3)"
           have "in_SA x L" using `in_SA (op_val (L ! k3)) L` x_def by simp
-          
-          (* SA , L deq *)
+
+          (* Since in old SA in, necessarily in oldlist L in one match of deq *)
           obtain k4 where k4_idx: "find_unique_index (\<lambda>a. op_name a = deq \<and> op_val a = x) L = Some k4"
             using `in_SA x L` unfolding in_SA_def by (auto split: option.splits)
-            
+
           have k4_props: "k4 < length L" "op_name (L ! k4) = deq" "op_val (L ! k4) = x"
             using find_unique_index_prop[OF k4_idx] by auto
-            
-          (* lI4_FIFO_Semantics k3 < k4 *)
+
+          (* Core: useoldlist of lI4_FIFO_Semantics k3 < k4 *)
           have "k3 < k4"
           proof -
-            (* k4 lI4_FIFO_Semantics *)
+            (* For oldlist in k4 unfold lI4_FIFO_Semantics *)
             obtain k2_x where k2_x_props: "k2_x < k4" "op_name (L ! k2_x) = enq" "op_val (L ! k2_x) = op_val (L ! k4)"
               using I4[unfolded lI4_FIFO_Semantics_list_def Let_def, THEN spec, of k4] k4_props(1,2) by blast
-              
-            (* data_independent Enq , k2_x k3 *)
+
+            (* Since data_independent one value of Enq is one of, therefore k2_x then is k3 *)
             have "op_val (L ! k2_x) = x" using k2_x_props(3) k4_props(3) by simp
-            
-            (* Step 1: 1. , unique_enq_index *)
+
+            (* 1. additional proof block premise, unique_enq_index of *)
             have "k2_x < length L" using k2_x_props(1) `k4 < length L` by simp
-            
-            (* Step 2: 2. find_indices *)
+
+            (* 2. useuniqueness prove find_indices return elementlist *)
             have "find_indices (\<lambda>a. op_name a = enq \<and> op_val a = x) L = [k2_x]"
-              using unique_enq_index[OF DI] k2_x_props(2) `op_val (L ! k2_x) = x` `k2_x < length L` 
+              using unique_enq_index[OF DI] k2_x_props(2) `op_val (L ! k2_x) = x` `k2_x < length L`
               by blast
-              
-            (* Step 3: 3. find_unique_index , *)
+
+            (* 3. unfold find_unique_index definition, to into *)
             hence "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = x) L = Some k2_x"
               unfolding find_unique_index_def by simp
-              
+
             moreover have "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = x) L = Some k3"
               using unique_enq_index[OF DI] k3_len k3_enq x_def
               using DI \<open>op_val (L ! k2_x) = x\<close> \<open>k2_x < length L\<close> calculation
                 k2_x_props(2) unique_enq_value by blast
-              
+
             ultimately have "k2_x = k3" by simp
             thus ?thesis using k2_x_props(1) by simp
           qed
-          
+
           show "\<exists>k4. k3 < k4 \<and> k4 < kD \<and> op_name (?L' ! k4) = deq \<and> op_val (?L' ! k4) = op_val (?L' ! k3)"
           proof (rule exI[where x=k4], intro conjI)
             show "k3 < k4" using `k3 < k4` .
@@ -5740,7 +7529,7 @@ qed
 
 
 (* ----------------------------------------------------------------- *)
-(* Deq lI5_SA_Prefix *)
+(* Coreboundary: appendmatch of Deq does not lI5_SA_Prefix complete *)
 (* ----------------------------------------------------------------- *)
 lemma lI5_SA_Prefix_append_deq_success:
   fixes L :: "OpRec list" and deq_act :: "OpRec" and v :: nat
@@ -5755,55 +7544,55 @@ lemma lI5_SA_Prefix_append_deq_success:
 proof -
   let ?L' = "L @ [deq_act]"
 
-  (* Step 1: 1. v Enq k_v *)
+  (* 1. one v corresponds to of Enq k_v *)
   obtain k_v where kv_props: "k_v < length L" "op_name (L ! k_v) = enq" "op_val (L ! k_v) = v"
     using enq_exists by blast
 
-  (* Step 2: 2. SA : Deq v SA *)
+  (* 2. SA set: append Deq of one is v in SA set *)
   have sa_evolve: "\<And>x. in_SA x ?L' \<longleftrightarrow> in_SA x L \<or> x = v"
   proof -
     fix x
     let ?P_enq = "\<lambda>a. op_name a = enq \<and> op_val a = x"
     let ?P_deq = "\<lambda>a. op_name a = deq \<and> op_val a = x"
-    
-    (* Proof note. *)
+
+    (* Core basic: array of appenddecompose *)
     have list_upt: "[0..<length ?L'] = [0..<length L] @ [length L]" by simp
-    
+
     (* ========================================== *)
-    (* Enq *)
+    (* First step: proveall Enq of complete *)
     (* ========================================== *)
     have enq_idx_eq: "find_indices ?P_enq ?L' = find_indices ?P_enq L"
     proof -
-      (* Step 1: 1. : filter_cong , nth_append if-else *)
+      (* 1. before: use filter_cong in boundary, direct closure nth_append of if-else *)
       have part1: "filter (\<lambda>i. ?P_enq (?L' ! i)) [0..<length L] = filter (\<lambda>i. ?P_enq (L ! i)) [0..<length L]"
         by (intro filter_cong refl) (auto simp: nth_append)
-      (* Step 2: 2. : deq, enq *)
+      (* 2. after: append of is deq, be enq no *)
       have part2: "filter (\<lambda>i. ?P_enq (?L' ! i)) [length L] = []"
         using deq_op by (auto simp: nth_append)
-        
+
       show ?thesis unfolding find_indices_def list_upt using part1 part2 by simp
     qed
-    
+
     have enq_uniq_eq: "find_unique_index ?P_enq ?L' = find_unique_index ?P_enq L"
       unfolding find_unique_index_def enq_idx_eq by simp
-      
+
     (* ========================================== *)
-    (* SA *)
+    (* Second step: case newold SA of *)
     (* ========================================== *)
     show "in_SA x ?L' \<longleftrightarrow> in_SA x L \<or> x = v"
     proof (cases "x = v")
       case True
-      (* x = v , ( v) True *)
-      
-      (* A. Enq(v) L *)
+      (* Goal: prove x = v, left (newlist v) as True *)
+
+      (* A. prove Enq(v) in oldlist L in one in *)
       have enq_v_exists: "find_unique_index ?P_enq L \<noteq> None"
       proof -
         have "find_indices ?P_enq L = [k_v]"
           using unique_enq_index[OF DI] kv_props True by auto
         thus ?thesis unfolding find_unique_index_def by simp
       qed
-      
-      (* B. Deq(v) L *)
+
+      (* B. prove Deq(v) in oldlist L in definitely in *)
       have deq_v_empty: "find_indices ?P_deq L = []"
       proof (rule ccontr)
         assume "find_indices ?P_deq L \<noteq> []"
@@ -5811,79 +7600,79 @@ proof -
           unfolding find_indices_def
           by (smt (verit, ccfv_SIG) True
               \<open>find_indices (\<lambda>a. op_name a = deq \<and> op_val a = x) L \<noteq> []\<close>
-              find_unique_index_def find_unique_index_prop) 
+              find_unique_index_def find_unique_index_prop)
         hence "find_indices ?P_deq L = [k_d]"
           using unique_deq_index[OF DI] True by auto
         hence "find_unique_index ?P_deq L = Some k_d" unfolding find_unique_index_def by simp
         with enq_v_exists have "in_SA v L" unfolding in_SA_def Let_def True by auto
         thus False using not_sa by simp
       qed
-      
-      (* C. Deq(v) *)
+
+      (* C. prove appendoperation fill in Deq(v) *)
       have deq_v_L': "find_indices ?P_deq ?L' = [length L]"
       proof -
-        (* filter_cong *)
+        (* Similarlyuse filter_cong guard before *)
         have part1: "filter (\<lambda>i. ?P_deq (?L' ! i)) [0..<length L] = filter (\<lambda>i. ?P_deq (L ! i)) [0..<length L]"
           by (intro filter_cong refl) (auto simp: nth_append)
-        (* Proof note. *)
+        (* Append of precisematch *)
         have part2: "filter (\<lambda>i. ?P_deq (?L' ! i)) [length L] = [length L]"
           using deq_op deq_val True by (auto simp: nth_append)
-          
-        show ?thesis 
-          unfolding find_indices_def list_upt 
+
+        show ?thesis
+          unfolding find_indices_def list_upt
           using part1 part2 deq_v_empty[unfolded find_indices_def] by simp
       qed
       hence deq_v_uniq: "find_unique_index ?P_deq ?L' = Some (length L)"
         unfolding find_unique_index_def by simp
-        
-      (* D. *)
+
+      (* D. close immediately: left right two all then! *)
       show ?thesis unfolding in_SA_def Let_def using enq_uniq_eq enq_v_exists deq_v_uniq True by auto
     next
       case False
-      (* x \<noteq> v , , L *)
+      (* Goal: prove x \<noteq> v, append of element no, in L this *)
       have deq_idx_eq: "find_indices ?P_deq ?L' = find_indices ?P_deq L"
       proof -
-        (* filter_cong *)
+        (* Similarlyuse filter_cong guard *)
         have part1: "filter (\<lambda>i. ?P_deq (?L' ! i)) [0..<length L] = filter (\<lambda>i. ?P_deq (L ! i)) [0..<length L]"
           by (intro filter_cong refl) (auto simp: nth_append)
-        (* , *)
+        (* Becausevalue match, after empty *)
         have part2: "filter (\<lambda>i. ?P_deq (?L' ! i)) [length L] = []"
           using False
           by (simp add: deq_val)
-          
+
         show ?thesis unfolding find_indices_def list_upt using part1 part2 by simp
       qed
-      
+
       have deq_uniq_eq: "find_unique_index ?P_deq ?L' = find_unique_index ?P_deq L"
         unfolding find_unique_index_def deq_idx_eq by simp
-        
-      (* Enq Deq *)
+
+      (* Enq and Deq of and oldlistcomplete one *)
       show ?thesis unfolding in_SA_def Let_def using enq_uniq_eq deq_uniq_eq False
         by presburger
     qed
   qed
 
-(* Step 3: 3. 0 : k_v Enq ( SA ) *)
+(* 3. as 0 of physical: k_v previouslydefinitely has dequeue of Enq (in SA in) *)
   have all_before_in_sa: "\<forall>k < k_v. op_name (L ! k) = enq \<longrightarrow> in_SA (op_val (L ! k)) L"
   proof (intro allI impI)
     fix k assume "k < k_v" and k_enq: "op_name (L ! k) = enq"
-    
+
     show "in_SA (op_val (L ! k)) L"
     proof (rule ccontr)
       assume not_in: "\<not> in_SA (op_val (L ! k)) L"
       define x where "x = op_val (L ! k)"
-      
-      (* x *)
+
+      (* Extract x of one *)
       have x_idx: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = x) L = Some k"
-        using unique_enq_index[OF DI] k_enq `k < k_v` kv_props(1) x_def 
+        using unique_enq_index[OF DI] k_enq `k < k_v` kv_props(1) x_def
         unfolding find_unique_index_def by force
 
-      (* v ( k_v) *)
+      (* Extract v of one (known as k_v) *)
       have v_idx: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some k_v"
-        using unique_enq_index[OF DI] kv_props 
+        using unique_enq_index[OF DI] kv_props
         unfolding find_unique_index_def by force
 
-      (* x SA , v (k < k_v), x v 0 *)
+      (* Since x in SA in, and it in v previously (k < k_v), then x for v of greater than 0! *)
       have dist_x_v: "distance_func x v L > 0"
       proof -
         have "distance_func x v L = (if k < k_v then k_v - k else 0)"
@@ -5891,68 +7680,68 @@ proof -
           using not_in[folded x_def] x_idx v_idx by simp
         thus ?thesis using `k < k_v` by simp
       qed
-      
-      (* Proof note. *)
-      (* distance_func , > 0, > 0 *)
+
+      (* And equal to has element and *)
+      (* Because distance_func return, only has one > 0, and necessarily > 0 *)
       have "Distance L v > 0"
       proof -
-        (* x *)
+        (* X in set *)
         let ?all_enqs = "filter (\<lambda>a. op_name a = enq) L"
         let ?vals = "set (map op_val ?all_enqs)"
-        
-        have "x \<in> ?vals" 
+
+        have "x \<in> ?vals"
         proof -
           have "L ! k \<in> set L" using `k < k_v` kv_props(1) by simp
           with k_enq have "L ! k \<in> set ?all_enqs" by simp
           thus ?thesis unfolding x_def
-            by auto 
+            by auto
         qed
-        
-        (* x , >= 0, >= x *)
+
+        (* Since x in set in, and element of >= 0, necessarily >= x of *)
         hence "sum_list (map (\<lambda>v'. distance_func v' v L) (sorted_list_of_set ?vals)) \<ge> distance_func x v L"
         proof -
-          (* Step 1: 1. x *)
-          have in_sorted: "x \<in> set (sorted_list_of_set ?vals)" 
+          (* 1. prove x in list in *)
+          have in_sorted: "x \<in> set (sorted_list_of_set ?vals)"
             using `x \<in> ?vals` by simp
-            
-          (* Step 2: 2. *)
-          (* [OF in_sorted] x xs, *)
-          show ?thesis 
+
+          (* 2. use we definition of use *)
+          (* : use directly [OF in_sorted] match x and xs, no need *)
+          show ?thesis
             using sum_list_map_ge_element[OF in_sorted] .
         qed
-        
+
         thus ?thesis unfolding Distance_def Let_def using dist_x_v by linarith
       qed
-      
-      (* Distance L v = 0 *)
+
+      (* And large premise Distance L v = 0 contradiction *)
       thus False using dist_zero by simp
     qed
   qed
 
-  (* Step 4: 4. : v , SA k_v *)
+  (* 4. boundary: v fill in after, SA boundaryprecise to k_v *)
   have new_sa_bound: "find_last_SA ?L' = int k_v"
   proof -
     let ?P = "\<lambda>i. op_name (?L' ! i) = enq \<and> in_SA (op_val (?L' ! i)) ?L'"
-    
-    (* 1: k_v SA ( ) *)
+
+    (* Prove1: k_v new SA (is of) *)
     have kv_valid: "k_v < length ?L' \<and> ?P k_v"
     proof -
       have "k_v < length ?L'" using kv_props(1) by simp
       moreover have "?L' ! k_v = L ! k_v" using kv_props(1) by (simp add: nth_append)
-      hence "op_name (?L' ! k_v) = enq" and "op_val (?L' ! k_v) = v" 
+      hence "op_name (?L' ! k_v) = enq" and "op_val (?L' ! k_v) = v"
         using kv_props by auto
       moreover have "in_SA v ?L'" using sa_evolve[of v] by simp
       ultimately show ?thesis by auto
     qed
-    
-    (* 2: k_v SA ( ) *)
+
+    (* Prove2: k_v afterwards has element new SA (is newboundary of) *)
     have no_sa_after_kv: "\<forall>i \<in> {k_v+1..<length ?L'}. \<not> ?P i"
     proof (intro ballI notI)
       fix i assume "i \<in> {k_v+1..<length ?L'}"
       assume P_i: "?P i"
       hence is_enq: "op_name (?L' ! i) = enq" and in_sa_L': "in_SA (op_val (?L' ! i)) ?L'" by auto
-      
-      (* deq_act *)
+
+      (* Newappend of deq_act *)
       have "i < length L"
       proof (rule ccontr)
         assume "\<not> i < length L"
@@ -5960,137 +7749,137 @@ proof -
         hence "?L' ! i = deq_act" by simp
         with is_enq deq_op show False by simp
       qed
-      
+
       hence L_i_eq: "?L' ! i = L ! i" by (simp add: nth_append)
-      
-      (* a) a *)
+
+      (* A) extractoriginal value a *)
       define a where "a = op_val (L ! i)"
       have val_i: "op_val (?L' ! i) = a" using L_i_eq a_def by simp
-      
-      (* b) a \<noteq> v, v Enq k_v, i > k_v *)
+
+      (* B) prove a \<noteq> v, because v of Enq is one of k_v, and here i > k_v *)
       have "a \<noteq> v"
       proof (rule ccontr)
         assume "\<not> a \<noteq> v"
         hence "a = v" by simp
         have "op_name (L ! i) = enq" using is_enq L_i_eq by simp
-        (* i k_v enq v, *)
-        with `i < length L` kv_props(1,2,3) `a = v` a_def 
-        have "i = k_v" 
+        (* I and k_v all is enq andvalue all is v, data *)
+        with `i < length L` kv_props(1,2,3) `a = v` a_def
+        have "i = k_v"
           using unique_enq_value[of L i k_v] DI
           using \<open>\<not> a \<noteq> v\<close> \<open>op_name (L ! i) = enq\<close> \<open>i < length L\<close> a_def
-            kv_props(1,2,3) by auto 
+            kv_props(1,2,3) by auto
         thus False using `i \<in> {k_v+1..<length ?L'}` by simp
       qed
-      
-      (* c) a \<noteq> v, sa_evolve , a L SA *)
+
+      (* C) since a \<noteq> v, sa_evolve, a necessarily in oldlist L of SA set in *)
       have in_sa_L: "in_SA a L"
         using in_sa_L' val_i sa_evolve[of a] `a \<noteq> v` by simp
-        
-      (* d) : k_v SA *)
-      (* v SA , SA k_v *)
+
+      (* D) contradiction: oldlist in k_v afterwards of elementimpossible in SA in! *)
+      (* Because v in old SA in, old SA of boundary in k_v previously *)
       have old_bound: "find_last_SA L < int k_v"
       proof (rule ccontr)
         assume "\<not> (find_last_SA L < int k_v)"
         hence "int k_v \<le> find_last_SA L" by simp
-        with I5[unfolded lI5_SA_Prefix_list_def] kv_props(1,2) 
+        with I5[unfolded lI5_SA_Prefix_list_def] kv_props(1,2)
         have "in_SA (op_val (L ! k_v)) L" by auto
         with kv_props(3) not_sa show False by simp
       qed
-      
+
       have "int i > find_last_SA L"
         using `i \<in> {k_v+1..<length ?L'}` old_bound
-        by fastforce 
-        
+        by fastforce
+
       have "\<not> in_SA (op_val (L ! i)) L"
         by (metis L_i_eq P_i \<open>find_last_SA L < int i\<close> \<open>i < length L\<close>
-            enqs_after_last_sa_are_not_in_sa) 
+            enqs_after_last_sa_are_not_in_sa)
       thus False using in_sa_L a_def by simp
     qed
-    
-    (* Step 3: 3. : k_v , k_v , k_v *)
+
+    (* 3. into: because k_v, and k_v afterwards, therefore k_v is large of of *)
     show ?thesis
     proof -
-      (* find_indices : ?P *)
+      (* Use find_indices of property: it all?P of *)
       let ?indices = "find_indices (\<lambda>a. op_name a = enq \<and> in_SA (op_val a) ?L') ?L'"
-      
+
       have "k_v \<in> set ?indices"
         unfolding find_indices_def using kv_valid
         by (metis (mono_tags, lifting) atLeastLessThan_iff atLeastLessThan_upt
-            le0 mem_Collect_eq set_filter) 
+            le0 mem_Collect_eq set_filter)
       hence "?indices \<noteq> []" by auto
-      
-      (* k_v , k_v *)
+
+      (* Large value: because has k_v large of element, last one necessarily is k_v *)
       have "last ?indices = k_v"
       proof (rule ccontr)
         assume "last ?indices \<noteq> k_v"
-        
-      (* ?indices k_v, , last k_v, k_v *)
+
+      (* Since?indices k_v, and is has of, if last is k_v, it one k_v large *)
       have "last ?indices > k_v"
       proof -
-        (* Step 1: 1. indices ( filter ) *)
-        have "sorted ?indices" 
+        (* 1. prove indices is has list (filter order preservation) *)
+        have "sorted ?indices"
           unfolding find_indices_def
-          by (meson sorted_upt sorted_wrt_filter) 
-          
-        (* Step 2: 2. k_v <= last ?indices *)
+          by (meson sorted_upt sorted_wrt_filter)
+
+        (* 2. prove k_v <= last?indices *)
         have "k_v \<le> last ?indices"
         proof -
-          (* k_v *)
+          (* K_v list *)
           obtain i where i_props: "i < length ?indices" "?indices ! i = k_v"
             using `k_v \<in> set ?indices`
-            by (meson in_set_conv_nth) 
-            
-          (* . i <= length - 1 *)
-          have "i \<le> length ?indices - 1" 
+            by (meson in_set_conv_nth)
+
+          (* List has: small corresponds to small value. i <= length - 1 *)
+          have "i \<le> length ?indices - 1"
             using i_props(1) by linarith
-            
-          (* indices!i <= indices!(length - 1) *)
+
+          (* Indices!i <= indices!(length - 1) *)
           have "?indices ! i \<le> ?indices ! (length ?indices - 1)"
             using `sorted ?indices` `i \<le> length ?indices - 1` i_props(1)
             by (simp add: sorted_iff_nth_mono)
-            
-          (* last last xs = xs ! (len - 1) *)
-          thus ?thesis 
-            using i_props(2) `?indices \<noteq> []` last_conv_nth 
+
+          (* Last of definition last xs = xs! (len - 1) *)
+          thus ?thesis
+            using i_props(2) `?indices \<noteq> []` last_conv_nth
             by fastforce
         qed
-        
-        (* Step 3: 3. last != k_v, *)
-        thus ?thesis using `last ?indices \<noteq> k_v` by simp
-      qed  
 
-        (* > k_v ?P , no_sa_after_kv *)
-        (* Step 1: 1. : last *)
+        (* 3. premise last!= k_v, out greater than *)
+        thus ?thesis using `last ?indices \<noteq> k_v` by simp
+      qed
+
+        (* Then we to one > k_v and?P of, no_sa_after_kv! *)
+        (* 1. core: extract last element in its set of fact *)
         have last_in: "last ?indices \<in> set ?indices"
           using `?indices \<noteq> []` by simp
-          
-        (* Step 2: 2. *)
+
+        (* 2. useset out boundary *)
         have "last ?indices < length ?L'"
           using last_in unfolding find_indices_def by auto
-          
-        (* Step 3: 3. P *)
-        have "?P (last ?indices)" 
+
+        (* 3. useset out it P *)
+        have "?P (last ?indices)"
           using last_in unfolding find_indices_def by auto
-          
+
         have "last ?indices \<in> {k_v+1..<length ?L'}"
           using `last ?indices > k_v` `last ?indices < length ?L'` by simp
-          
+
         thus False using no_sa_after_kv `?P (last ?indices)` by blast
       qed
-      
+
       thus ?thesis unfolding find_last_SA_def Let_def
         using `?indices \<noteq> []` by simp
     qed
   qed
 
-  (* Step 5: 5. : lI5_SA_Prefix_list , *)
+  (* 5. verify: unfold lI5_SA_Prefix_list definition, derivation *)
   show ?thesis unfolding lI5_SA_Prefix_list_def
   proof (intro allI impI)
-    fix k assume k_len: "k < length ?L'" 
+    fix k assume k_len: "k < length ?L'"
     assume k_enq: "op_name (?L' ! k) = enq"
-    
-    (* deq, enq L *)
-    have "k < length L" 
+
+    (* Core: becauseappend of is deq, thereforenewlist in of enq complete oldlist L *)
+    have "k < length L"
     proof (rule ccontr)
       assume "\<not> k < length L"
       hence "k = length L" using k_len by simp
@@ -6102,11 +7891,11 @@ proof -
     have is_enq: "op_name (L ! k) = enq" using k_enq L_k_eq by simp
     have val_k: "op_val (?L' ! k) = op_val (L ! k)" using L_k_eq by simp
 
-    (* k_v *)
+    (* : with k_v as large *)
     show "in_SA (op_val (?L' ! k)) ?L' \<longleftrightarrow> int k \<le> find_last_SA ?L'"
     proof cases
       assume "k < k_v"
-      (* Case A: k k_v . Distance=0 SA *)
+      (* Case A: k in k_v previously. Distance=0 its already in SA in *)
       have "in_SA (op_val (L ! k)) L" using all_before_in_sa `k < k_v` is_enq by simp
       hence "in_SA (op_val (?L' ! k)) ?L'" using sa_evolve val_k by simp
       moreover have "int k \<le> find_last_SA ?L'" using `k < k_v` new_sa_bound by simp
@@ -6117,41 +7906,41 @@ proof -
       then show ?thesis
       proof cases
         case eq
-        (* Case B: k k_v. v *)
+        (* Case B: k equal to k_v. it then is we append for success of v *)
         have "op_val (L ! k) = v" using eq kv_props(3) by simp
         hence "in_SA (op_val (?L' ! k)) ?L'" using sa_evolve val_k by simp
         moreover have "int k \<le> find_last_SA ?L'" using eq new_sa_bound by simp
         ultimately show ?thesis by simp
       next
         case gt
-        (* C: k k_v . lI5_SA_Prefix, SA *)
+        (* Case C: k in k_v afterwards. oldlist of lI5_SA_Prefix, it in SA in *)
         have "op_val (L ! k) \<noteq> v"
         proof
           assume "op_val (L ! k) = v"
-          (* , , , gt (k > k_v) *)
-          have "k = k_v" 
+          (* Ifvalueequal, data, mustequal, and gt (k > k_v) contradiction! *)
+          have "k = k_v"
             using same_enq_value_same_index[OF DI `k < length L` kv_props(1) is_enq kv_props(2)]
             using `op_val (L ! k) = v` kv_props(3) by simp
           with gt show False by simp
         qed
-        
-        (* v SA , SA k_v *)
-        have "int k_v > find_last_SA L" 
+
+        (* Since v in old SA in, thenold of SA boundary in k_v previously *)
+        have "int k_v > find_last_SA L"
           using I5[unfolded lI5_SA_Prefix_list_def, THEN spec, of k_v] kv_props not_sa by auto
-          
-        (* k k_v , k SA *)
+
+        (* : k k_v large, therefore k definitely also old of SA boundary *)
         hence "int k > find_last_SA L" using gt by simp
-        hence "\<not> in_SA (op_val (L ! k)) L" 
+        hence "\<not> in_SA (op_val (L ! k)) L"
           using I5[unfolded lI5_SA_Prefix_list_def, THEN spec, of k] `k < length L` is_enq by auto
-        
-        (* , k SA , v, SA *)
-        hence "\<not> in_SA (op_val (?L' ! k)) ?L'" 
+
+        (* , k in old SA in, and it also is of v, therefore it also in new SA in *)
+        hence "\<not> in_SA (op_val (?L' ! k)) ?L'"
           using sa_evolve val_k `op_val (L ! k) \<noteq> v` by simp
-        
-        (* k_v *)
-        moreover have "\<not> (int k \<le> find_last_SA ?L')" 
+
+        (* And it of newboundary k_v *)
+        moreover have "\<not> (int k \<le> find_last_SA ?L')"
           using gt new_sa_bound by simp
-          
+
         ultimately show ?thesis by simp
       qed
     qed
@@ -6159,30 +7948,30 @@ proof -
 qed
 
 (* ----------------------------------------------------------------- *)
-(* Auxiliary lemma: D3 lI4_FIFO_Semantics (FIFO) *)
+(* Helper lemma: D3 dequeuestep for lI4_FIFO_Semantics (FIFO) of preserve *)
 (* ----------------------------------------------------------------- *)
 lemma lI4_FIFO_Semantics_deq_step_preservation:
   assumes INV: "system_invariant s"
   assumes q_in_SetB: "q_val \<in> SetB s"
   assumes q_not_bot: "q_val \<noteq> BOT"
-  assumes base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val 
-                                 then modify_lin (lin_seq s) (his_seq s) q_val 
+  assumes base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val
+                                 then modify_lin (lin_seq s) (his_seq s) q_val
                                  else lin_seq s)"
-  (* Revision note 1: mk_op sn *)
+  (* Fix point 1: for mk_op fill in of sn *)
   assumes s'_lin_def: "lin_seq s' = base_lin @ [mk_op deq q_val p sn]"
   shows "lI4_FIFO_Semantics s'"
 proof -
-  (* Step 1: 1. *)
+  (* 1. basic *)
   have di_s: "data_independent (lin_seq s)" using INV unfolding system_invariant_def by simp
   have lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" using INV unfolding system_invariant_def by simp
-  have lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics_list (lin_seq s)" using INV unfolding system_invariant_def lI4_FIFO_Semantics_def by blast 
+  have lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics_list (lin_seq s)" using INV unfolding system_invariant_def lI4_FIFO_Semantics_def by blast
   have lI5_SA_Prefix_s: "lI5_SA_Prefix_list (lin_seq s)" using INV unfolding system_invariant_def lI5_SA_Prefix_def by simp
 
-  (* Revision note 2: Key simplification, lI2_Op_Cardinality q_val , PureLib *)
+  (* Fix point 2: simplification step, use directly lI2_Op_Cardinality derivation q_val of in, outside PureLib *)
   have card_deq: "card (DeqIdxs s q_val) = 0" using lI2_Op_Cardinality_s q_in_SetB unfolding lI2_Op_Cardinality_def by blast
   have finite_deq: "finite (DeqIdxs s q_val)" unfolding DeqIdxs_def by simp
   have q_deq_empty: "DeqIdxs s q_val = {}" using card_deq finite_deq by auto
-  
+
   have pending_q: "\<forall>k < length (lin_seq s). op_val (lin_seq s ! k) = q_val \<longrightarrow> op_name (lin_seq s ! k) \<noteq> deq"
     using q_deq_empty unfolding DeqIdxs_def by blast
 
@@ -6192,61 +7981,61 @@ proof -
     by (simp add: INV SetB_implies_enq_in_lin q_in_SetB)
 
 
-  (* Step 2: 2. base_lin *)
+  (* 2. prove base_lin of *)
   have mset_base_eq: "mset base_lin = mset (lin_seq s)"
-    unfolding base_def using modify_preserves_mset by presburger 
+    unfolding base_def using modify_preserves_mset by presburger
 
-  (* Step 3: 3. base_lin lI4_FIFO_Semantics_list *)
+  (* 3. prove base_lin lI4_FIFO_Semantics_list *)
   have lI4_FIFO_Semantics_base: "lI4_FIFO_Semantics_list base_lin"
   proof (cases "should_modify (lin_seq s) (his_seq s) q_val")
     case True
-    then have base_eq: "base_lin = modify_lin (lin_seq s) (his_seq s) q_val" using base_def by meson 
-    show ?thesis 
+    then have base_eq: "base_lin = modify_lin (lin_seq s) (his_seq s) q_val" using base_def by meson
+    show ?thesis
       using move_pending_enq_preserves_lI4_FIFO_Semantics[OF lI4_FIFO_Semantics_s base_eq di_s lI5_SA_Prefix_s pending_q] .
   next
     case False
     then show ?thesis using base_def lI4_FIFO_Semantics_s by simp
   qed
 
-  (* Step 4: 4. base_lin Distance 0 *)
+  (* 4. prove base_lin of Distance as 0 *)
   have dist_zero_base: "Distance base_lin q_val = 0"
   proof (cases "should_modify (lin_seq s) (his_seq s) q_val")
     case True
     then have base_eq: "base_lin = modify_lin (lin_seq s) (his_seq s) q_val" using base_def by simp
-    show ?thesis 
+    show ?thesis
       using modify_lin_Distance_zero_internal[OF di_s _ lI5_SA_Prefix_s pending_q exists_q] base_eq lI4_FIFO_Semantics_s by auto
   next
     case False
-    note not_modify = False 
-    
-    (* Proof note. *)
+    note not_modify = False
+
+    (* Proof note *)
     have "Distance (lin_seq s) q_val = 0"
     proof (rule ccontr)
       assume dist_not_zero: "Distance (lin_seq s) q_val \<noteq> 0"
-      
-      (* , 0, *)
+
+      (* Core: usecomplete, proveif as 0, then one change *)
       have "should_modify (lin_seq s) (his_seq s) q_val"
         using should_modify_completeness[OF di_s lI5_SA_Prefix_s pending_q exists_q dist_not_zero] .
-      
-      (* False (not_modify) *)
+
+      (* Contradiction: and outside of False (not_modify) branchpremisecontradiction *)
       with not_modify show False by contradiction
     qed
-    
-    (* base_lin *)
+
+    (* Base_lin of definition this branch *)
     thus ?thesis using base_def False by simp
   qed
 
-  (* Step 5: 5. : Append *)
+  (* 5. core: use Append prove *)
   let ?deq_act = "mk_op deq q_val p sn"
   have "lI4_FIFO_Semantics_list (base_lin @ [?deq_act])"
   proof (rule lI4_FIFO_Semantics_append_deq_success[where v="q_val"])
     show "lI4_FIFO_Semantics_list base_lin" using lI4_FIFO_Semantics_base .
     show "data_independent base_lin" using di_s data_independent_cong mset_base_eq by blast
-    
-    (* Revision note 3: mk_op *)
+
+    (* Fix point 3: usenew of mk_op definition unfoldprove *)
     show "op_name ?deq_act = deq" by (simp add: mk_op_def op_name_def)
     show "op_val ?deq_act = q_val" by (simp add: mk_op_def op_val_def)
-    
+
     show "\<exists>k<length base_lin. op_name (base_lin ! k) = enq \<and> op_val (base_lin ! k) = q_val"
     proof -
       have "\<exists>act \<in> set (lin_seq s). op_name act = enq \<and> op_val act = q_val"
@@ -6264,75 +8053,75 @@ proof -
     show "Distance base_lin q_val = 0" using dist_zero_base .
   qed
 
-  (* Step 6: 6. *)
+  (* 6. form *)
   thus ?thesis unfolding lI4_FIFO_Semantics_def s'_lin_def by simp
 qed
 
 (* ----------------------------------------------------------------- *)
-(* Auxiliary lemma: D3 lI5_SA_Prefix (SA) *)
+(* Helper lemma: D3 dequeuestep for lI5_SA_Prefix (SAsetmonotonicity) of preserve *)
 (* ----------------------------------------------------------------- *)
 lemma lI5_SA_Prefix_deq_step_preservation:
   assumes INV: "system_invariant s"
   assumes q_in_SetB: "q_val \<in> SetB s"
   assumes q_not_bot: "q_val \<noteq> BOT"
-  assumes base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val 
-                                 then modify_lin (lin_seq s) (his_seq s) q_val 
+  assumes base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val
+                                 then modify_lin (lin_seq s) (his_seq s) q_val
                                  else lin_seq s)"
-  (* Revision note 1: mk_op sn *)
+  (* Fix point 1: for mk_op fill in of sn *)
   assumes s'_lin_def: "lin_seq s' = base_lin @ [mk_op deq q_val p sn]"
   shows "lI5_SA_Prefix s'"
 proof -
   let ?L = "lin_seq s"
   let ?H = "his_seq s"
-  
-  (* Step 1: 1. *)
-  have di_s: "data_independent ?L" 
+
+  (* 1. extractbasic *)
+  have di_s: "data_independent ?L"
     using INV unfolding system_invariant_def by simp
-  have lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" 
+  have lI2_Op_Cardinality_s: "lI2_Op_Cardinality s"
     using INV unfolding system_invariant_def by simp
-  have lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics_list ?L" 
+  have lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics_list ?L"
     using INV unfolding system_invariant_def lI4_FIFO_Semantics_def by simp
-  have lI5_SA_Prefix_s: "lI5_SA_Prefix_list ?L" 
+  have lI5_SA_Prefix_s: "lI5_SA_Prefix_list ?L"
     using INV unfolding system_invariant_def lI5_SA_Prefix_def by simp
 
-  (* Revision note 2: Key simplification, lI2_Op_Cardinality , *)
+  (* Fix point 2: simplification step, use directly lI2_Op_Cardinality derivation need fact, outside *)
   have card_deq: "card (DeqIdxs s q_val) = 0" using lI2_Op_Cardinality_s q_in_SetB unfolding lI2_Op_Cardinality_def by blast
   have finite_deq: "finite (DeqIdxs s q_val)" unfolding DeqIdxs_def by simp
   have q_deq_empty: "DeqIdxs s q_val = {}" using card_deq finite_deq by auto
-  
+
   have pending_q: "\<forall>k < length ?L. op_val (?L ! k) = q_val \<longrightarrow> op_name (?L ! k) \<noteq> deq"
     using q_deq_empty unfolding DeqIdxs_def by blast
 
   have card_enq: "card (EnqIdxs s q_val) = 1" using lI2_Op_Cardinality_s q_in_SetB unfolding lI2_Op_Cardinality_def by blast
   have exists_q: "\<exists>k < length ?L. op_name (?L ! k) = enq \<and> op_val (?L ! k) = q_val"
     using card_enq unfolding EnqIdxs_def
-    using INV SetB_implies_enq_in_lin q_in_SetB by blast 
+    using INV SetB_implies_enq_in_lin q_in_SetB by blast
 
 
-  (* Step 2: 2. base_lin lI5_SA_Prefix_list *)
+  (* 2. prove base_lin lI5_SA_Prefix_list *)
   have lI5_SA_Prefix_base: "lI5_SA_Prefix_list base_lin"
   proof (cases "should_modify ?L ?H q_val")
     case True
-    then have base_eq: "base_lin = modify_lin ?L ?H q_val" using base_def by meson 
-    show ?thesis 
+    then have base_eq: "base_lin = modify_lin ?L ?H q_val" using base_def by meson
+    show ?thesis
       using modify_preserves_lI5_SA_Prefix[OF lI4_FIFO_Semantics_s base_eq di_s lI5_SA_Prefix_s pending_q] .
   next
     case False
     then show ?thesis using base_def lI5_SA_Prefix_s by simp
   qed
 
-  (* Step 3: 3. ( mset) *)
+  (* 3. provedata (use in mset) *)
   have mset_base_eq: "mset base_lin = mset ?L"
-    unfolding base_def using modify_preserves_mset q_not_bot by presburger 
+    unfolding base_def using modify_preserves_mset q_not_bot by presburger
   have di_base: "data_independent base_lin"
     using di_s data_independent_cong mset_base_eq by blast
 
-  (* Step 4: 4. Distance *)
+  (* 4. prove Distance zero fact *)
   have dist_zero: "Distance base_lin q_val = 0"
   proof (cases "should_modify ?L ?H q_val")
     case True
     then have base_eq: "base_lin = modify_lin ?L ?H q_val" using base_def by simp
-    show ?thesis 
+    show ?thesis
       using modify_lin_Distance_zero_internal[OF di_s lI4_FIFO_Semantics_s lI5_SA_Prefix_s pending_q exists_q] base_eq by auto
   next
     case False
@@ -6347,24 +8136,24 @@ proof -
     thus ?thesis using base_def False by simp
   qed
 
-  (* Step 5: 5. *)
+  (* 5. appendprove *)
   let ?deq_act = "mk_op deq q_val p sn"
   have "lI5_SA_Prefix_list (base_lin @ [?deq_act])"
   proof (rule lI5_SA_Prefix_append_deq_success)
     show "lI5_SA_Prefix_list base_lin" using lI5_SA_Prefix_base .
     show "data_independent base_lin" using di_base .
-    
-    (* Revision note 3: mk_op *)
+
+    (* Fix point 3: usenewversion of mk_op definition unfold *)
     show "op_name ?deq_act = deq" by (simp add: mk_op_def op_name_def)
     show "op_val ?deq_act = q_val" by (simp add: mk_op_def op_val_def)
-    
+
     show "\<exists>k < length base_lin. op_name (base_lin ! k) = enq \<and> op_val (base_lin ! k) = q_val"
     proof -
       have "\<exists>act \<in> set ?L. op_name act = enq \<and> op_val act = q_val"
         using exists_q by (metis nth_mem)
       with mset_base_eq show ?thesis by (metis set_mset_mset in_set_conv_nth)
     qed
-    
+
     show "\<not> in_SA q_val base_lin"
     proof -
       have "\<forall>act \<in> set ?L. op_val act = q_val \<longrightarrow> op_name act \<noteq> deq"
@@ -6376,12 +8165,12 @@ proof -
     show "Distance base_lin q_val = 0" using dist_zero .
   qed
 
-  (* Step 6: 6. *)
+  (* 6. mapping *)
   thus ?thesis unfolding lI5_SA_Prefix_def s'_lin_def by simp
 qed
 
 (* ----------------------------------------------------------------- *)
-(* Auxiliary lemma: D3 preserves under the successful transition hI16_BO_BT_No_HB (SetBO vs SetBT) *)
+(* Helper lemma: D3 success preserve hI16_BO_BT_No_HB (SetBO vs SetBT) *)
 (* ----------------------------------------------------------------- *)
 lemma D3_preserves_hI16_BO_BT_No_HB:
   assumes INV: "system_invariant s"
@@ -6390,7 +8179,7 @@ lemma D3_preserves_hI16_BO_BT_No_HB:
   defines "s' \<equiv> Sys_D3_success_update s p"
   shows "hI16_BO_BT_No_HB s'"
 proof -
-  (* === 1. === *)
+  (* === 1. extract the old state of invariant === *)
   have hI16_BO_BT_No_HB_s: "hI16_BO_BT_No_HB s" using INV unfolding system_invariant_def by auto
   have hI18_Idx_Order_No_Rev_HB_s: "hI18_Idx_Order_No_Rev_HB s" using INV unfolding system_invariant_def by auto
   have hI19_Scanner_Catches_Later_Enq_s: "hI19_Scanner_Catches_Later_Enq s" using INV unfolding system_invariant_def by auto
@@ -6399,8 +8188,8 @@ proof -
 
   define jp where "jp = j_var s p"
 
-  (* === 1.5. state transport , SMT === *)
-  have s'_fields: 
+  (* === 1.5. extract mapping, SMT unfold === *)
+  have s'_fields:
     "program_counter s' = (\<lambda>x. if x = p then ''D4'' else program_counter s x)"
     "x_var s' = (\<lambda>x. if x = p then Q_arr s jp else x_var s x)"
     "Q_arr s' = (\<lambda>x. if x = jp then BOT else Q_arr s x)"
@@ -6412,7 +8201,7 @@ proof -
     "v_var s' = v_var s"
     "i_var s' = i_var s"
     using assms unfolding s'_def Sys_D3_success_update_def Let_def jp_def
-          program_counter_def x_var_def Q_arr_def Qback_arr_def his_seq_def 
+          program_counter_def x_var_def Q_arr_def Qback_arr_def his_seq_def
           s_var_def j_var_def l_var_def v_var_def i_var_def
     by auto
 
@@ -6422,29 +8211,29 @@ proof -
   show ?thesis
     unfolding hI16_BO_BT_No_HB_def
   proof (intro allI impI notI)
-    (* nat *)
+    (* : as nat *)
     fix a b :: nat
     assume asm: "a \<in> SetBO s' \<and> b \<in> SetBT s'"
     assume HB_s'_ab: "HB_EnqRetCall s' a b"
-    
+
     have a_BO': "a \<in> SetBO s'" and b_BT': "b \<in> SetBT s'" using asm by auto
     have HB_ab: "HB_EnqRetCall s a b" using HB_s'_ab HB_eq by simp
-    
-    (* === 3. a b T , Idx === *)
+
+    (* === 3. a and b all in T in, and it of Idx === *)
     have b_in_T: "InQBack s b"
     proof -
       have "InQBack s' b" using b_BT' unfolding SetBT_def TypeBT_def by auto
       thus ?thesis using s'_fields(4) unfolding InQBack_def by auto
     qed
-    
+
     have a_in_T: "InQBack s a"
       using HB_implies_InQBack[OF INV HB_ab] .
-    
+
     let ?idx_a = "Idx s a"
     let ?idx_b = "Idx s b"
-    
-    have a_neq_b: "a \<noteq> b" 
-      using a_BO' b_BT' unfolding SetBO_def SetBT_def TypeBO_def by blast 
+
+    have a_neq_b: "a \<noteq> b"
+      using a_BO' b_BT' unfolding SetBO_def SetBT_def TypeBO_def by blast
 
     have idx_neq: "?idx_a \<noteq> ?idx_b"
     proof
@@ -6457,7 +8246,7 @@ proof -
       thus False using a_neq_b by simp
     qed
 
-    (* === 4. : Idx_a Idx_b === *)
+    (* === 4. core: case Idx_a and Idx_b === *)
     show False
     proof (cases "?idx_b < ?idx_a")
       case True
@@ -6468,20 +8257,20 @@ proof -
       case False
       with idx_neq have a_lt_b: "?idx_a < ?idx_b" by simp
 
-      (* Proof note. *)
+      (* Proof note *)
       have TypeOK_s': "TypeOK s'"
         using Sys_D3_success_phys_invariants[OF INV pc_D3 q_not_bot] unfolding s'_def by blast
-        
-      have a_in_B': "a \<in> SetB s'" using a_BO' unfolding SetBO_def by (simp add: SetB_def TypeBO_def) 
-      
-      have a_not_BOT: "a \<noteq> BOT" 
+
+      have a_in_B': "a \<in> SetB s'" using a_BO' unfolding SetBO_def by (simp add: SetB_def TypeBO_def)
+
+      have a_not_BOT: "a \<noteq> BOT"
       proof -
-        have "a \<in> Val" 
+        have "a \<in> Val"
           using a_in_B' TypeOK_s' unfolding TypeOK_def SetB_def TypeB_def QHas_def Val_def BOT_def by blast
         thus ?thesis unfolding Val_def BOT_def by simp
       qed
 
-      (* Auxiliary lemma *)
+      (* Helper lemma *)
       have SetB'_to_TypeB_s: "\<And>x. x \<in> SetB s' \<Longrightarrow> TypeB s x"
       proof -
         fix x assume "x \<in> SetB s'"
@@ -6502,17 +8291,11 @@ proof -
           thus ?thesis unfolding TypeB_def QHas_def by blast
         next
           case False
-          hence "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x" using TypeB_x' unfolding TypeB_def by auto
-          then obtain q where "program_counter s' q = ''E2''" "v_var s' q = x" by blast
-          have "q \<noteq> p" using `program_counter s' q = ''E2''` s'_fields(1)
-            by auto 
-          have "program_counter s q = ''E2''" using `program_counter s' q = ''E2''` `q \<noteq> p` s'_fields(1) by auto
-          moreover have "v_var s q = x" using `v_var s' q = x` `q \<noteq> p` s'_fields(9) by auto
-          ultimately show ?thesis unfolding TypeB_def by auto
+          with TypeB_x' show ?thesis unfolding TypeB_def by simp
         qed
       qed
 
-      (* Q_arr s' (?idx_a) = a \<noteq> BOT *)
+      (* Prove Q_arr s' (?idx_a) = a \<noteq> BOT *)
       have Q_idx_a: "Q_arr s' ?idx_a = a"
       proof -
         let ?q_val = "Q_arr s jp"
@@ -6526,12 +8309,12 @@ proof -
         have Q_s_idx_a: "Q_arr s ?idx_a = a"
         proof (rule ccontr)
           assume neq_a: "Q_arr s ?idx_a \<noteq> a"
-          have "Q_arr s ?idx_a = BOT" using sI8_Q_Qback_Sync_s qback_a neq_a unfolding sI8_Q_Qback_Sync_def by metis 
+          have "Q_arr s ?idx_a = BOT" using sI8_Q_Qback_Sync_s qback_a neq_a unfolding sI8_Q_Qback_Sync_def by metis
           have not_in_Q: "\<not> QHas s a"
           proof
             assume "QHas s a"
             then obtain k where "Q_arr s k = a" unfolding QHas_def by blast
-            have "Qback_arr s k = a" using sI8_Q_Qback_Sync_s `Q_arr s k = a` a_not_BOT unfolding sI8_Q_Qback_Sync_def by metis 
+            have "Qback_arr s k = a" using sI8_Q_Qback_Sync_s `Q_arr s k = a` a_not_BOT unfolding sI8_Q_Qback_Sync_def by metis
             show False
             proof (cases "k = ?idx_a")
               case True with `Q_arr s k = a` `Q_arr s ?idx_a = BOT` a_not_BOT show False by simp
@@ -6564,21 +8347,21 @@ proof -
               using \<open>Idx s a = jp\<close> \<open>a = Model.Q_arr s jp\<close> qback_a
               by fastforce
             with sI10_Qback_Unique_Vals_s `Qback_arr s k = ?q_val` `k \<noteq> jp` q_not_bot show False unfolding sI10_Qback_Unique_Vals_def
-              by (metis jp_def) 
+              by (metis jp_def)
           next
             case False
             hence "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = ?q_val" using `TypeB s' ?q_val` unfolding TypeB_def by auto
             then obtain q where "program_counter s' q = ''E2''" "v_var s' q = ?q_val" by blast
             have "q \<noteq> p" using `program_counter s' q = ''E2''` s'_fields(1)
-              by fastforce 
+              by fastforce
             have pc_E2: "program_counter s q = ''E2''" using `program_counter s' q = ''E2''` `q \<noteq> p` s'_fields(1) by auto
             have v_qval: "v_var s q = ?q_val" using `v_var s' q = ?q_val` `q \<noteq> p` s'_fields(9) by auto
-            have pending: "HasPendingEnq s q ?q_val" using hI1_E_Phase_Pending_Enq_s pc_E2 v_qval unfolding hI1_E_Phase_Pending_Enq_def by (metis E2_implies_HasPendingEnq INV) 
+            have pending: "HasPendingEnq s q ?q_val" using hI1_E_Phase_Pending_Enq_s pc_E2 v_qval unfolding hI1_E_Phase_Pending_Enq_def by (metis E2_implies_HasPendingEnq INV)
             have "Q_arr s (i_var s q) = BOT" using sI3_E2_Slot_Exclusive_s pc_E2 unfolding sI3_E2_Slot_Exclusive_def by blast
             hence "jp \<noteq> i_var s q" using q_not_bot
               using jp_def by auto
             have "Qback_arr s jp = ?q_val" using sI8_Q_Qback_Sync_s q_not_bot unfolding sI8_Q_Qback_Sync_def
-              using \<open>Idx s a = jp\<close> \<open>a = Model.Q_arr s jp\<close> qback_a by auto 
+              using \<open>Idx s a = jp\<close> \<open>a = Model.Q_arr s jp\<close> qback_a by auto
             have "\<not> (\<exists>k. Qback_arr s k = ?q_val \<and> k \<noteq> i_var s q)" using hI14_Pending_Enq_Qback_Exclusivity_s pending pc_E2 unfolding hI14_Pending_Enq_Qback_Exclusivity_def by blast
             thus False using `Qback_arr s jp = ?q_val` `jp \<noteq> i_var s q` by blast
           qed
@@ -6586,12 +8369,12 @@ proof -
         show ?thesis using Q_s_idx_a idx_a_neq_jp s'_fields(3) by simp
       qed
 
-      (* b s' TypeBT , hI19_Scanner_Catches_Later_Enq *)
+      (* Last one: unfold b in s' in of TypeBT definition, case hI19_Scanner_Catches_Later_Enq *)
       have "((\<forall>k < ?idx_b. Q_arr s' k = BOT) \<or>
              (\<exists>q. program_counter s' q = ''D3'' \<and> j_var s' q \<le> ?idx_b \<and> ?idx_b < l_var s' q \<and>
                   (\<forall>k. j_var s' q \<le> k \<and> k < ?idx_b \<longrightarrow> Q_arr s' k = BOT)))"
         using b_BT' s'_fields(4) unfolding SetBT_def TypeBT_def Idx_def AtIdx_def by auto
-        
+
       thus False
       proof (elim disjE exE conjE)
         assume "\<forall>k < ?idx_b. Q_arr s' k = BOT"
@@ -6603,7 +8386,7 @@ proof -
            and j_le: "j_var s' q \<le> ?idx_b"
            and idx_lt: "?idx_b < l_var s' q"
            and bot_range: "\<forall>k. j_var s' q \<le> k \<and> k < ?idx_b \<longrightarrow> Q_arr s' k = BOT"
-           
+
         have "?idx_a < j_var s' q"
         proof (rule ccontr)
           assume "\<not> ?idx_a < j_var s' q"
@@ -6611,31 +8394,31 @@ proof -
           with a_lt_b bot_range have "Q_arr s' ?idx_a = BOT" by simp
           thus False using Q_idx_a a_not_BOT by auto
         qed
-        
+
         have q_neq_p: "q \<noteq> p" using pc_q s'_fields(1)
-          by auto 
+          by auto
         have pc_q_s: "program_counter s q = ''D3''" using pc_q q_neq_p s'_fields(1) by auto
         have j_q_s: "j_var s q = j_var s' q" using q_neq_p s'_fields(7) by simp
         have l_q_s: "l_var s q = l_var s' q" using q_neq_p s'_fields(8) by simp
-          
-        (* hI12_D_Phase_Pending_Deq D3 Dequeue *)
+
+        (* HI12_D_Phase_Pending_Deq in D3 of process has one start of Dequeue *)
         have pending_q: "HasPendingDeq s q"
           using INV pc_q_s unfolding system_invariant_def hI12_D_Phase_Pending_Deq_def by auto
-          
+
         have TypeB_a_s: "TypeB s a" using a_in_B' SetB'_to_TypeB_s by simp
         have TypeB_b_s: "TypeB s b" using b_BT' unfolding SetBT_def by (simp add: SetB_def TypeBT_implies_TypeB SetB'_to_TypeB_s)
 
-        (* Step 1: 1. q , metis *)
-        have ex_q_s: "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
+        (* 1. dequeueprocess q of in prove, metis of *)
+        have ex_q_s: "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
                           Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q"
           using pending_q pc_q_s `?idx_a < j_var s' q` j_le idx_lt j_q_s l_q_s by auto
 
-        (* Step 2: 2. hI19_Scanner_Catches_Later_Enq_s a_in_T b_in_T *)
+        (* 2. newversion hI19_Scanner_Catches_Later_Enq_s guards!notehere a_in_T and b_in_T also one start *)
         have "\<not> HB_EnqRetCall s a b"
           using hI19_Scanner_Catches_Later_Enq_s a_in_T b_in_T TypeB_a_s TypeB_b_s a_lt_b ex_q_s
           unfolding hI19_Scanner_Catches_Later_Enq_def by blast
-          
-        (* Step 3: 3. *)
+
+        (* 3. contradiction *)
         thus False using HB_ab by simp
       qed
     qed
@@ -6650,7 +8433,7 @@ lemma D3_preserves_hI17_BT_BT_No_HB:
   defines "s' \<equiv> Sys_D3_success_update s p"
   shows "hI17_BT_BT_No_HB s'"
 proof -
-  (* === 1. === *)
+  (* === 1. extract the old state of large === *)
   have hI16_BO_BT_No_HB_s: "hI16_BO_BT_No_HB s" using INV unfolding system_invariant_def by auto
   have hI17_BT_BT_No_HB_s: "hI17_BT_BT_No_HB s" using INV unfolding system_invariant_def by auto
   have hI18_Idx_Order_No_Rev_HB_s: "hI18_Idx_Order_No_Rev_HB s" using INV unfolding system_invariant_def by auto
@@ -6665,14 +8448,14 @@ proof -
   have hI14_Pending_Enq_Qback_Exclusivity_s: "hI14_Pending_Enq_Qback_Exclusivity s" using INV unfolding system_invariant_def by auto
   have lI2_Op_Cardinality_s: "lI2_Op_Cardinality s" using INV unfolding system_invariant_def by auto
 
-  (* === 2. state transport === *)
+  (* === 2. mapping === *)
   have his_eq: "his_seq s' = his_seq s"
-    unfolding s'_def Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+    unfolding s'_def Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by simp
   have T_eq: "Qback_arr s' = Qback_arr s"
-    unfolding s'_def Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+    unfolding s'_def Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by simp
   have HB_eq: "\<And>a b. HB_EnqRetCall s' a b \<longleftrightarrow> HB_EnqRetCall s a b"
     using his_eq unfolding HB_EnqRetCall_def HB_Act_def by simp
@@ -6680,14 +8463,14 @@ proof -
   have sI2_X_var_Upper_Bound_s': "sI2_X_var_Upper_Bound s'" and sI8_Q_Qback_Sync_s': "sI8_Q_Qback_Sync s'" and sI9_Qback_Discrepancy_E3_s': "sI9_Qback_Discrepancy_E3 s'" and TypeOK_s': "TypeOK s'"
     using Sys_D3_success_phys_invariants[OF INV pc_D3 q_not_bot] s'_def by auto
 
-  (* === 3. Auxiliary lemma: SetB s' TypeB s === *)
+  (* === 3. helper lemma: new state SetB s' in old state of TypeB s === *)
   have SetB'_to_TypeB_s: "\<And>x. x \<in> SetB s' \<Longrightarrow> TypeB s x"
   proof -
     fix x assume "x \<in> SetB s'"
     hence TypeB_x': "TypeB s' x" unfolding SetB_def by simp
-    have x_not_BOT: "x \<noteq> BOT" 
+    have x_not_BOT: "x \<noteq> BOT"
       using `x \<in> SetB s'` unfolding SetB_def Val_def BOT_def by auto
-      
+
     show "TypeB s x"
     proof (cases "QHas s' x")
       case True
@@ -6695,70 +8478,46 @@ proof -
       have "k \<noteq> j_var s p"
       proof
         assume "k = j_var s p"
-        hence "Q_arr s' k = BOT" using s'_def 
-          unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+        hence "Q_arr s' k = BOT" using s'_def
+          unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def fun_upd_def by simp
         with `Q_arr s' k = x` have "x = BOT" by simp
         thus False using x_not_BOT by simp
       qed
-      hence "Q_arr s k = x" 
-        using `Q_arr s' k = x` s'_def 
-        unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+      hence "Q_arr s k = x"
+        using `Q_arr s' k = x` s'_def
+        unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def fun_upd_def by simp
       thus ?thesis unfolding TypeB_def QHas_def by blast
     next
       case False
-      hence "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = x"
-        using TypeB_x' unfolding TypeB_def by auto
-      then obtain q where "program_counter s' q = ''E2''" "v_var s' q = x" by blast
-      
-      have "q \<noteq> p"
-      proof
-        assume "q = p"
-        hence "program_counter s' q = ''D4''" 
-          using s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
-                  X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
-        with `program_counter s' q = ''E2''` show False by simp
-      qed
-      
-      have "program_counter s q = ''E2''" 
-        using `program_counter s' q = ''E2''` `q \<noteq> p` s'_def 
-        unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
-                  X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
-      moreover have "v_var s q = x"
-        using `v_var s' q = x` s'_def 
-        unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
-                  X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
-      ultimately show ?thesis unfolding TypeB_def by auto
+      with TypeB_x' show ?thesis unfolding TypeB_def by simp
     qed
   qed
 
-  (* === 4. : a, b hI17_BT_BT_No_HB s' === *)
+  (* === 4. core: in a, b hI17_BT_BT_No_HB s' === *)
   show ?thesis
     unfolding hI17_BT_BT_No_HB_def
   proof (intro allI impI)
     fix a b
     assume asm_s': "a \<in> SetBT s' \<and> b \<in> SetBT s'"
-    
+
     show "\<not> HB_EnqRetCall s' a b"
     proof
       (* Happen-Before *)
       assume HB_s'_ab: "HB_EnqRetCall s' a b"
       hence HB_ab: "HB_EnqRetCall s a b" using HB_eq by simp
 
-      have a_in_B': "a \<in> SetB s'" and b_in_B': "b \<in> SetB s'" 
+      have a_in_B': "a \<in> SetB s'" and b_in_B': "b \<in> SetB s'"
         using asm_s' unfolding SetBT_def TypeBT_def
         apply (simp add: SetB_def)
-        by (simp add: SetB_partition asm_s') 
-        
-      have a_not_BOT: "a \<noteq> BOT" 
+        by (simp add: SetB_partition asm_s')
+
+      have a_not_BOT: "a \<noteq> BOT"
       proof -
-        have "a \<in> Val" using a_in_B' TypeOK_s' 
+        have "a \<in> Val" using a_in_B' TypeOK_s'
           unfolding TypeOK_def SetB_def TypeB_def QHas_def Val_def BOT_def by blast
         thus ?thesis unfolding Val_def BOT_def by simp
       qed
@@ -6777,7 +8536,7 @@ proof -
       let ?idx_b = "Idx s b"
 
       (* ============================================================== *)
-      (* idx_a < idx_b, a=b *)
+      (* Its of: prove idx_a < idx_b, direct closure a=b of case *)
       (* ============================================================== *)
       have a_lt_b: "?idx_a < ?idx_b"
       proof (rule ccontr)
@@ -6785,39 +8544,39 @@ proof -
         show False
         proof (cases "?idx_a = ?idx_b")
           case True
-          (* Step 1: 1. , T , a = b *)
+          (* 1. if, since T arrayno element, note a = b *)
           have val_a: "Qback_arr s ?idx_a = a"
             using Idx_implies_AtIdx[OF INV a_in_T] AtIdx_implies_Qback_eq by simp
           have val_b: "Qback_arr s ?idx_b = b"
             using Idx_implies_AtIdx[OF INV b_in_T] AtIdx_implies_Qback_eq by simp
           have a_eq_b: "a = b" using True val_a val_b by presburger
-          
-          (* Step 2: 2. : , Happens-Before *)
+
+          (* 2.: use, operationimpossible Happens-Before it *)
           have "\<not> HB_EnqRetCall s a a" using HB_irrefl[OF INV] .
-          
-          (* Step 3: 3. *)
+
+          (* 3. final stepcontradiction! *)
           thus False using HB_ab a_eq_b by simp
         next
           case False
-          (* idx_b < idx_a, hI18_Idx_Order_No_Rev_HB *)
+          (* If idx_b < idx_a, precise hI18_Idx_Order_No_Rev_HB into contradiction *)
           with not_lt have "?idx_b < ?idx_a" by simp
-          with hI18_Idx_Order_No_Rev_HB_s TypeB_a_s TypeB_b_s have "\<not> HB_EnqRetCall s a b" 
+          with hI18_Idx_Order_No_Rev_HB_s TypeB_a_s TypeB_b_s have "\<not> HB_EnqRetCall s a b"
             unfolding hI18_Idx_Order_No_Rev_HB_def by (metis a_in_T b_in_T)
           thus False using HB_ab by simp
         qed
       qed
 
       (* ============================================================== *)
-      (* Q_arr s' (?idx_a) = a \<noteq> BOT ( hI16_BO_BT_No_HB ) *)
+      (* Prove Q_arr s' (?idx_a) = a \<noteq> BOT (use hI16_BO_BT_No_HB of prove) *)
       (* ============================================================== *)
       have Q_idx_a: "Q_arr s' ?idx_a = a"
       proof -
         let ?jp = "j_var s p"
         let ?q_val = "Q_arr s ?jp"
-        have qback_a: "Qback_arr s ?idx_a = a" 
+        have qback_a: "Qback_arr s ?idx_a = a"
           using Idx_implies_AtIdx[OF INV a_in_T] AtIdx_implies_Qback_eq by simp
         have a_in_Val: "a \<in> Val" using a_not_BOT unfolding Val_def BOT_def by simp
-        
+
         have a_in_B_s: "a \<in> SetB s" unfolding SetB_def using TypeB_a_s a_in_Val by simp
 
         have Q_s_idx_a: "Q_arr s ?idx_a = a"
@@ -6826,25 +8585,25 @@ proof -
           have "Q_arr s ?idx_a = BOT"
           proof (rule ccontr)
             assume "Q_arr s ?idx_a \<noteq> BOT"
-            with sI8_Q_Qback_Sync_s have "Qback_arr s ?idx_a = Q_arr s ?idx_a" unfolding sI8_Q_Qback_Sync_def by metis 
+            with sI8_Q_Qback_Sync_s have "Qback_arr s ?idx_a = Q_arr s ?idx_a" unfolding sI8_Q_Qback_Sync_def by metis
             with qback_a neq_a show False by simp
           qed
           have not_in_Q: "\<not> QHas s a"
           proof
             assume "QHas s a"
             then obtain k where "Q_arr s k = a" unfolding QHas_def by blast
-            have "Qback_arr s k = a" using sI8_Q_Qback_Sync_s `Q_arr s k = a` a_not_BOT unfolding sI8_Q_Qback_Sync_def by metis 
+            have "Qback_arr s k = a" using sI8_Q_Qback_Sync_s `Q_arr s k = a` a_not_BOT unfolding sI8_Q_Qback_Sync_def by metis
             show False
             proof (cases "k = ?idx_a")
               case True with `Q_arr s k = a` `Q_arr s ?idx_a = BOT` a_not_BOT show False by simp
             next
               case False
-              with sI10_Qback_Unique_Vals_s `Qback_arr s k = a` qback_a a_not_BOT have "Qback_arr s k \<noteq> Qback_arr s ?idx_a" 
+              with sI10_Qback_Unique_Vals_s `Qback_arr s k = a` qback_a a_not_BOT have "Qback_arr s k \<noteq> Qback_arr s ?idx_a"
                 unfolding sI10_Qback_Unique_Vals_def by force
               thus False using `Qback_arr s k = a` qback_a by simp
             qed
           qed
-          
+
           have "a \<in> SetA s" unfolding SetA_def TypeA_def InQBack_def
             using qback_a not_in_Q a_in_Val by blast
           have "card (DeqIdxs s a) = 1" using lI2_Op_Cardinality_s `a \<in> SetA s` unfolding lI2_Op_Cardinality_def by blast
@@ -6861,90 +8620,90 @@ proof -
           proof (cases "QHas s' ?q_val")
             case True
             then obtain k where k_def: "Q_arr s' k = ?q_val" unfolding QHas_def by blast
-            have "k \<noteq> ?jp" 
-              using s'_def k_def q_not_bot unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+            have "k \<noteq> ?jp"
+              using s'_def k_def q_not_bot unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def fun_upd_def by auto
-            hence "Q_arr s k = ?q_val" 
-              using k_def s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+            hence "Q_arr s k = ?q_val"
+              using k_def s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def fun_upd_def by simp
-            have "Qback_arr s k = ?q_val" 
-              using sI8_Q_Qback_Sync_s `Q_arr s k = ?q_val` q_not_bot unfolding sI8_Q_Qback_Sync_def by metis 
-            have "Qback_arr s ?jp = ?q_val" 
-              using sI8_Q_Qback_Sync_s q_not_bot unfolding sI8_Q_Qback_Sync_def by metis 
+            have "Qback_arr s k = ?q_val"
+              using sI8_Q_Qback_Sync_s `Q_arr s k = ?q_val` q_not_bot unfolding sI8_Q_Qback_Sync_def by metis
+            have "Qback_arr s ?jp = ?q_val"
+              using sI8_Q_Qback_Sync_s q_not_bot unfolding sI8_Q_Qback_Sync_def by metis
             with sI10_Qback_Unique_Vals_s `Qback_arr s k = ?q_val` `k \<noteq> ?jp` q_not_bot show False unfolding sI10_Qback_Unique_Vals_def by force
           next
             case False
-            hence "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = ?q_val" 
+            hence "\<exists>q. program_counter s' q = ''E2'' \<and> v_var s' q = ?q_val"
               using `TypeB s' ?q_val` unfolding TypeB_def by auto
             then obtain q where "program_counter s' q = ''E2''" "v_var s' q = ?q_val" by blast
-            
+
             have "q \<noteq> p"
             proof
               assume "q = p"
-              hence "program_counter s' q = ''D4''" 
-                using s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+              hence "program_counter s' q = ''D4''"
+                using s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
               with `program_counter s' q = ''E2''` show False by simp
             qed
-            
-            have pc_E2: "program_counter s q = ''E2''" 
-              using `program_counter s' q = ''E2''` `q \<noteq> p` s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+
+            have pc_E2: "program_counter s q = ''E2''"
+              using `program_counter s' q = ''E2''` `q \<noteq> p` s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
-            have v_qval: "v_var s q = ?q_val" 
-              using `v_var s' q = ?q_val` s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+            have v_qval: "v_var s q = ?q_val"
+              using `v_var s' q = ?q_val` s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
-            
-            have pending: "HasPendingEnq s q ?q_val" 
-              using hI1_E_Phase_Pending_Enq_s pc_E2 v_qval unfolding hI1_E_Phase_Pending_Enq_def by (metis E2_implies_HasPendingEnq INV) 
-              
-            have "Q_arr s (i_var s q) = BOT" 
+
+            have pending: "HasPendingEnq s q ?q_val"
+              using hI1_E_Phase_Pending_Enq_s pc_E2 v_qval unfolding hI1_E_Phase_Pending_Enq_def by (metis E2_implies_HasPendingEnq INV)
+
+            have "Q_arr s (i_var s q) = BOT"
               using sI3_E2_Slot_Exclusive_s pc_E2 unfolding sI3_E2_Slot_Exclusive_def by blast
-            hence "?jp \<noteq> i_var s q" 
+            hence "?jp \<noteq> i_var s q"
               using q_not_bot by auto
-              
-            have "Qback_arr s ?jp = ?q_val" 
+
+            have "Qback_arr s ?jp = ?q_val"
               using sI8_Q_Qback_Sync_s q_not_bot unfolding sI8_Q_Qback_Sync_def by force
-            have "\<not> (\<exists>k. Qback_arr s k = ?q_val \<and> k \<noteq> i_var s q)" 
+            have "\<not> (\<exists>k. Qback_arr s k = ?q_val \<and> k \<noteq> i_var s q)"
               using hI14_Pending_Enq_Qback_Exclusivity_s pending pc_E2 unfolding hI14_Pending_Enq_Qback_Exclusivity_def by blast
-              
+
             thus False using `Qback_arr s ?jp = ?q_val` `?jp \<noteq> i_var s q` by blast
           qed
         qed
 
-        show ?thesis 
-          using Q_s_idx_a idx_a_neq_jp s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+        show ?thesis
+          using Q_s_idx_a idx_a_neq_jp s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def fun_upd_def by simp
       qed
 
       (* ============================================================== *)
-      (* b s' TypeBT, hI19_Scanner_Catches_Later_Enq *)
+      (* Derivation: unfold b in s' in of TypeBT, hI19_Scanner_Catches_Later_Enq *)
       (* ============================================================== *)
       have "((\<forall>k < ?idx_b. Q_arr s' k = BOT) \<or>
              (\<exists>q. program_counter s' q = ''D3'' \<and> j_var s' q \<le> ?idx_b \<and> ?idx_b < l_var s' q \<and>
                   (\<forall>k. j_var s' q \<le> k \<and> k < ?idx_b \<longrightarrow> Q_arr s' k = BOT)))"
         using asm_s' T_eq unfolding SetBT_def TypeBT_def Idx_def AtIdx_def by auto
-        
+
       thus False
       proof (elim disjE exE conjE)
-        (* 1: b . , a b , a *)
+        (* Case 1: b near before empty. but impossible, because a in b before, and a dequeue! *)
         assume "\<forall>k < ?idx_b. Q_arr s' k = BOT"
         hence "Q_arr s' ?idx_a = BOT" using a_lt_b by simp
         thus False using Q_idx_a a_not_BOT by auto
       next
-        (* 2: b q *)
+        (* Case 2: b near scan q *)
         fix q
         assume pc_q: "program_counter s' q = ''D3''"
            and j_le: "j_var s' q \<le> ?idx_b"
            and idx_lt: "?idx_b < l_var s' q"
            and bot_range: "\<forall>k. j_var s' q \<le> k \<and> k < ?idx_b \<longrightarrow> Q_arr s' k = BOT"
-           
-        (* Q_arr s' ?idx_a \<noteq> BOT, a *)
+
+        (* Because Q_arr s'?idx_a \<noteq> BOT, therefore a in scan inside *)
         have "?idx_a < j_var s' q"
         proof (rule ccontr)
           assume "\<not> ?idx_a < j_var s' q"
@@ -6952,56 +8711,57 @@ proof -
           with a_lt_b bot_range have "Q_arr s' ?idx_a = BOT" by simp
           thus False using Q_idx_a a_not_BOT by auto
         qed
-        
-        (* q s *)
+
+        (* Q in old state s of *)
         have q_neq_p: "q \<noteq> p"
-          using pc_q s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+          using pc_q s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
         have pc_q_s: "program_counter s q = ''D3''"
-          using pc_q q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+          using pc_q q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
         have j_q_s: "j_var s q = j_var s' q"
-          using q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+          using q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
         have l_q_s: "l_var s q = l_var s' q"
-          using q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def 
-                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def 
+          using q_neq_p s'_def unfolding Sys_D3_success_update_def Let_def
+                  program_counter_def Q_arr_def x_var_def lin_seq_def Qback_arr_def
                   X_var_def V_var_def v_var_def i_var_def j_var_def l_var_def his_seq_def by auto
 
         (* ========================================================== *)
-        (* 【 】 hI12_D_Phase_Pending_Deq, *)
+        (* [new direct closure]useupdate after of hI12_D_Phase_Pending_Deq, start of dequeueoperation *)
         (* ========================================================== *)
         have pending_q: "HasPendingDeq s q"
           using INV pc_q_s unfolding system_invariant_def hI12_D_Phase_Pending_Deq_def by auto
 
         (* ========================================================== *)
-        (* 【 】 hI12_D_Phase_Pending_Deq, *)
+        (* [new direct closure]useupdate after of hI12_D_Phase_Pending_Deq, start of dequeueoperation *)
         (* ========================================================== *)
         have pending_q: "HasPendingDeq s q"
           using INV pc_q_s unfolding system_invariant_def hI12_D_Phase_Pending_Deq_def by auto
 
-        (* ?idx_a < j_var s q \<le> ?idx_b < l_var s q *)
-        (* Step 1: 1. q , *)
-        have ex_q_s: "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
+        (* We now: ?idx_a < j_var s q \<le>?idx_b < l_var s q *)
+        (* 1. dequeueprocess q of in prove, make *)
+        have ex_q_s: "\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
                           Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q"
           using pending_q pc_q_s `?idx_a < j_var s' q` j_le idx_lt j_q_s l_q_s by auto
 
-        (* Step 2: 2. hI19_Scanner_Catches_Later_Enq. : a_in_T b_in_T TypeB hI19_Scanner_Catches_Later_Enq *)
+        (* 2. is one of final step! old state of hI19_Scanner_Catches_Later_Enq.
+            Key Fix: previously of a_in_T and b_in_T TypeB one start for newversion hI19_Scanner_Catches_Later_Enq guards *)
         have "\<not> HB_EnqRetCall s a b"
           using hI19_Scanner_Catches_Later_Enq_s a_in_T b_in_T TypeB_a_s TypeB_b_s a_lt_b ex_q_s
           unfolding hI19_Scanner_Catches_Later_Enq_def by blast
-          
-        (* Step 3: 3. , a Happen-Before b *)
+
+        (* 3. contradiction, a Happen-Before b of one may! *)
         thus False using HB_ab by simp
       qed
     qed
   qed
 qed
 
-(* Auxiliary lemma: D3 Q (BOT) , sI4_E3_Qback_Written *)
+(* Helper lemma: when D3 to Q empty (BOT), sI4_E3_Qback_Written preserve into *)
 lemma sI4_E3_Qback_Written_preserved_under_D3_BOT:
   fixes s s' :: SysState and p :: nat and jp lp :: nat
   assumes INV: "system_invariant s"
@@ -7017,33 +8777,33 @@ lemma sI4_E3_Qback_Written_preserved_under_D3_BOT:
   )"
   shows "sI4_E3_Qback_Written s'"
 proof -
-  (* Step 1: 1. *)
+  (* 1. in of in definition *)
   note bridges = program_counter_def X_var_def V_var_def Q_arr_def Qback_arr_def i_var_def j_var_def l_var_def x_var_def v_var_def
 
-  (* Step 2: 2. ( sI4_E3_Qback_Written) *)
+  (* 2. extract need of old stateinvariantfact (only need sI4_E3_Qback_Written) *)
   have sI4_E3_Qback_Written_s: "sI4_E3_Qback_Written s" using INV unfolding system_invariant_def by auto
-  
-  (* Step 3: 3. s'_def *)
+
+  (* 3. from s'_def derivation out of update *)
   have pc_update: "program_counter s' = (\<lambda>x. if x = p then (if jp = lp - 1 then ''D1'' else ''D3'') else program_counter s x)"
     using s'_def by (auto simp: bridges)
-    
-  have s'_simple_props: 
-    "\<forall>q. i_var s' q = i_var s q" 
+
+  have s'_simple_props:
+    "\<forall>q. i_var s' q = i_var s q"
     "X_var s' = X_var s"
     "\<forall>k. Qback_arr s' k = Qback_arr s k"
     "\<forall>q. v_var s' q = v_var s q"
     using s'_def by (auto simp: bridges)
-    
+
   have Q_update: "\<forall>k. Q_arr s' k = (if k = jp then BOT else Q_arr s k)"
     using s'_def by (auto simp: bridges)
 
-  (* Step 4: 4. *)
+  (* 4. provecoregoal *)
   show ?thesis
     unfolding sI4_E3_Qback_Written_def
   proof (intro allI impI)
     fix pa :: nat
     assume pc_pa: "program_counter s' pa = ''E3''"
-    
+
     have pa_not_p: "pa \<noteq> p"
     proof
       assume "pa = p"
@@ -7056,37 +8816,37 @@ proof -
     have pc_pa_old: "program_counter s pa = ''E3''"
       using pc_pa pc_update pa_not_p by (auto split: if_splits)
 
-    (* Step 5: 5. pa : \<or> BOT *)
-    have pa_props: 
-      "i_var s pa \<in> Val" 
+    (* 5. extract the old state for pa of: use directly after of \<or> BOT form *)
+    have pa_props:
+      "i_var s pa \<in> Val"
       "Q_arr s (i_var s pa) = v_var s pa \<or> Q_arr s (i_var s pa) = BOT"
       "Qback_arr s (i_var s pa) = v_var s pa"
       using sI4_E3_Qback_Written_s pc_pa_old unfolding sI4_E3_Qback_Written_def bridges by auto
 
-    (* Step 6: 6. : BOT, BOT Q_arr *)
+    (* 6. key: this then is BOT, in BOT equal to!therefore Q_arr! *)
     have Q_eq_all: "\<forall>k. Q_arr s' k = Q_arr s k"
       using Q_update Q_jp_bot by auto
 
-    (* Step 7: 7. *)
-    have eq_facts: 
-      "i_var s' pa = i_var s pa" 
+    (* 7. equivalencefact *)
+    have eq_facts:
+      "i_var s' pa = i_var s pa"
       "X_var s' = X_var s"
       "Qback_arr s' (i_var s' pa) = Qback_arr s (i_var s pa)"
       "v_var s' pa = v_var s pa"
       using pa_not_p s'_simple_props by auto
 
-    (* Step 8: 8. *)
+    (* 8. prove goal *)
     have prop1: "i_var s' pa \<in> Val" using pa_props(1) eq_facts by simp
-      
+
     have prop2: "i_var s' pa < X_var s'" using sI4_E3_Qback_Written_s pc_pa_old eq_facts s'_simple_props unfolding sI4_E3_Qback_Written_def by auto
-      
-    (* Q_eq_all , \<or> BOT *)
-    have prop3: "Q_arr s' (i_var s' pa) = v_var s' pa \<or> Q_arr s' (i_var s' pa) = BOT" 
+
+    (* Use Q_eq_all array, complete into \<or> BOT of *)
+    have prop3: "Q_arr s' (i_var s' pa) = v_var s' pa \<or> Q_arr s' (i_var s' pa) = BOT"
       using pa_props(2) eq_facts Q_eq_all by auto
-      
-    have prop4: "Qback_arr s' (i_var s' pa) = v_var s' pa" 
+
+    have prop4: "Qback_arr s' (i_var s' pa) = v_var s' pa"
       using pa_props(3) eq_facts by simp
-      
+
     have prop5: "\<forall>q. q \<noteq> pa \<and> program_counter s' q \<in> {''E2'', ''E3''} \<longrightarrow> i_var s' pa \<noteq> i_var s' q"
     proof (intro allI impI)
       fix q
@@ -7100,21 +8860,21 @@ proof -
         unfolding sI4_E3_Qback_Written_def by auto
     qed
 
-    (* Step 9: 9. ( sI4_E3_Qback_Written) *)
+    (* 9. (matchnewversion sI4_E3_Qback_Written) *)
     show "i_var s' pa \<in> Val \<and> i_var s' pa < X_var s' \<and> (Q_arr s' (i_var s' pa) = v_var s' pa \<or> Q_arr s' (i_var s' pa) = BOT) \<and> Qback_arr s' (i_var s' pa) = v_var s' pa \<and> (\<forall>q. q \<noteq> pa \<and> program_counter s' q \<in> {''E2'', ''E3''} \<longrightarrow> i_var s' pa \<noteq> i_var s' q)"
       using prop1 prop2 prop3 prop4 prop5 by blast
   qed
 qed
 
 
-(* Auxiliary lemma: D3 Q , sI4_E3_Qback_Written *)
+(* Helper lemma: when D3 success value and clear Q slot, sI4_E3_Qback_Written preserve into *)
 lemma sI4_E3_Qback_Written_preserved_under_D3_success:
   fixes s s' :: SysState and p :: nat and jp :: nat
   assumes INV: "system_invariant s"
   assumes jp_def: "jp = j_var s p"
   assumes pc_update: "program_counter s' = (\<lambda>x. if x = p then ''D4'' else program_counter s x)"
   assumes Q_update: "\<forall>k. Q_arr s' k = (if k = jp then BOT else Q_arr s k)"
-  assumes simple_props: 
+  assumes simple_props:
     "\<forall>q. i_var s' q = i_var s q"
     "X_var s' = X_var s"
     "\<forall>k. Qback_arr s' k = Qback_arr s k"
@@ -7129,7 +8889,7 @@ proof -
   proof (intro allI impI)
     fix pa :: nat
     assume pc_pa: "program_counter s' pa = ''E3''"
-    
+
     have pa_not_p: "pa \<noteq> p"
     proof
       assume "pa = p"
@@ -7141,14 +8901,14 @@ proof -
     have pc_pa_old: "program_counter s pa = ''E3''"
       using pc_pa pc_update pa_not_p by (auto split: if_splits)
 
-    have pa_props: 
-      "i_var s pa \<in> Val" 
+    have pa_props:
+      "i_var s pa \<in> Val"
       "Qback_arr s (i_var s pa) = v_var s pa"
       "(Q_arr s (i_var s pa) = v_var s pa \<or> Q_arr s (i_var s pa) = BOT)"
       using sI4_E3_Qback_Written_s pc_pa_old unfolding sI4_E3_Qback_Written_def bridges by auto
 
-    have eq_facts: 
-      "i_var s' pa = i_var s pa" 
+    have eq_facts:
+      "i_var s' pa = i_var s pa"
       "X_var s' = X_var s"
       "Qback_arr s' (i_var s' pa) = Qback_arr s (i_var s pa)"
       "v_var s' pa = v_var s pa"
@@ -7156,8 +8916,8 @@ proof -
 
     have prop1: "i_var s' pa \<in> Val" using pa_props(1) eq_facts(1) by simp
     have prop2: "i_var s' pa < X_var s'" using sI4_E3_Qback_Written_s pc_pa_old eq_facts(1) simple_props unfolding sI4_E3_Qback_Written_def by auto
-    
-    (* , Q_arr BOT, \<or> BOT *)
+
+    (* Core: if is dequeueclear of, Q_arr then is BOT, \<or> BOT of newdefinition! *)
     have prop3: "Q_arr s' (i_var s' pa) = v_var s' pa \<or> Q_arr s' (i_var s' pa) = BOT"
     proof (cases "i_var s pa = jp")
       case True
@@ -7170,7 +8930,7 @@ proof -
     qed
 
     have prop4: "Qback_arr s' (i_var s' pa) = v_var s' pa" using pa_props(2) eq_facts(3,4) by simp
-    
+
     have prop5: "\<forall>q. q \<noteq> pa \<and> program_counter s' q \<in> {''E2'', ''E3''} \<longrightarrow> i_var s' pa \<noteq> i_var s' q"
     proof (intro allI impI)
       fix q
@@ -7191,55 +8951,55 @@ qed
 
 
 (* ========================================================================= *)
-(* modify_lin lI7_D4_Deq_Deq_HB (Pending ) *)
+(* Modify_lin preserve lI7_D4_Deq_Deq_HB (Pending dequeue empty consistency) of prove *)
 (* ========================================================================= *)
 
-(* Proof note. *)
+(* From to list of *)
 lemma lI7_D4_Deq_Deq_HB_implies_list:
   assumes "lI7_D4_Deq_Deq_HB s"
   shows "lI7_D4_Deq_Deq_HB_list (lin_seq s) (his_seq s) (program_counter s) (x_var s) (s_var s)"
   using assms unfolding lI7_D4_Deq_Deq_HB_list_def lI7_D4_Deq_Deq_HB_def
   by meson
 
-(* , *)
+(* Also, after necessarily use to *)
 lemma list_implies_lI7_D4_Deq_Deq_HB:
   assumes "lI7_D4_Deq_Deq_HB_list (lin_seq s) (his_seq s) (program_counter s) (x_var s) (s_var s)"
   shows "lI7_D4_Deq_Deq_HB s"
   using assms unfolding lI7_D4_Deq_Deq_HB_list_def lI7_D4_Deq_Deq_HB_def
-  by blast 
+  by blast
 
 (* ========================================================================= *)
-(* deq , q \<noteq> p ( k1,k2 ) *)
+(* Append deq operation after, for in when before process q \<noteq> p of preserve (k1,k2 in old list in) *)
 (* ========================================================================= *)
 lemma lI7_D4_Deq_Deq_HB_append_deq_other:
-  assumes list: "lI7_D4_Deq_Deq_HB_list L H pc xv sv"  (* 5 *)
+  assumes list: "lI7_D4_Deq_Deq_HB_list L H pc xv sv"  (* Fill in 5 *)
     and q_neq_p: "q \<noteq> p"
     and pc': "pc' = pc(p := ''D4'')"
-    (* mk_op 4 (oper, val, pid, ssn) *)
-    and L': "L' = L @ [mk_op deq v p sn]" 
+    (* Note: newversion mk_op need 4 (oper, val, pid, ssn) *)
+    and L': "L' = L @ [mk_op deq v p sn]"
     and H': "H' = H"
     and k1_old: "k1 < length L"
     and k2_old: "k2 < length L"
-    (* \<exists>h1 h2, lI7_D4_Deq_Deq_HB_list 5 *)
-    and prems: "op_name (L' ! k1) = deq" 
-               "L' ! k2 = mk_op deq (xv q) q (sv q)" 
+    (* Old of \<exists>h1 h2, use newversion lI7_D4_Deq_Deq_HB_list of 5 large premise *)
+    and prems: "op_name (L' ! k1) = deq"
+               "L' ! k2 = mk_op deq (xv q) q (sv q)"
                "\<forall>k3>k2. k3 < length L' \<longrightarrow> op_name (L' ! k3) \<noteq> deq \<or> op_pid (L' ! k3) \<noteq> q"
                "pc' q = ''D4''"
                "HB H' (L' ! k1) (L' ! k2)"
   shows "k1 < k2"
 proof -
-  (* Step 1: 1. L' L *)
+  (* 1. prove L' of element then is L of element *)
   have eq1: "L' ! k1 = L ! k1" using k1_old L' by (simp add: nth_append)
   have eq2: "L' ! k2 = L ! k2" using k2_old L' by (simp add: nth_append)
-  
-  (* Step 2: 2. pc' pc *)
+
+  (* 2. in pc' of fact as in pc of fact *)
   have pc_q_D4: "pc q = ''D4''" using prems(4) pc' q_neq_p by auto
 
-  (* Step 3: 3. prems L' L, H' H *)
-  have oper_L_k1: "op_name (L ! k1) = deq" using prems(1) eq1 by simp 
+  (* 3. prems in of L' allreplace as L, H' replace as H *)
+  have oper_L_k1: "op_name (L ! k1) = deq" using prems(1) eq1 by simp
   have match_L_k2: "L ! k2 = mk_op deq (xv q) q (sv q)" using prems(2) eq2 by simp
-  
-  (* , L *)
+
+  (* For, prove its in old list L into *)
   have term_cond_L: "\<forall>k3>k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> q"
   proof (intro allI impI)
     fix k3 assume "k3 > k2" "k3 < length L"
@@ -7249,9 +9009,9 @@ proof -
   qed
 
   have hb_cond: "HB H (L ! k1) (L ! k2)"
-    using prems(5) eq1 eq2 H' by simp 
+    using prems(5) eq1 eq2 H' by simp
 
-  (* Step 4: 4. , list , *)
+  (* 4. original, for list invariant, one! *)
   show ?thesis
     using list[unfolded lI7_D4_Deq_Deq_HB_list_def, rule_format, of k1 k2 q]
     using k1_old k2_old oper_L_k1 match_L_k2 term_cond_L pc_q_D4 hb_cond
@@ -7260,50 +9020,50 @@ qed
 
 
 (* ========================================================================= *)
-(* modify_lin lI7_D4_Deq_Deq_HB_list (SSN ) *)
-(* \<Longrightarrow> , new_L 7 *)
+(* Modify_lin preserve lI7_D4_Deq_Deq_HB_list of prove (SSN version) *)
+(* Use premise \<Longrightarrow>, and in branch new_L of 7 large *)
 (* ========================================================================= *)
 lemma lI7_D4_Deq_Deq_HB_list_modify:
   assumes sys_inv: "system_invariant s"
-  shows "H = his_seq s \<Longrightarrow> 
-         TypeBT s bt_val \<Longrightarrow> 
-         data_independent L \<Longrightarrow> 
-         HB_consistent L H \<Longrightarrow> 
-         lI7_D4_Deq_Deq_HB_list L H pc (x_var s) (s_var s) \<Longrightarrow> 
-         mset L = mset (lin_seq s) \<Longrightarrow> 
-         (\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)) \<Longrightarrow> 
-         pc = program_counter s \<Longrightarrow>  
+  shows "H = his_seq s \<Longrightarrow>
+         TypeBT s bt_val \<Longrightarrow>
+         data_independent L \<Longrightarrow>
+         HB_consistent L H \<Longrightarrow>
+         lI7_D4_Deq_Deq_HB_list L H pc (x_var s) (s_var s) \<Longrightarrow>
+         mset L = mset (lin_seq s) \<Longrightarrow>
+         (\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)) \<Longrightarrow>
+         pc = program_counter s \<Longrightarrow>
          lI7_D4_Deq_Deq_HB_list (modify_lin L H bt_val) H pc (x_var s) (s_var s)"
 proof (induct L H bt_val rule: modify_lin.induct)
   case (1 L H bt_val)
   note ih = this
-  
-  from sys_inv have wf_s: "hI7_His_WF s" and order_s: "hI6_SSN_Order s" and unique_s: "hI5_SSN_Unique s" 
+
+  from sys_inv have wf_s: "hI7_His_WF s" and order_s: "hI6_SSN_Order s" and unique_s: "hI5_SSN_Unique s"
     unfolding system_invariant_def by auto
 
   show ?case
   proof (cases "should_modify L H bt_val")
     case False
-    have "modify_lin L H bt_val = L" 
+    have "modify_lin L H bt_val = L"
       using False by (subst modify_lin.simps, auto simp: Let_def)
     thus ?thesis using "1.prems"(5) by simp
   next
     case True
     note do_modify = True
-    
+
     define last_sa_pos where "last_sa_pos = find_last_SA L"
     define remaining where "remaining = drop (nat (last_sa_pos + 1)) L"
-    
+
     have search_not_none: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
       using do_modify unfolding should_modify_def Let_def remaining_def last_sa_pos_def
       by (metis option.simps(4))
-      
-    then obtain bt_idx where bt_idx_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx" 
+
+    then obtain bt_idx where bt_idx_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       by auto
-      
+
     have bt_idx_valid: "bt_idx < length remaining"
       by (rule find_unique_index_Some_less_length[OF bt_idx_def])
-      
+
     define l1 where "l1 = take (nat (last_sa_pos + 1)) L"
     define l2 where "l2 = take bt_idx remaining"
     define l3 where "l3 = drop (bt_idx + 1) remaining"
@@ -7315,18 +9075,18 @@ proof (induct L H bt_val rule: modify_lin.induct)
       assume eq_nil: "l2 = []"
       have "remaining \<noteq> []" using bt_idx_valid by auto
       with eq_nil l2_def have "bt_idx = 0" by (metis take_eq_Nil)
-      with do_modify show False 
+      with do_modify show False
         unfolding should_modify_def Let_def l2_def remaining_def last_sa_pos_def
-        using bt_idx_def last_sa_pos_def remaining_def by force 
+        using bt_idx_def last_sa_pos_def remaining_def by force
     qed
 
     have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
       using bt_idx_valid l2_def l3_def bt_act_def
       using id_take_nth_drop by fastforce
-      
+
     have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
       unfolding l1_def remaining_def using remaining_decomp
-      using remaining_def by force 
+      using remaining_def by force
 
     have bt_in_L: "bt_act \<in> set L"
       using L_decomp by auto
@@ -7338,27 +9098,27 @@ proof (induct L H bt_val rule: modify_lin.induct)
       (* =================================================================== *)
       define ll2 where "ll2 = butlast l2"
       define new_L where "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"
-      
+
       have l2_struct: "l2 = ll2 @ [l2_last]" using l2_not_nil ll2_def
-        using l2_last_def by auto 
-      
+        using l2_last_def by auto
+
       have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
         using do_modify True bt_idx_def l2_not_nil
         unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
         apply (subst modify_lin.simps)
         apply (auto simp: Let_def split: option.splits if_splits)
         done
-        
+
       have mset_new: "mset new_L = mset L"
         using L_decomp l2_not_nil ll2_def new_L_def by (metis case1 l2_last_def)
-        
+
       have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
       have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
-      
-      have bt_type: "TypeBT s (op_val bt_act)" 
-        using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def 
+
+      have bt_type: "TypeBT s (op_val bt_act)"
+        using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def
         using "1.prems"(2) by auto
-      
+
       have hb_new: "HB_consistent new_L H"
         unfolding new_L_def
       proof (rule modify_step_c0_consistent[where s=s and L=L and H=H])
@@ -7373,37 +9133,37 @@ proof (induct L H bt_val rule: modify_lin.induct)
         show "last_sa_pos = find_last_SA L" using last_sa_pos_def by simp
         show "l1 = take (nat (last_sa_pos + 1)) L" using l1_def by simp
         show "op_name l2_last = enq" using True by simp
-        show "op_name bt_act = enq" 
+        show "op_name bt_act = enq"
           using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def by simp
         show "TypeBT s (op_val bt_act)" using bt_type by simp
       qed
 
-      (* 🛡️ 2: , \<exists>h1 h2 *)
+      (*  2: version, \<exists>h1 h2 *)
       have lI7_D4_Deq_Deq_HB_new: "lI7_D4_Deq_Deq_HB_list new_L H pc (x_var s) (s_var s)"
       proof (unfold lI7_D4_Deq_Deq_HB_list_def, intro allI impI, elim conjE)
         fix k1 k2 p
         assume prems: "k1 < length new_L" "k2 < length new_L"
-           "op_name (new_L ! k1) = deq" 
+           "op_name (new_L ! k1) = deq"
            "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
            "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-           "pc p = ''D4''" 
+           "pc p = ''D4''"
            "HB H (new_L ! k1) (new_L ! k2)"
 
-        have op_new_k2: "op_name (new_L ! k2) = deq" 
+        have op_new_k2: "op_name (new_L ! k2) = deq"
           using prems(4) by (simp add: mk_op_def op_name_def)
-          
-        have pid_new_k2: "op_pid (new_L ! k2) = p" 
+
+        have pid_new_k2: "op_pid (new_L ! k2) = p"
           using prems(4) by (simp add: mk_op_def op_pid_def)
 
         let ?k = "length l1 + length ll2"
         let ?f = "\<lambda>i. if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i"
-        
+
         have L_exp: "L = l1 @ ll2 @ l2_last # bt_act # l3" using L_decomp l2_struct by auto
         have new_L_exp: "new_L = l1 @ ll2 @ bt_act # l2_last # l3" using new_L_def by auto
-        
+
         have len_L: "length L = length l1 + length ll2 + 2 + length l3" using L_exp by simp
         have len_eq: "length new_L = length L" using mset_new by (metis mset_eq_length)
-        
+
         have eq_nth: "\<And>i. i < length new_L \<Longrightarrow> new_L ! i = L ! (?f i)"
         proof -
           fix i assume i_lt: "i < length new_L"
@@ -7448,13 +9208,13 @@ proof (induct L H bt_val rule: modify_lin.induct)
             show ?thesis using part1 part2 fi_eq by simp
           qed
         qed
-        
+
         have valid_f1: "?f k1 < length L" using prems(1) len_eq len_L by auto
         have valid_f2: "?f k2 < length L" using prems(2) len_eq len_L by auto
-        
+
         have oper_f1: "op_name (L ! (?f k1)) = deq" using prems(3) eq_nth[OF prems(1)] by simp
         have match_f2: "L ! (?f k2) = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-        
+
         have f2_not_swapped: "?f k2 \<noteq> ?k \<and> ?f k2 \<noteq> ?k + 1"
         proof (rule ccontr)
           assume "\<not> (?f k2 \<noteq> ?k \<and> ?f k2 \<noteq> ?k + 1)"
@@ -7465,18 +9225,18 @@ proof (induct L H bt_val rule: modify_lin.induct)
             have "L ! ?k = l2_last" using L_decomp l2_struct by (simp add: nth_append)
             hence "op_name (L ! (?f k2)) = enq" using True `?f k2 = ?k` by simp
             thus False using match_f2
-              using op_new_k2 prems(4) by auto 
+              using op_new_k2 prems(4) by auto
           next
             assume "?f k2 = ?k + 1"
             have "L ! (?k + 1) = bt_act" using L_decomp l2_struct by (simp add: nth_append)
             hence "op_name (L ! (?f k2)) = enq" using find_unique_index_prop[OF bt_idx_def] `?f k2 = ?k + 1`
-              using bt_act_def by fastforce 
+              using bt_act_def by fastforce
             thus False using match_f2
               using op_new_k2 prems(4) by auto
           qed
         qed
         hence f2_eq_k2: "?f k2 = k2" by (auto split: if_splits)
-        
+
         have term_cond_L: "\<forall>k3>?f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
         proof (intro allI impI)
           fix k3 assume "k3 > ?f k2" and "k3 < length L"
@@ -7503,13 +9263,13 @@ proof (induct L H bt_val rule: modify_lin.induct)
         qed
 
         have hb_cond: "HB H (L ! (?f k1)) (L ! (?f k2))"
-          using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp 
+          using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp
 
         have f1_lt_f2: "?f k1 < ?f k2"
           using "1.prems"(5)[unfolded lI7_D4_Deq_Deq_HB_list_def, rule_format, of "?f k1" "?f k2" p]
           using valid_f1 valid_f2 oper_f1 match_f2 term_cond_L prems(6) hb_cond
           by blast
-        
+
         show "k1 < k2"
         proof -
           have "k2 > ?f k1" using f1_lt_f2 f2_eq_k2 by simp
@@ -7531,8 +9291,8 @@ proof (induct L H bt_val rule: modify_lin.induct)
           qed
         qed
       qed
-      
-      have mset_new_full: "mset new_L = mset (lin_seq s)" 
+
+      have mset_new_full: "mset new_L = mset (lin_seq s)"
         using mset_new "1.prems"(6) by simp
 
       have ih_app: "lI7_D4_Deq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
@@ -7540,7 +9300,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
         using "1.prems"(1) "1.prems"(2) di_new hb_new lI7_D4_Deq_Deq_HB_new mset_new_full in_SA_new
         unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
         by (metis (no_types, lifting) ih(12) not_None_eq option.collapse option.inject)
-        
+
       thus ?thesis using step1 by simp
 
     next
@@ -7553,30 +9313,30 @@ proof (induct L H bt_val rule: modify_lin.induct)
         using do_modify False l2_not_nil unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def
         using bt_idx_def case_optionE last_sa_pos_def remaining_def
         by fastforce
-        
+
       then obtain l21 b_act l22 where l2_split: "find_last_enq l2 = Some (l21, b_act, l22)"
         by (cases "find_last_enq l2") auto
-        
+
       define o1 where "o1 = hd l22"
       define ou where "ou = last l22"
-      
+
       have l22_not_nil: "l22 \<noteq> []" using find_enq_valid l2_split False l2_not_nil
         unfolding find_last_enq_def
         using find_last_enq_props(1,2) l2_last_def l2_split
-        by fastforce 
-        
+        by fastforce
+
       have b_act_enq: "op_name b_act = enq"
-        using l2_split by (simp add: find_last_enq_props(2)) 
-        
+        using l2_split by (simp add: find_last_enq_props(2))
+
       have o1_deq: "op_name o1 = deq"
         using l22_are_all_deq[OF l2_split l22_not_nil] o1_def l22_not_nil by (metis hd_in_set)
-        
+
       have l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
         using l22_are_all_deq[OF l2_split l22_not_nil] by simp
 
       have L_split_c1: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
-        using L_decomp find_last_enq_props(1)[OF l2_split] by auto 
-        
+        using L_decomp find_last_enq_props(1)[OF l2_split] by auto
+
       have c1_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (tl l22 @ [bt_act] @ l3)"
         using L_split_c1 l22_not_nil o1_def by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
 
@@ -7589,7 +9349,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
         have l1_fmt: "l1 = take (nat (last_sa_pos + 1)) L" using l1_def by simp
         define rest where "rest = remaining"
         have L_split_lemma: "L = l1 @ rest" unfolding rest_def remaining_def l1_def using append_take_drop_id by simp
-        have rest_not_nil: "rest \<noteq> []" unfolding rest_def using bt_idx_valid bt_idx_def by auto 
+        have rest_not_nil: "rest \<noteq> []" unfolding rest_def using bt_idx_valid bt_idx_def by auto
         show ?thesis
           apply (rule l1_contains_all_SA_in_L)
           apply (rule "1.prems"(3)) apply (rule L_split_lemma) apply (rule rest_not_nil)
@@ -7604,16 +9364,16 @@ proof (induct L H bt_val rule: modify_lin.induct)
         assume eq: "b_act = bt_act"
         let ?idx_b = "length l1 + length l21"
         let ?idx_bt = "length l1 + length l21 + 1 + length l22"
-        
+
         have valid_b: "?idx_b < length L" using L_split_c1 by auto
         have valid_bt: "?idx_bt < length L" using L_split_c1 by auto
-        
+
         have nth_b: "L ! ?idx_b = b_act" using L_split_c1 by (auto simp: nth_append)
         have nth_bt: "L ! ?idx_bt = bt_act" using L_split_c1 by (auto simp: nth_append)
-        
+
         have oper_bt: "op_name bt_act = enq"
           using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def by simp
-          
+
         have "?idx_b = ?idx_bt"
         proof (rule same_enq_value_same_index[OF "1.prems"(3)])
           show "?idx_b < length L" using valid_b .
@@ -7622,20 +9382,20 @@ proof (induct L H bt_val rule: modify_lin.induct)
           show "op_name (L ! ?idx_bt) = enq" using nth_bt oper_bt by simp
           show "op_val (L ! ?idx_b) = op_val (L ! ?idx_bt)" using nth_b nth_bt eq by simp
         qed
-        
+
         thus False by simp
       qed
 
       have b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
       proof -
-        have "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp 
-        moreover have "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset) 
+        have "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp
+        moreover have "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset)
         ultimately show ?thesis using LinSeq_Enq_State_Mapping[OF sys_inv] b_act_enq SetA_implies_in_SA[OF sys_inv] by blast
       qed
 
       have b_act_active: "b_act \<in> active_enqs s"
       proof -
-        have b_in_s: "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset) 
+        have b_in_s: "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset)
         have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp
         show ?thesis using b_in_s b_act_enq not_sa_s non_SA_enqs_are_active sys_inv unfolding system_invariant_def by blast
       qed
@@ -7644,27 +9404,27 @@ proof (induct L H bt_val rule: modify_lin.induct)
              | (c2) "\<not> HB H o1 bt_act \<and> HB H b_act o1"
              | (c3) "\<not> HB H o1 bt_act \<and> \<not> HB H b_act o1"
         by blast
-        
+
       then show ?thesis
       proof cases
         (* ----------------------------------------------------------------- *)
         case c1 (* === c1 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ tl l22 @ [bt_act] @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c1 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def c1_decomp by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
-        
+
         have hb_new: "HB_consistent new_L H"
         proof -
           have struct_match: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (tl l22 @ [bt_act] @ l3)"
@@ -7689,24 +9449,24 @@ proof (induct L H bt_val rule: modify_lin.induct)
           thus ?thesis using struct_match by simp
         qed
 
-(* 🛡️ 2: , \<exists>h1 h2 *)
+(*  2: version, \<exists>h1 h2 *)
         have lI7_D4_Deq_Deq_HB_new: "lI7_D4_Deq_Deq_HB_list new_L H pc (x_var s) (s_var s)"
         proof (unfold lI7_D4_Deq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
           assume prems: "k1 < length new_L" "k2 < length new_L"
-               "op_name (new_L ! k1) = deq" 
+               "op_name (new_L ! k1) = deq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4''" 
+               "pc p = ''D4''"
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
           have pid_new_k2: "op_pid (new_L ! k2) = p" using prems(4) by (simp add: mk_op_def op_pid_def)
 
-          (* c1 : ?k ?k+1 *)
+          (* C1 of mapping: only is?k and?k+1 of *)
           let ?k = "length l1 + length l21"
           define f where "f i = (if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i)" for i
-          
+
           have L_exp: "L = l1 @ l21 @ [b_act, o1] @ tl l22 @ [bt_act] @ l3" using c1_decomp by simp
           have new_L_exp: "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" unfolding new_L_def by simp
           have len_eq: "length new_L = length L" using mset_new mset_eq_length by auto
@@ -7719,7 +9479,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             proof cases
               case lt hence "f i = i" unfolding f_def by simp
               thus ?thesis using lt unfolding L_exp new_L_exp
-                by (metis append_assoc length_append nth_append_left) 
+                by (metis append_assoc length_append nth_append_left)
             next
               case eq1 hence "f i = ?k + 1" unfolding f_def by simp
               thus ?thesis unfolding L_exp new_L_exp using eq1 by (simp add: nth_append)
@@ -7733,7 +9493,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             qed
           qed
 
-          (* c1 k1 < k2 *)
+          (* C1 of k1 < k2 prove *)
           show "k1 < k2"
           proof (cases "k2 = ?k")
             case True
@@ -7751,7 +9511,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have v2: "f k2 < length L" using True f2 L_exp by simp
               have oper_f1: "op_name (L ! f k1) = deq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-              
+
               have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
               proof (intro allI impI)
                 fix k3 assume "f k2 < k3" "k3 < length L"
@@ -7793,7 +9553,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
               { assume k1_is: "k1 = ?k + 1"
                 have k1_is_b: "new_L ! k1 = b_act" using k1_is new_L_exp by (simp add: nth_append)
                 have "op_name (new_L ! k1) = enq" using k1_is_b b_act_enq by simp
-                with prems(3) have False by simp 
+                with prems(3) have False by simp
                 hence ?thesis by simp }
               ultimately show ?thesis by blast
             qed
@@ -7807,9 +9567,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               hence "op_name (new_L ! k2) = enq" using b_act_enq by simp
               thus False using op_new_k2 by simp
             qed
-            
+
             have f2_eq_k2: "f k2 = k2" unfolding f_def using False k2_not_kp1 by simp
-            
+
             have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
             proof (intro allI impI)
               fix k3 assume "f k2 < k3" "k3 < length L"
@@ -7822,22 +9582,22 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_inner: False
                 have f_k3_valid: "f k3 < length new_L" using `k3 < length L` len_eq unfolding f_def
-                  by (simp add: False_inner) 
+                  by (simp add: False_inner)
                 have "k2 < f k3"
                 proof -
                   have "k2 < k3" using `f k2 < k3` f2_eq_k2 by simp
                   thus ?thesis using False_inner k2_not_kp1 unfolding f_def
-                    using False by auto 
+                    using False by auto
                 qed
                 have "L ! k3 = new_L ! (f k3)" using eq_nth[OF f_k3_valid] unfolding f_def by (auto split: if_splits)
-                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3` 
+                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3`
                 show ?thesis by simp
               qed
             qed
 
             have f1_lt_f2: "f k1 < f k2"
             proof -
-              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)              
+              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have v2: "f k2 < length L" using prems(2) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have oper_f1: "op_name (L ! f k1) = deq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
@@ -7850,19 +9610,19 @@ proof (induct L H bt_val rule: modify_lin.induct)
             show "k1 < k2" using f1_lt_f2 f2_eq_k2 unfolding f_def using False k2_not_kp1 prems(2) by (auto split: if_splits)
           qed
         qed
-        
+
         have mset_new_full: "mset new_L = mset (lin_seq s)" using mset_new "1.prems"(6) by simp
 
         have ih_app: "lI7_D4_Deq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [hd l22] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             using hd_l22 by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI7_D4_Deq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI7_D4_Deq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -7870,46 +9630,46 @@ proof (induct L H bt_val rule: modify_lin.induct)
           have p5_in: "\<forall>v. in_SA v L_inner = in_SA v (lin_seq s)" using in_SA_new unfolding new_L_eq_L_inner .
 
           have pre1: "should_modify L H bt_val" using do_modify .
-          
+
           have pre2: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) (drop (nat (find_last_SA L + 1)) L)) = bt_idx"
             using bt_idx_def unfolding remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-            
+
           have pre3: "op_name (last (take bt_idx (drop (nat (find_last_SA L + 1)) L))) \<noteq> enq"
             using c1 unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric]
             by (simp add: False)
-            
+
           have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L)) = Some (l21, b_act, l22)"
             using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-            
+
           have pre5: "happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c1 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
 
-          show ?thesis 
+          show ?thesis
             unfolding new_L_eq_L_inner
             unfolding L_inner_def
             using ih(2) pre1 pre2 pre3 pre4 pre5 p1_in p2_in p3_in p4_in p5_in "1.prems"(1) "1.prems"(2) "1.prems"(8)
             unfolding L_inner_def
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
-        
+
       next
         (* ----------------------------------------------------------------- *)
         case c2 (* === c2 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c2 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def L_split_c1 by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
 
@@ -7937,7 +9697,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
           qed
           thus ?thesis unfolding new_L_def by simp
         qed
-          
+
         have lI7_D4_Deq_Deq_HB_new: "lI7_D4_Deq_Deq_HB_list new_L H pc (x_var s) (s_var s)"
         proof (unfold lI7_D4_Deq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
@@ -7945,7 +9705,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
                "op_name (new_L ! k1) = deq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4''" 
+               "pc p = ''D4''"
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -7982,20 +9742,20 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have f_val: "?f i = ?k2" using eq1 by simp
               have a1: "\<not> i < length l1" "i - length l1 = length l21" using eq1 by linarith+
               have part1: "new_L ! i = bt_act" unfolding new_L_exp using a1 by (simp add: nth_append)
-              
+
               have b1: "\<not> ?f i < length l1" "\<not> ?f i - length l1 < length l21" "?f i - length l1 - length l21 = Suc (length l22)" using f_val by linarith+
               have part2: "L ! (?f i) = bt_act" unfolding L_exp using b1 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case eq2
               have f_val: "?f i = ?k1" using eq2 by simp
               have a1: "\<not> i < length l1" "\<not> i - length l1 < length l21" "i - length l1 - length l21 = Suc 0" using eq2 by linarith+
               have part1: "new_L ! i = b_act" unfolding new_L_exp using a1 by (simp add: nth_append)
-              
+
               have b1: "\<not> ?f i < length l1" "?f i - length l1 = length l21" using f_val by linarith+
               have part2: "L ! (?f i) = b_act" unfolding L_exp using b1 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case mid
@@ -8005,11 +9765,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have idx1: "i - length l1 - length l21 = Suc (Suc m)" unfolding m_def using mid by linarith
               have m_lt: "m < length l22" unfolding m_def using mid by linarith
               have part1: "new_L ! i = l22 ! m" unfolding new_L_exp using a1 idx1 m_lt by (simp add: nth_append)
-              
+
               have b1: "\<not> ?f i < length l1" "\<not> ?f i - length l1 < length l21" using f_val mid by linarith+
               have idx2: "?f i - length l1 - length l21 = Suc m" unfolding m_def f_val using mid by linarith
               have part2: "L ! (?f i) = l22 ! m" unfolding L_exp using b1 idx2 m_lt by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case gt
@@ -8018,11 +9778,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
               define m where "m = i - length l1 - length l21 - length l22 - 2"
               have idx1: "i - length l1 - length l21 = Suc (Suc (length l22 + m))" unfolding m_def using gt by linarith
               have part1: "new_L ! i = l3 ! m" unfolding new_L_exp using a1 idx1 by (simp add: nth_append)
-              
+
               have b1: "\<not> ?f i < length l1" "\<not> ?f i - length l1 < length l21" using gt fi_eq by linarith+
               have idx2: "?f i - length l1 - length l21 = Suc (length l22 + Suc m)" unfolding m_def fi_eq using gt by linarith
               have part2: "L ! (?f i) = l3 ! m" unfolding L_exp using b1 idx2 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 fi_eq by simp
             qed
           qed
@@ -8055,9 +9815,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have k3_new_len: "k3_new < length new_L"
               proof -
                 have k2_bound: "?k2 < length L" unfolding L_exp by simp
-                show ?thesis 
+                show ?thesis
                   unfolding k3_new_def using k3_len len_eq k2_bound False
-                  by auto 
+                  by auto
               qed
               have f_k3_new: "?f k3_new = k3" using False unfolding k3_new_def by auto
               have L_k3_eq: "L ! k3 = new_L ! k3_new" using eq_nth[OF k3_new_len] f_k3_new by simp
@@ -8071,23 +9831,23 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_outer: False
                 have k2_ge: "k2 > ?k1" using False_outer k2_neq_k1 by simp
-                
+
                 show ?thesis
                 proof (cases "k2 \<le> ?k2")
                   case True
                   hence f2_shift: "?f k2 = k2 - 1" using k2_ge by auto
                   from f2_shift k3_gt have "k2 - 1 < k3" by simp
                   hence k3_ge: "k2 \<le> k3" by simp
-                  
+
                   show ?thesis
                   proof (cases "k3_new = k3 + 1")
                     case True thus ?thesis using k3_ge by simp
                   next
                     case False_inner: False
-                    have k3_no_shift: "k3_new = k3" using False_inner k3_new_def by auto 
-                    
+                    have k3_no_shift: "k3_new = k3" using False_inner k3_new_def by auto
+
                     from `\<not> (k3 = ?k1 \<or> k3 = ?k2)` have k3_neq: "k3 \<noteq> ?k1" "k3 \<noteq> ?k2" by auto
-                    hence "\<not> (?k1 < k3 \<and> k3 < ?k2)" 
+                    hence "\<not> (?k1 < k3 \<and> k3 < ?k2)"
                       using k3_no_shift unfolding k3_new_def by (auto split: if_splits)
                     with k3_ge k2_ge True have "k3 \<ge> ?k2" by simp
                     with k3_neq(2) have "k3 > ?k2" by simp
@@ -8095,12 +9855,12 @@ proof (induct L H bt_val rule: modify_lin.induct)
                   qed
                 next
                   case False_gt: False
-                  have k2_gt_k2: "k2 > ?k2" using False_gt by auto 
+                  have k2_gt_k2: "k2 > ?k2" using False_gt by auto
                   hence "?f k2 = k2" by auto
                   with k3_gt have "k2 < k3" by simp
                   thus ?thesis unfolding k3_new_def using False_gt by auto
                 qed
-              qed               
+              qed
               thus ?thesis using prems(5)[rule_format, OF `k2 < k3_new` k3_new_len] L_k3_eq by simp
             qed
           qed
@@ -8121,9 +9881,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
 
           have oper_f1: "op_name (L ! ?f k1) = deq" using prems(3) eq_nth[OF prems(1)] by simp
           have match_f2: "L ! ?f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-          
+
           have hb_match: "HB H (L ! ?f k1) (L ! ?f k2)"
-            using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp 
+            using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp
 
           have f1_lt_f2: "?f k1 < ?f k2"
           proof -
@@ -8191,18 +9951,18 @@ proof (induct L H bt_val rule: modify_lin.induct)
             qed
           qed
         qed
-        
+
         have mset_new_full: "mset new_L = mset (lin_seq s)" using mset_new "1.prems"(6) by simp
 
         have ih_app: "lI7_D4_Deq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
-          (* c2 AST bt_act b_act *)
+          (* Fix: is actual in c2 of AST! bt_act in b_act before *)
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ [b_act] @ l22 @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI7_D4_Deq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI7_D4_Deq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -8210,50 +9970,50 @@ proof (induct L H bt_val rule: modify_lin.induct)
           have p5_in: "\<forall>v. in_SA v L_inner = in_SA v (lin_seq s)" using in_SA_new unfolding new_L_eq_L_inner .
 
           have pre1: "\<not> \<not> should_modify L H bt_val" using do_modify by simp
-          
+
           have pre2: "the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) (drop (nat (find_last_SA L + 1)) L)) = bt_idx"
             using bt_idx_def unfolding remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-            
+
           have pre3: "op_name (last (take bt_idx (drop (nat (find_last_SA L + 1)) L))) \<noteq> enq"
             using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-            
+
           have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L)) = Some (l21, b_act, l22)"
             using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-            
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
-          
+
           have pre5: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c2 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by (simp add: HB_def)
-            
+
           have pre6: "happens_before b_act (hd l22) H"
             using c2 hd_l22 by (simp add: HB_def)
 
-          show ?thesis 
+          show ?thesis
             unfolding new_L_eq_L_inner
             unfolding L_inner_def
             using ih(3) pre1 pre2 pre3 pre4 pre5 pre6 p1_in p2_in p3_in p4_in p5_in "1.prems"(1) "1.prems"(2) "1.prems"(8)
             unfolding L_inner_def
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
-        
+
       next
         (* ----------------------------------------------------------------- *)
         case c3 (* === c3 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c3 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def c1_decomp by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
 
@@ -8275,10 +10035,10 @@ proof (induct L H bt_val rule: modify_lin.induct)
         proof (unfold lI7_D4_Deq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
           assume prems: "k1 < length new_L" "k2 < length new_L"
-               "op_name (new_L ! k1) = deq" 
+               "op_name (new_L ! k1) = deq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4'' " 
+               "pc p = ''D4'' "
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -8286,7 +10046,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
 
           let ?k = "length l1 + length l21"
           define f where "f i = (if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i)" for i
-          
+
           have L_exp: "L = l1 @ l21 @ [b_act, o1] @ tl l22 @ [bt_act] @ l3" using c1_decomp by simp
           have new_L_exp: "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" unfolding new_L_def by simp
           have len_eq: "length new_L = length L" using mset_new mset_eq_length by auto
@@ -8299,7 +10059,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             proof cases
               case lt hence "f i = i" unfolding f_def by simp
               thus ?thesis using lt unfolding L_exp new_L_exp
-                by (metis append_assoc length_append nth_append_left) 
+                by (metis append_assoc length_append nth_append_left)
             next
               case eq1 hence "f i = ?k + 1" unfolding f_def by simp
               thus ?thesis unfolding L_exp new_L_exp using eq1 by (simp add: nth_append)
@@ -8327,11 +10087,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
                  have orig: "k1 < length L" using prems(1) len_eq by simp
                  show ?thesis unfolding f_def using bnd orig by auto
               qed
-              
+
               have v2: "f k2 < length L" using True f2 L_exp by simp
               have oper_f1: "op_name (L ! f k1) = deq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-              
+
               have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
               proof (intro allI impI)
                 fix k3 assume "f k2 < k3" "k3 < length L"
@@ -8339,11 +10099,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
                 hence "f k3 = k3" unfolding f_def by simp
                 thus "op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
                   using prems(5) `k3 < length L` len_eq `k3 > ?k + 1` `k2 = ?k` eq_nth
-                  by (metis add_lessD1) 
+                  by (metis add_lessD1)
               qed
 
               have hb_match: "HB H (L ! f k1) (L ! f k2)"
-                using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp 
+                using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp
 
               show ?thesis
                 using "1.prems"(5)[unfolded lI7_D4_Deq_Deq_HB_list_def, rule_format, of "f k1" "f k2" p]
@@ -8373,7 +10133,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
               { assume k1_is: "k1 = ?k + 1"
                 have k1_is_b: "new_L ! k1 = b_act" using k1_is new_L_exp by (simp add: nth_append)
                 have "op_name (new_L ! k1) = enq" using k1_is_b b_act_enq by simp
-                with prems(3) have False by simp 
+                with prems(3) have False by simp
                 hence ?thesis by simp }
               ultimately show ?thesis by blast
             qed
@@ -8387,9 +10147,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               hence "op_name (new_L ! k2) = enq" using b_act_enq by simp
               thus False using op_new_k2 by simp
             qed
-            
+
             have f2_eq_k2: "f k2 = k2" unfolding f_def using False k2_not_kp1 by simp
-            
+
             have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
             proof (intro allI impI)
               fix k3 assume "f k2 < k3" "k3 < length L"
@@ -8402,15 +10162,15 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_inner: False
                 have f_k3_valid: "f k3 < length new_L" using `k3 < length L` len_eq unfolding f_def
-                  using False_inner by auto 
+                  using False_inner by auto
                 have "k2 < f k3"
                 proof -
                   have "k2 < k3" using `f k2 < k3` f2_eq_k2 by simp
                   thus ?thesis using False_inner k2_not_kp1 unfolding f_def
-                    using False by auto 
+                    using False by auto
                 qed
                 have "L ! k3 = new_L ! (f k3)" using eq_nth[OF f_k3_valid] unfolding f_def by (auto split: if_splits)
-                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3` 
+                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3`
                 show ?thesis by simp
               qed
             qed
@@ -8436,13 +10196,13 @@ proof (induct L H bt_val rule: modify_lin.induct)
         have ih_app: "lI7_D4_Deq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [hd l22] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             using hd_l22 by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI7_D4_Deq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI7_D4_Deq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -8456,7 +10216,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
           have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L)) = Some (l21, b_act, l22)"
             using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-          
+
           have pre5: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c3 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by (simp add: HB_def)
           have pre6: "\<not> happens_before b_act (hd l22) H"
@@ -8474,16 +10234,16 @@ proof (induct L H bt_val rule: modify_lin.induct)
           show ?thesis
             unfolding new_L_eq_L_inner L_inner_def fact_o1
             using ih(4) pre1 pre2 pre3 pre4 pre5 pre6
-            using p1_in[unfolded L_inner_def fact_o1] 
-            using p2_in[unfolded L_inner_def fact_o1] 
-            using p3_in[unfolded L_inner_def fact_o1] 
-            using p4_in[unfolded L_inner_def fact_o1] 
-            using p5_in[unfolded L_inner_def fact_o1] 
+            using p1_in[unfolded L_inner_def fact_o1]
+            using p2_in[unfolded L_inner_def fact_o1]
+            using p3_in[unfolded L_inner_def fact_o1]
+            using p4_in[unfolded L_inner_def fact_o1]
+            using p5_in[unfolded L_inner_def fact_o1]
             using "1.prems"(1) "1.prems"(2) "1.prems"(8)
             using fact_the_enq fact_list_align hd_l22
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
       qed
     qed
@@ -8491,7 +10251,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
 qed
 
 (* ========================================================================= *)
-(* 🚀 Sorry : modify_preserves_lI7_D4_Deq_Deq_HB (5 ) *)
+(* Completed proof: modify_preserves_lI7_D4_Deq_Deq_HB (5 precise-align version) *)
 (* ========================================================================= *)
 lemma modify_preserves_lI7_D4_Deq_Deq_HB:
   assumes INV: "system_invariant s"
@@ -8505,43 +10265,43 @@ lemma modify_preserves_lI7_D4_Deq_Deq_HB:
     and his_eq: "his_seq s' = his_seq s"
     and pc_s': "program_counter s' = (program_counter s)(p := ''D4'')"
     and pc_s: "program_counter s p = ''D3''"
-    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
-                    (\<forall>k < length (lin_seq s). 
-                      (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow> 
+    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+                    (\<forall>k < length (lin_seq s).
+                      (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow>
                       DeqRetInHis s p (op_val (lin_seq s ! k)) (op_ssn (lin_seq s ! k)))"
-    (* , q \<noteq> p *)
+    (* : must in when before process be change of fact, q \<noteq> p branch *)
     and x_eq: "\<forall>q. q \<noteq> p \<longrightarrow> x_var s' q = x_var s q"
     and sn_eq: "\<forall>q. q \<noteq> p \<longrightarrow> s_var s' q = s_var s q"
   shows "lI7_D4_Deq_Deq_HB s'"
 proof -
-  (* Step 1: 1. basic facts ( 5 ) *)
-  let ?L = "lin_seq s" let ?H = "his_seq s" 
+  (* 1. basicfact (precise 5) *)
+  let ?L = "lin_seq s" let ?H = "his_seq s"
   let ?pc = "\<lambda>p. program_counter s p"
   let ?xv = "\<lambda>p. x_var s p" let ?sv = "\<lambda>p. s_var s p"
-  
+
   have di: "data_independent ?L" using INV unfolding system_invariant_def by auto
   have hb_cons: "HB_consistent ?L ?H" using INV unfolding system_invariant_def lI3_HB_Ret_Lin_Sync_def
-    by (meson HB_Act_def HB_consistent_def) 
+    by (meson HB_Act_def HB_consistent_def)
   have orig_list: "lI7_D4_Deq_Deq_HB_list ?L ?H ?pc ?xv ?sv" using INV lI7_D4_Deq_Deq_HB_implies_list unfolding system_invariant_def lI7_D4_Deq_Deq_HB_def by auto
   have hI15_Deq_Result_Exclusivity: "hI15_Deq_Result_Exclusivity s" using INV unfolding system_invariant_def by auto
 
-  (* Step 2: 2. q_in_SetB *)
+  (* 2. derivation q_in_SetB *)
   have q_in_SetB: "q_val \<in> SetB s"
   proof -
     define jp where "jp = j_var s p"
     have jp_less: "jp < l_var s p" using INV pc_s unfolding system_invariant_def sI6_D3_Scan_Pointers_def
-      using jp_def by blast 
+      using jp_def by blast
     hence q_val_sym: "Q_arr s jp = q_val" using q_val_def jp_def by simp
     with q_not_bot have "Q_arr s jp \<noteq> BOT" by simp
     hence "InQBack s q_val" using INV jp_less unfolding system_invariant_def sI8_Q_Qback_Sync_def jp_def
       by (metis InQBack_def q_val_def)
-    thus ?thesis 
+    thus ?thesis
       unfolding SetB_def TypeB_def using q_val_sym pc_s q_not_bot
       using InQBack_non_BOT_implies_Val
-      using QHas_def SetB_def q_in_SetB_raw by blast 
+      using QHas_def SetB_def q_in_SetB_raw by blast
   qed
 
-  (* Step 3: 3. base_lin lI7_D4_Deq_Deq_HB_list *)
+  (* 3. prove base_lin preserve lI7_D4_Deq_Deq_HB_list *)
   have base_list_prop: "lI7_D4_Deq_Deq_HB_list base_lin ?H ?pc ?xv ?sv"
   proof (cases "should_modify ?L ?H q_val")
     case False thus ?thesis using orig_list base_def by simp
@@ -8553,12 +10313,12 @@ proof -
       have idx_is_jp: "Idx s q_val = jp"
         using q_in_SetB q_val_def jp_def unfolding SetB_def TypeB_def
         by (metis sI10_Qback_Unique_Vals_def AtIdx_def D3_Q_at_j INV Idx_implies_AtIdx
-            InQBack_def pc_s q_not_bot system_invariant_def) 
+            InQBack_def pc_s q_not_bot system_invariant_def)
       have q_in_back: "\<exists>k. Qback_arr s k = q_val"
         using q_in_SetB unfolding SetB_def TypeB_def InQBack_def QHas_def
-        by (metis D3_Q_at_j INV pc_s q_not_bot q_val_def) 
+        by (metis D3_Q_at_j INV pc_s q_not_bot q_val_def)
       have path_bot: "\<forall>k < Idx s q_val. k \<ge> j_var s p \<longrightarrow> Q_arr s k = BOT"
-        using idx_is_jp jp_def by auto 
+        using idx_is_jp jp_def by auto
       show ?thesis
         unfolding TypeBT_def
         using q_in_SetB q_not_bot pc_s q_val_def q_in_back idx_is_jp
@@ -8566,8 +10326,8 @@ proof -
         by (metis sI6_D3_Scan_Pointers_def INV QHas_def jp_def order_refl path_bot system_invariant_def)
     qed
 
-    have eq_facts: "?H = his_seq s" "mset ?L = mset (lin_seq s)" 
-                   "\<forall>v. in_SA v ?L = in_SA v (lin_seq s)" "?pc = (\<lambda>p. program_counter s p)" 
+    have eq_facts: "?H = his_seq s" "mset ?L = mset (lin_seq s)"
+                   "\<forall>v. in_SA v ?L = in_SA v (lin_seq s)" "?pc = (\<lambda>p. program_counter s p)"
       by simp_all
 
     have final_list: "lI7_D4_Deq_Deq_HB_list (modify_lin ?L ?H q_val) ?H ?pc ?xv ?sv"
@@ -8576,12 +10336,12 @@ proof -
     show ?thesis using True final_list base_def by simp
   qed
 
-  (* Step 4: 4.  *)
+  (* 4. consistencyverify (usenewdefinition version) *)
   show "lI7_D4_Deq_Deq_HB s'" unfolding lI7_D4_Deq_Deq_HB_def lI7_D4_Deq_Deq_HB_list_def
     apply (intro allI impI)
     subgoal premises prems for k1 k2 q
     proof -
-      (* , *)
+      (* Key correction: one, large premise in of into extract as fact *)
       have k1_bound: "k1 < length (lin_seq s')" and
            k2_bound: "k2 < length (lin_seq s')" and
            k1_deq: "op_name (lin_seq s' ! k1) = deq" and
@@ -8594,7 +10354,7 @@ proof -
       show ?thesis
       proof (cases "q = p")
         case True
-        (* \<forall>k3>k2 k2 lI8_D3_Deq_Returned *)
+        (* : usenewversion \<forall>k3>k2 k2 as element! lI8_D3_Deq_Returned! *)
         have k2_is_last: "k2 = length base_lin"
         proof (rule ccontr)
           assume "k2 \<noteq> length base_lin"
@@ -8607,32 +10367,32 @@ proof -
           hence "op_name (lin_seq s' ! ?k3) = deq \<and> op_pid (lin_seq s' ! ?k3) = p"
             unfolding mk_op_def op_name_def op_pid_def by simp
           with k2_last_deq `?k3 > k2` `?k3 < length (lin_seq s')` True show False
-            by auto 
+            by auto
         qed
 
         have k1_not_last: "k1 < length base_lin"
         proof (rule ccontr)
           assume "\<not> k1 < length base_lin"
           hence k1_last: "k1 = length base_lin" using k1_bound s'_lin_def by auto
-          have act_props: "op_val (lin_seq s' ! k1) = q_val" 
+          have act_props: "op_val (lin_seq s' ! k1) = q_val"
                           "op_pid (lin_seq s' ! k1) = p"
                           "op_name (lin_seq s' ! k1) = deq"
                           "op_ssn (lin_seq s' ! k1) = s_var s p"
             using k1_last s'_lin_def mk_op_def by (auto simp: op_val_def op_pid_def op_name_def op_ssn_def)
-            
-          have "DeqRetInHis s p q_val (s_var s p)" 
+
+          have "DeqRetInHis s p q_val (s_var s p)"
             using hb_k1_k2 k1_last s'_lin_def True his_eq act_props
             unfolding DeqRetInHis_def match_ret_def HB_Act_def HB_def Let_def by force
-            
-          with hI15_Deq_Result_Exclusivity q_in_SetB show False 
+
+          with hI15_Deq_Result_Exclusivity q_in_SetB show False
             unfolding hI15_Deq_Result_Exclusivity_def SetB_def InQBack_def using q_val_def by blast
         qed
 
         from k1_not_last k2_is_last show ?thesis by simp
-        
+
       next
         case False
-        (* q \<noteq> p *)
+        (* Q \<noteq> p branch *)
         have k2_old: "k2 < length base_lin"
         proof (rule ccontr)
           assume "\<not> k2 < length base_lin"
@@ -8648,36 +10408,36 @@ proof -
         proof (rule ccontr)
           assume "\<not> k1 < length base_lin"
           hence k1_last: "k1 = length base_lin" using k1_bound s'_lin_def by auto
-          have act_props: "op_val (lin_seq s' ! k1) = q_val" 
+          have act_props: "op_val (lin_seq s' ! k1) = q_val"
                           "op_pid (lin_seq s' ! k1) = p"
                           "op_name (lin_seq s' ! k1) = deq"
                           "op_ssn (lin_seq s' ! k1) = s_var s p"
             using k1_last s'_lin_def mk_op_def by (auto simp: op_val_def op_pid_def op_name_def op_ssn_def)
-            
-          have "DeqRetInHis s p q_val (s_var s p)" 
+
+          have "DeqRetInHis s p q_val (s_var s p)"
             using hb_k1_k2 k1_last s'_lin_def False his_eq act_props
             unfolding DeqRetInHis_def match_ret_def HB_Act_def HB_def Let_def by force
-            
-          with hI15_Deq_Result_Exclusivity q_in_SetB show False 
-            unfolding hI15_Deq_Result_Exclusivity_def SetB_def InQBack_def using q_val_def by blast 
+
+          with hI15_Deq_Result_Exclusivity q_in_SetB show False
+            unfolding hI15_Deq_Result_Exclusivity_def SetB_def InQBack_def using q_val_def by blast
         qed
 
-        (* 2: lI7_D4_Deq_Deq_HB_append_deq_other, , *)
+        (* 2: lI7_D4_Deq_Deq_HB_append_deq_other, in this precise, actual of zero! *)
         have "k1 < k2"
         proof -
           have base_unfold: "\<forall>k1' k2' q'. k1' < length base_lin \<and> k2' < length base_lin \<and>
-                op_name (base_lin ! k1') = deq \<and> 
+                op_name (base_lin ! k1') = deq \<and>
                 base_lin ! k2' = mk_op deq (x_var s q') q' (s_var s q') \<and>
-                (\<forall>k3>k2'. k3 < length base_lin \<longrightarrow> op_name (base_lin ! k3) \<noteq> deq \<or> op_pid (base_lin ! k3) \<noteq> q') \<and> 
+                (\<forall>k3>k2'. k3 < length base_lin \<longrightarrow> op_name (base_lin ! k3) \<noteq> deq \<or> op_pid (base_lin ! k3) \<noteq> q') \<and>
                 program_counter s q' = ''D4'' \<and>
                 HB ?H (base_lin ! k1') (base_lin ! k2') \<longrightarrow> k1' < k2'"
             using base_list_prop unfolding lI7_D4_Deq_Deq_HB_list_def by blast
-          
+
           have "k1 < length base_lin" using k1_old .
           have "k2 < length base_lin" using k2_old .
-          have "op_name (base_lin ! k1) = deq" 
+          have "op_name (base_lin ! k1) = deq"
             using k1_deq k1_old s'_lin_def by (simp add: nth_append)
-            
+
           have "base_lin ! k2 = mk_op deq (x_var s q) q (s_var s q)"
           proof -
             have "lin_seq s' ! k2 = base_lin ! k2" using k2_old s'_lin_def by (simp add: nth_append)
@@ -8696,12 +10456,12 @@ proof -
           qed
 
           have "program_counter s q = ''D4''" using pc_s' False q_D4 by auto
-          
+
           have "HB ?H (base_lin ! k1) (base_lin ! k2)"
             using hb_k1_k2 his_eq s'_lin_def k1_old k2_old by (simp add: nth_append)
-            
-          with base_unfold show ?thesis 
-            using `k1 < length base_lin` `k2 < length base_lin` 
+
+          with base_unfold show ?thesis
+            using `k1 < length base_lin` `k2 < length base_lin`
                   `op_name (base_lin ! k1) = deq`
                   `base_lin ! k2 = mk_op deq (x_var s q) q (s_var s q)`
                   `\<forall>k3>k2. k3 < length base_lin \<longrightarrow> op_name (base_lin ! k3) \<noteq> deq \<or> op_pid (base_lin ! k3) \<noteq> q`
@@ -8714,65 +10474,65 @@ proof -
     done
 qed
 
-(* Proof note. *)
+(* From to list of *)
 lemma lI10_D4_Enq_Deq_HB_implies_list:
   assumes "lI10_D4_Enq_Deq_HB s"
   shows "lI10_D4_Enq_Deq_HB_list (lin_seq s) (his_seq s) (program_counter s) (x_var s) (s_var s)"
   using assms unfolding lI10_D4_Enq_Deq_HB_list_def lI10_D4_Enq_Deq_HB_def
-  by blast 
+  by blast
 
-(* , *)
+(* Also, preserve for and after of *)
 lemma list_implies_lI10_D4_Enq_Deq_HB:
   assumes "lI10_D4_Enq_Deq_HB_list (lin_seq s) (his_seq s) (program_counter s) (x_var s) (s_var s)"
   shows "lI10_D4_Enq_Deq_HB s"
   using assms unfolding lI10_D4_Enq_Deq_HB_list_def lI10_D4_Enq_Deq_HB_def
-  by blast 
+  by blast
 
 (* ========================================================================= *)
-(* modify_lin lI10_D4_Enq_Deq_HB_list (SSN ) *)
-(* lI7_D4_Deq_Deq_HB_list 100% , enq D4 deq *)
+(* Modify_lin preserve lI10_D4_Enq_Deq_HB_list of prove (SSN version) *)
+(* And lI7_D4_Deq_Deq_HB_list 100%, enq in D4 of deq *)
 (* ========================================================================= *)
 lemma lI10_D4_Enq_Deq_HB_list_modify:
   assumes sys_inv: "system_invariant s"
-  shows "H = his_seq s \<Longrightarrow> 
-         TypeBT s bt_val \<Longrightarrow> 
-         data_independent L \<Longrightarrow> 
-         HB_consistent L H \<Longrightarrow> 
-         lI10_D4_Enq_Deq_HB_list L H pc (x_var s) (s_var s) \<Longrightarrow> 
-         mset L = mset (lin_seq s) \<Longrightarrow> 
-         (\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)) \<Longrightarrow> 
-         pc = program_counter s \<Longrightarrow>  
+  shows "H = his_seq s \<Longrightarrow>
+         TypeBT s bt_val \<Longrightarrow>
+         data_independent L \<Longrightarrow>
+         HB_consistent L H \<Longrightarrow>
+         lI10_D4_Enq_Deq_HB_list L H pc (x_var s) (s_var s) \<Longrightarrow>
+         mset L = mset (lin_seq s) \<Longrightarrow>
+         (\<forall>v. in_SA v L \<longleftrightarrow> in_SA v (lin_seq s)) \<Longrightarrow>
+         pc = program_counter s \<Longrightarrow>
          lI10_D4_Enq_Deq_HB_list (modify_lin L H bt_val) H pc (x_var s) (s_var s)"
 proof (induct L H bt_val rule: modify_lin.induct)
   case (1 L H bt_val)
   note ih = this
-  
-  from sys_inv have wf_s: "hI7_His_WF s" and order_s: "hI6_SSN_Order s" and unique_s: "hI5_SSN_Unique s" 
+
+  from sys_inv have wf_s: "hI7_His_WF s" and order_s: "hI6_SSN_Order s" and unique_s: "hI5_SSN_Unique s"
     unfolding system_invariant_def by auto
 
   show ?case
   proof (cases "should_modify L H bt_val")
     case False
-    have "modify_lin L H bt_val = L" 
+    have "modify_lin L H bt_val = L"
       using False by (subst modify_lin.simps, auto simp: Let_def)
     thus ?thesis using "1.prems"(5) by simp
   next
     case True
     note do_modify = True
-    
+
     define last_sa_pos where "last_sa_pos = find_last_SA L"
     define remaining where "remaining = drop (nat (last_sa_pos + 1)) L"
-    
+
     have search_not_none: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
       using do_modify unfolding should_modify_def Let_def remaining_def last_sa_pos_def
       by (metis option.simps(4))
-      
-    then obtain bt_idx where bt_idx_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx" 
+
+    then obtain bt_idx where bt_idx_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       by auto
-      
+
     have bt_idx_valid: "bt_idx < length remaining"
       by (rule find_unique_index_Some_less_length[OF bt_idx_def])
-      
+
     define l1 where "l1 = take (nat (last_sa_pos + 1)) L"
     define l2 where "l2 = take bt_idx remaining"
     define l3 where "l3 = drop (bt_idx + 1) remaining"
@@ -8784,18 +10544,18 @@ proof (induct L H bt_val rule: modify_lin.induct)
       assume eq_nil: "l2 = []"
       have "remaining \<noteq> []" using bt_idx_valid by auto
       with eq_nil l2_def have "bt_idx = 0" by (metis take_eq_Nil)
-      with do_modify show False 
+      with do_modify show False
         unfolding should_modify_def Let_def l2_def remaining_def last_sa_pos_def
-        using bt_idx_def last_sa_pos_def remaining_def by force 
+        using bt_idx_def last_sa_pos_def remaining_def by force
     qed
 
     have remaining_decomp: "remaining = l2 @ [bt_act] @ l3"
       using bt_idx_valid l2_def l3_def bt_act_def
       using id_take_nth_drop by fastforce
-      
+
     have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
       unfolding l1_def remaining_def using remaining_decomp
-      using remaining_def by force 
+      using remaining_def by force
 
     have bt_in_L: "bt_act \<in> set L"
       using L_decomp by auto
@@ -8807,27 +10567,27 @@ proof (induct L H bt_val rule: modify_lin.induct)
       (* =================================================================== *)
       define ll2 where "ll2 = butlast l2"
       define new_L where "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"
-      
+
       have l2_struct: "l2 = ll2 @ [l2_last]" using l2_not_nil ll2_def
-        using l2_last_def by auto 
-      
+        using l2_last_def by auto
+
       have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
         using do_modify True bt_idx_def l2_not_nil
         unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
         apply (subst modify_lin.simps)
         apply (auto simp: Let_def split: option.splits if_splits)
         done
-        
+
       have mset_new: "mset new_L = mset L"
         using L_decomp l2_not_nil ll2_def new_L_def by (metis case1 l2_last_def)
-        
+
       have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
       have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
-      
-      have bt_type: "TypeBT s (op_val bt_act)" 
-        using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def 
+
+      have bt_type: "TypeBT s (op_val bt_act)"
+        using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def
         using "1.prems"(2) by auto
-      
+
       have hb_new: "HB_consistent new_L H"
         unfolding new_L_def
       proof (rule modify_step_c0_consistent[where s=s and L=L and H=H])
@@ -8842,7 +10602,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
         show "last_sa_pos = find_last_SA L" using last_sa_pos_def by simp
         show "l1 = take (nat (last_sa_pos + 1)) L" using l1_def by simp
         show "op_name l2_last = enq" using True by simp
-        show "op_name bt_act = enq" 
+        show "op_name bt_act = enq"
           using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def by simp
         show "TypeBT s (op_val bt_act)" using bt_type by simp
       qed
@@ -8851,10 +10611,10 @@ proof (induct L H bt_val rule: modify_lin.induct)
       proof (unfold lI10_D4_Enq_Deq_HB_list_def, intro allI impI, elim conjE)
         fix k1 k2 p
         assume prems: "k1 < length new_L" "k2 < length new_L"
-           "op_name (new_L ! k1) = enq" 
+           "op_name (new_L ! k1) = enq"
            "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
            "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-           "pc p = ''D4''" 
+           "pc p = ''D4''"
            "HB H (new_L ! k1) (new_L ! k2)"
 
         have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -8862,13 +10622,13 @@ proof (induct L H bt_val rule: modify_lin.induct)
 
         let ?k = "length l1 + length ll2"
         define f where "f i = (if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i)" for i
-        
+
         have L_exp: "L = l1 @ ll2 @ l2_last # bt_act # l3" using L_decomp l2_struct by auto
         have new_L_exp: "new_L = l1 @ ll2 @ bt_act # l2_last # l3" using new_L_def by auto
-        
+
         have len_L: "length L = length l1 + length ll2 + 2 + length l3" using L_exp by simp
         have len_eq: "length new_L = length L" using mset_new by (metis mset_eq_length)
-        
+
         have eq_nth: "\<And>i. i < length new_L \<Longrightarrow> new_L ! i = L ! (f i)"
         proof -
           fix i assume i_lt: "i < length new_L"
@@ -8913,13 +10673,13 @@ proof (induct L H bt_val rule: modify_lin.induct)
             show ?thesis using part1 part2 fi_eq by simp
           qed
         qed
-        
+
         have valid_f1: "f k1 < length L" using prems(1) len_eq len_L unfolding f_def by auto
         have valid_f2: "f k2 < length L" using prems(2) len_eq len_L unfolding f_def by auto
-        
+
         have oper_f1: "op_name (L ! (f k1)) = enq" using prems(3) eq_nth[OF prems(1)] by simp
         have match_f2: "L ! (f k2) = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-        
+
         have f2_not_swapped: "f k2 \<noteq> ?k \<and> f k2 \<noteq> ?k + 1"
         proof (rule ccontr)
           assume "\<not> (f k2 \<noteq> ?k \<and> f k2 \<noteq> ?k + 1)"
@@ -8934,12 +10694,12 @@ proof (induct L H bt_val rule: modify_lin.induct)
             assume "f k2 = ?k + 1"
             have "L ! (?k + 1) = bt_act" using L_decomp l2_struct by (simp add: nth_append)
             hence "op_name (L ! (f k2)) = enq" using find_unique_index_prop[OF bt_idx_def] `f k2 = ?k + 1`
-              using bt_act_def by fastforce 
+              using bt_act_def by fastforce
             thus False using match_f2 by (simp add: mk_op_def op_name_def)
           qed
         qed
         hence f2_eq_k2: "f k2 = k2" unfolding f_def by (auto split: if_splits)
-        
+
         have term_cond_L: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
         proof (intro allI impI)
           fix k3 assume "k3 > f k2" and "k3 < length L"
@@ -8972,7 +10732,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
           using "1.prems"(5)[unfolded lI10_D4_Enq_Deq_HB_list_def, rule_format, of "f k1" "f k2" p]
           using valid_f1 valid_f2 oper_f1 match_f2 term_cond_L prems(6) hb_cond
           by blast
-        
+
         show "k1 < k2"
         proof -
           have "k2 > f k1" using f1_lt_f2 f2_eq_k2 by simp
@@ -8994,8 +10754,8 @@ proof (induct L H bt_val rule: modify_lin.induct)
           qed
         qed
       qed
-      
-      have mset_new_full: "mset new_L = mset (lin_seq s)" 
+
+      have mset_new_full: "mset new_L = mset (lin_seq s)"
         using mset_new "1.prems"(6) by simp
 
       have ih_app: "lI10_D4_Enq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
@@ -9003,7 +10763,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
         using "1.prems"(1) "1.prems"(2) di_new hb_new lI10_D4_Enq_Deq_HB_new mset_new_full in_SA_new
         unfolding new_L_def ll2_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
         by (metis (no_types, lifting) ih(12) not_None_eq option.collapse option.inject)
-        
+
       thus ?thesis using step1 by simp
 
     next
@@ -9016,30 +10776,30 @@ proof (induct L H bt_val rule: modify_lin.induct)
         using do_modify False l2_not_nil unfolding should_modify_def l2_def remaining_def last_sa_pos_def l2_last_def
         using bt_idx_def case_optionE last_sa_pos_def remaining_def
         by fastforce
-        
+
       then obtain l21 b_act l22 where l2_split: "find_last_enq l2 = Some (l21, b_act, l22)"
         by (cases "find_last_enq l2") auto
-        
+
       define o1 where "o1 = hd l22"
       define ou where "ou = last l22"
-      
+
       have l22_not_nil: "l22 \<noteq> []" using find_enq_valid l2_split False l2_not_nil
         unfolding find_last_enq_def
         using find_last_enq_props(1,2) l2_last_def l2_split
-        by fastforce 
-        
+        by fastforce
+
       have b_act_enq: "op_name b_act = enq"
-        using l2_split by (simp add: find_last_enq_props(2)) 
-        
+        using l2_split by (simp add: find_last_enq_props(2))
+
       have o1_deq: "op_name o1 = deq"
         using l22_are_all_deq[OF l2_split l22_not_nil] o1_def l22_not_nil by (metis hd_in_set)
-        
+
       have l22_deqs: "\<forall>x \<in> set l22. op_name x = deq"
         using l22_are_all_deq[OF l2_split l22_not_nil] by simp
 
       have L_split_c1: "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
-        using L_decomp find_last_enq_props(1)[OF l2_split] by auto 
-        
+        using L_decomp find_last_enq_props(1)[OF l2_split] by auto
+
       have c1_decomp: "L = (l1 @ l21) @ [b_act] @ [o1] @ (tl l22 @ [bt_act] @ l3)"
         using L_split_c1 l22_not_nil o1_def by (metis append.assoc append_Cons append_Nil hd_Cons_tl)
 
@@ -9052,7 +10812,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
         have l1_fmt: "l1 = take (nat (last_sa_pos + 1)) L" using l1_def by simp
         define rest where "rest = remaining"
         have L_split_lemma: "L = l1 @ rest" unfolding rest_def remaining_def l1_def using append_take_drop_id by simp
-        have rest_not_nil: "rest \<noteq> []" unfolding rest_def using bt_idx_valid bt_idx_def by auto 
+        have rest_not_nil: "rest \<noteq> []" unfolding rest_def using bt_idx_valid bt_idx_def by auto
         show ?thesis
           apply (rule l1_contains_all_SA_in_L)
           apply (rule "1.prems"(3)) apply (rule L_split_lemma) apply (rule rest_not_nil)
@@ -9067,16 +10827,16 @@ proof (induct L H bt_val rule: modify_lin.induct)
         assume eq: "b_act = bt_act"
         let ?idx_b = "length l1 + length l21"
         let ?idx_bt = "length l1 + length l21 + 1 + length l22"
-        
+
         have valid_b: "?idx_b < length L" using L_split_c1 by auto
         have valid_bt: "?idx_bt < length L" using L_split_c1 by auto
-        
+
         have nth_b: "L ! ?idx_b = b_act" using L_split_c1 by (auto simp: nth_append)
         have nth_bt: "L ! ?idx_bt = bt_act" using L_split_c1 by (auto simp: nth_append)
-        
+
         have oper_bt: "op_name bt_act = enq"
           using find_unique_index_prop[OF bt_idx_def] unfolding bt_act_def by simp
-          
+
         have "?idx_b = ?idx_bt"
         proof (rule same_enq_value_same_index[OF "1.prems"(3)])
           show "?idx_b < length L" using valid_b .
@@ -9085,20 +10845,20 @@ proof (induct L H bt_val rule: modify_lin.induct)
           show "op_name (L ! ?idx_bt) = enq" using nth_bt oper_bt by simp
           show "op_val (L ! ?idx_b) = op_val (L ! ?idx_bt)" using nth_b nth_bt eq by simp
         qed
-        
+
         thus False by simp
       qed
 
       have b_val_sets: "op_val b_act \<in> SetBO s \<or> op_val b_act \<in> SetBT s"
       proof -
-        have "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp 
-        moreover have "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset) 
+        have "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp
+        moreover have "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset)
         ultimately show ?thesis using LinSeq_Enq_State_Mapping[OF sys_inv] b_act_enq SetA_implies_in_SA[OF sys_inv] by blast
       qed
 
       have b_act_active: "b_act \<in> active_enqs s"
       proof -
-        have b_in_s: "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset) 
+        have b_in_s: "b_act \<in> set (lin_seq s)" using b_idx_props(3) b_idx_props(1) "1.prems"(6) by (metis nth_mem set_mset_mset)
         have not_sa_s: "\<not> in_SA (op_val b_act) (lin_seq s)" using b_act_not_sa "1.prems"(7) by simp
         show ?thesis using b_in_s b_act_enq not_sa_s non_SA_enqs_are_active sys_inv unfolding system_invariant_def by blast
       qed
@@ -9107,27 +10867,27 @@ proof (induct L H bt_val rule: modify_lin.induct)
              | (c2) "\<not> HB H o1 bt_act \<and> HB H b_act o1"
              | (c3) "\<not> HB H o1 bt_act \<and> \<not> HB H b_act o1"
         by blast
-        
+
       then show ?thesis
       proof cases
         (* ----------------------------------------------------------------- *)
         case c1 (* === c1 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [o1] @ [b_act] @ tl l22 @ [bt_act] @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c1 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def c1_decomp by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
-        
+
         have hb_new: "HB_consistent new_L H"
         proof -
           have struct_match: "new_L = (l1 @ l21) @ [o1] @ [b_act] @ (tl l22 @ [bt_act] @ l3)"
@@ -9156,10 +10916,10 @@ proof (induct L H bt_val rule: modify_lin.induct)
         proof (unfold lI10_D4_Enq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
           assume prems: "k1 < length new_L" "k2 < length new_L"
-               "op_name (new_L ! k1) = enq" 
+               "op_name (new_L ! k1) = enq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4'' " 
+               "pc p = ''D4'' "
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -9167,7 +10927,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
 
           let ?k = "length l1 + length l21"
           define f where "f i = (if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i)" for i
-          
+
           have L_exp: "L = l1 @ l21 @ [b_act, o1] @ tl l22 @ [bt_act] @ l3" using c1_decomp by simp
           have new_L_exp: "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" unfolding new_L_def by simp
           have len_eq: "length new_L = length L" using mset_new mset_eq_length by auto
@@ -9180,7 +10940,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             proof cases
               case lt hence "f i = i" unfolding f_def by simp
               thus ?thesis using lt unfolding L_exp new_L_exp
-                by (metis append_assoc length_append nth_append_left) 
+                by (metis append_assoc length_append nth_append_left)
             next
               case eq1 hence "f i = ?k + 1" unfolding f_def by simp
               thus ?thesis unfolding L_exp new_L_exp using eq1 by (simp add: nth_append)
@@ -9211,7 +10971,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have v2: "f k2 < length L" using True f2 L_exp by simp
               have oper_f1: "op_name (L ! f k1) = enq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-              
+
               have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
               proof (intro allI impI)
                 fix k3 assume "f k2 < k3" "k3 < length L"
@@ -9254,7 +11014,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
                 have "k2 < k1" using k1_is `k2 = ?k` by simp
                 hence False using hb_new prems(7) prems(1) prems(2)
                   unfolding HB_consistent_def HB_def
-                  using False True by blast 
+                  using False True by blast
                 hence ?thesis by simp }
               ultimately show ?thesis by blast
             qed
@@ -9268,9 +11028,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               hence "op_name (new_L ! k2) = enq" using b_act_enq by simp
               thus False using op_new_k2 by simp
             qed
-            
+
             have f2_eq_k2: "f k2 = k2" unfolding f_def using False k2_not_kp1 by simp
-            
+
             have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
             proof (intro allI impI)
               fix k3 assume "f k2 < k3" "k3 < length L"
@@ -9283,22 +11043,22 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_inner: False
                 have f_k3_valid: "f k3 < length new_L" using `k3 < length L` len_eq unfolding f_def
-                  by (simp add: False_inner) 
+                  by (simp add: False_inner)
                 have "k2 < f k3"
                 proof -
                   have "k2 < k3" using `f k2 < k3` f2_eq_k2 by simp
                   thus ?thesis using False_inner k2_not_kp1 unfolding f_def
-                    using False by auto 
+                    using False by auto
                 qed
                 have "L ! k3 = new_L ! (f k3)" using eq_nth[OF f_k3_valid] unfolding f_def by (auto split: if_splits)
-                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3` 
+                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3`
                 show ?thesis by simp
               qed
             qed
 
             have f1_lt_f2: "f k1 < f k2"
             proof -
-              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)              
+              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have v2: "f k2 < length L" using prems(2) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have oper_f1: "op_name (L ! f k1) = enq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
@@ -9311,19 +11071,19 @@ proof (induct L H bt_val rule: modify_lin.induct)
             show "k1 < k2" using f1_lt_f2 f2_eq_k2 unfolding f_def using False k2_not_kp1 prems(2) by (auto split: if_splits)
           qed
         qed
-        
+
         have mset_new_full: "mset new_L = mset (lin_seq s)" using mset_new "1.prems"(6) by simp
 
         have ih_app: "lI10_D4_Enq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [hd l22] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             using hd_l22 by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI10_D4_Enq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI10_D4_Enq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -9341,44 +11101,44 @@ proof (induct L H bt_val rule: modify_lin.induct)
           have pre5: "happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c1 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
 
-          (* 3 , simp *)
+          (* Additional proof block 3, simp in *)
           have fact_o1: "o1 = hd l22" using o1_def by simp
           have fact_the_enq: "the (find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L))) = (l21, b_act, l22)"
             using pre4 by simp
           have fact_list_align: "drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L) = drop (Suc (bt_idx + nat (find_last_SA L + 1))) L"
             by auto
 
-          show ?thesis 
+          show ?thesis
             unfolding new_L_eq_L_inner L_inner_def fact_o1
             using ih(2) pre1 pre2 pre3 pre4 pre5
-            using p1_in[unfolded L_inner_def fact_o1] 
-            using p2_in[unfolded L_inner_def fact_o1] 
-            using p3_in[unfolded L_inner_def fact_o1] 
-            using p4_in[unfolded L_inner_def fact_o1] 
-            using p5_in[unfolded L_inner_def fact_o1] 
+            using p1_in[unfolded L_inner_def fact_o1]
+            using p2_in[unfolded L_inner_def fact_o1]
+            using p3_in[unfolded L_inner_def fact_o1]
+            using p4_in[unfolded L_inner_def fact_o1]
+            using p5_in[unfolded L_inner_def fact_o1]
             using "1.prems"(1) "1.prems"(2) "1.prems"(8)
             using fact_the_enq fact_list_align hd_l22
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
-        
+
       next
         (* ----------------------------------------------------------------- *)
         case c2 (* === c2 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c2 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def L_split_c1 by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
 
@@ -9406,7 +11166,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
           qed
           thus ?thesis unfolding new_L_def by simp
         qed
-          
+
         have lI10_D4_Enq_Deq_HB_new: "lI10_D4_Enq_Deq_HB_list new_L H pc (x_var s) (s_var s)"
         proof (unfold lI10_D4_Enq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
@@ -9414,7 +11174,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
                "op_name (new_L ! k1) = enq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4''" 
+               "pc p = ''D4''"
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -9451,20 +11211,20 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have f_val: "f i = ?k2" unfolding f_def using eq1 by simp
               have a1: "\<not> i < length l1" "i - length l1 = length l21" using eq1 by linarith+
               have part1: "new_L ! i = bt_act" unfolding new_L_exp using a1 by (simp add: nth_append)
-              
+
               have b1: "\<not> f i < length l1" "\<not> f i - length l1 < length l21" "f i - length l1 - length l21 = Suc (length l22)" using f_val by linarith+
               have part2: "L ! (f i) = bt_act" unfolding L_exp using b1 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case eq2
               have f_val: "f i = ?k1" unfolding f_def using eq2 by simp
               have a1: "\<not> i < length l1" "\<not> i - length l1 < length l21" "i - length l1 - length l21 = Suc 0" using eq2 by linarith+
               have part1: "new_L ! i = b_act" unfolding new_L_exp using a1 by (simp add: nth_append)
-              
+
               have b1: "\<not> f i < length l1" "f i - length l1 = length l21" using f_val by linarith+
               have part2: "L ! (f i) = b_act" unfolding L_exp using b1 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case mid
@@ -9474,11 +11234,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have idx1: "i - length l1 - length l21 = Suc (Suc m)" unfolding m_def using mid by linarith
               have m_lt: "m < length l22" unfolding m_def using mid by linarith
               have part1: "new_L ! i = l22 ! m" unfolding new_L_exp using a1 idx1 m_lt by (simp add: nth_append)
-              
+
               have b1: "\<not> f i < length l1" "\<not> f i - length l1 < length l21" using f_val mid by linarith+
               have idx2: "f i - length l1 - length l21 = Suc m" unfolding m_def f_val using mid by linarith
               have part2: "L ! (f i) = l22 ! m" unfolding L_exp using b1 idx2 m_lt by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 by simp
             next
               case gt
@@ -9487,11 +11247,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
               define m where "m = i - length l1 - length l21 - length l22 - 2"
               have idx1: "i - length l1 - length l21 = Suc (Suc (length l22 + m))" unfolding m_def using gt by linarith
               have part1: "new_L ! i = l3 ! m" unfolding new_L_exp using a1 idx1 by (simp add: nth_append)
-              
+
               have b1: "\<not> f i < length l1" "\<not> f i - length l1 < length l21" using gt fi_eq by linarith+
               have idx2: "f i - length l1 - length l21 = Suc (length l22 + Suc m)" unfolding m_def fi_eq using gt by linarith
               have part2: "L ! (f i) = l3 ! m" unfolding L_exp using b1 idx2 by (simp add: nth_append)
-              
+
               show ?thesis using part1 part2 fi_eq by simp
             qed
           qed
@@ -9524,9 +11284,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               have k3_new_len: "k3_new < length new_L"
               proof -
                 have k2_bound: "?k2 < length L" unfolding L_exp by simp
-                show ?thesis 
+                show ?thesis
                   unfolding k3_new_def using k3_len len_eq k2_bound False
-                  by auto 
+                  by auto
               qed
               have f_k3_new: "f k3_new = k3" using False unfolding k3_new_def f_def by auto
               have L_k3_eq: "L ! k3 = new_L ! k3_new" using eq_nth[OF k3_new_len] f_k3_new by simp
@@ -9540,23 +11300,23 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_outer: False
                 have k2_ge: "k2 > ?k1" using False_outer k2_neq_k1 by simp
-                
+
                 show ?thesis
                 proof (cases "k2 \<le> ?k2")
                   case True
                   hence f2_shift: "f k2 = k2 - 1" unfolding f_def using k2_ge by auto
                   from f2_shift k3_gt have "k2 - 1 < k3" by simp
                   hence k3_ge: "k2 \<le> k3" by simp
-                  
+
                   show ?thesis
                   proof (cases "k3_new = k3 + 1")
                     case True thus ?thesis using k3_ge by simp
                   next
                     case False_inner: False
-                    have k3_no_shift: "k3_new = k3" using False_inner k3_new_def by auto 
-                    
+                    have k3_no_shift: "k3_new = k3" using False_inner k3_new_def by auto
+
                     from `\<not> (k3 = ?k1 \<or> k3 = ?k2)` have k3_neq: "k3 \<noteq> ?k1" "k3 \<noteq> ?k2" by auto
-                    hence "\<not> (?k1 < k3 \<and> k3 < ?k2)" 
+                    hence "\<not> (?k1 < k3 \<and> k3 < ?k2)"
                       using k3_no_shift unfolding k3_new_def by (auto split: if_splits)
                     with k3_ge k2_ge True have "k3 \<ge> ?k2" by simp
                     with k3_neq(2) have "k3 > ?k2" by simp
@@ -9564,12 +11324,12 @@ proof (induct L H bt_val rule: modify_lin.induct)
                   qed
                 next
                   case False_gt: False
-                  have k2_gt_k2: "k2 > ?k2" using False_gt by auto 
+                  have k2_gt_k2: "k2 > ?k2" using False_gt by auto
                   hence "f k2 = k2" unfolding f_def by auto
                   with k3_gt have "k2 < k3" by simp
                   thus ?thesis unfolding k3_new_def using False_gt by auto
                 qed
-              qed               
+              qed
               thus ?thesis using prems(5)[rule_format, OF `k2 < k3_new` k3_new_len] L_k3_eq by simp
             qed
           qed
@@ -9591,7 +11351,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
           have oper_f1: "op_name (L ! f k1) = enq" using prems(3) eq_nth[OF prems(1)] by simp
           have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
           have hb_match: "HB H (L ! f k1) (L ! f k2)" using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp
-          
+
           have f1_lt_f2: "f k1 < f k2"
           proof -
             show ?thesis
@@ -9658,17 +11418,17 @@ proof (induct L H bt_val rule: modify_lin.induct)
             qed
           qed
         qed
-        
+
         have mset_new_full: "mset new_L = mset (lin_seq s)" using mset_new "1.prems"(6) by simp
 
         have ih_app: "lI10_D4_Enq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ [b_act] @ l22 @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI10_D4_Enq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI10_D4_Enq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -9682,39 +11442,39 @@ proof (induct L H bt_val rule: modify_lin.induct)
             using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
           have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L)) = Some (l21, b_act, l22)"
             using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-          
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
           have pre5: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c2 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by (simp add: HB_def)
           have pre6: "happens_before b_act (hd l22) H"
             using c2 hd_l22 by (simp add: HB_def)
 
-          show ?thesis 
+          show ?thesis
             unfolding new_L_eq_L_inner
             unfolding L_inner_def
             using ih(3) pre1 pre2 pre3 pre4 pre5 pre6 p1_in p2_in p3_in p4_in p5_in "1.prems"(1) "1.prems"(2) "1.prems"(8)
             unfolding L_inner_def
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
-        
+
       next
         (* ----------------------------------------------------------------- *)
         case c3 (* === c3 === *)
         (* ----------------------------------------------------------------- *)
         define new_L where "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3"
-        
+
         have step1: "modify_lin L H bt_val = modify_lin new_L H bt_val"
           using do_modify False c3 l2_split o1_def bt_idx_def
           unfolding new_L_def l1_def l2_def l3_def bt_act_def l2_last_def remaining_def last_sa_pos_def
           apply (subst modify_lin.simps)
           apply (simp add: Let_def case_prod_unfold)
           done
-          
+
         have mset_new: "mset new_L = mset L"
           unfolding new_L_def c1_decomp by (simp add: ac_simps)
-          
+
         have di_new: "data_independent new_L" using "1.prems"(3) data_independent_cong mset_new by blast
         have in_SA_new: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v (lin_seq s)" using "1.prems"(7) in_SA_mset_eq[OF mset_new] by auto
 
@@ -9736,10 +11496,10 @@ proof (induct L H bt_val rule: modify_lin.induct)
         proof (unfold lI10_D4_Enq_Deq_HB_list_def, intro allI impI, elim conjE)
           fix k1 k2 p
           assume prems: "k1 < length new_L" "k2 < length new_L"
-               "op_name (new_L ! k1) = enq" 
+               "op_name (new_L ! k1) = enq"
                "new_L ! k2 = mk_op deq (x_var s p) p (s_var s p)"
                "\<forall>k3>k2. k3 < length new_L \<longrightarrow> op_name (new_L ! k3) \<noteq> deq \<or> op_pid (new_L ! k3) \<noteq> p"
-               "pc p = ''D4'' " 
+               "pc p = ''D4'' "
                "HB H (new_L ! k1) (new_L ! k2)"
 
           have op_new_k2: "op_name (new_L ! k2) = deq" using prems(4) by (simp add: mk_op_def op_name_def)
@@ -9747,7 +11507,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
 
           let ?k = "length l1 + length l21"
           define f where "f i = (if i = ?k then ?k + 1 else if i = ?k + 1 then ?k else i)" for i
-          
+
           have L_exp: "L = l1 @ l21 @ [b_act, o1] @ tl l22 @ [bt_act] @ l3" using c1_decomp by simp
           have new_L_exp: "new_L = l1 @ l21 @ [o1, b_act] @ tl l22 @ [bt_act] @ l3" unfolding new_L_def by simp
           have len_eq: "length new_L = length L" using mset_new mset_eq_length by auto
@@ -9760,7 +11520,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             proof cases
               case lt hence "f i = i" unfolding f_def by simp
               thus ?thesis using lt unfolding L_exp new_L_exp
-                by (metis append_assoc length_append nth_append_left) 
+                by (metis append_assoc length_append nth_append_left)
             next
               case eq1 hence "f i = ?k + 1" unfolding f_def by simp
               thus ?thesis unfolding L_exp new_L_exp using eq1 by (simp add: nth_append)
@@ -9788,11 +11548,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
                  have orig: "k1 < length L" using prems(1) len_eq by simp
                  show ?thesis unfolding f_def using bnd orig by auto
               qed
-              
+
               have v2: "f k2 < length L" using True f2 L_exp by simp
               have oper_f1: "op_name (L ! f k1) = enq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
-              
+
               have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
               proof (intro allI impI)
                 fix k3 assume "f k2 < k3" "k3 < length L"
@@ -9800,11 +11560,11 @@ proof (induct L H bt_val rule: modify_lin.induct)
                 hence "f k3 = k3" unfolding f_def by simp
                 thus "op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
                   using prems(5) `k3 < length L` len_eq `k3 > ?k + 1` `k2 = ?k` eq_nth
-                  by (metis add_lessD1) 
+                  by (metis add_lessD1)
               qed
 
               have hb_match: "HB H (L ! f k1) (L ! f k2)"
-                using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp 
+                using prems(7) eq_nth[OF prems(1)] eq_nth[OF prems(2)] by simp
 
               show ?thesis
                 using "1.prems"(5)[unfolded lI10_D4_Enq_Deq_HB_list_def, rule_format, of "f k1" "f k2" p]
@@ -9835,7 +11595,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
                 have "k2 < k1" using k1_is `k2 = ?k` by simp
                 hence False using hb_new prems(7) prems(1) prems(2)
                   unfolding HB_consistent_def HB_def
-                  using False True by blast 
+                  using False True by blast
                 hence ?thesis by simp }
               ultimately show ?thesis by blast
             qed
@@ -9849,9 +11609,9 @@ proof (induct L H bt_val rule: modify_lin.induct)
               hence "op_name (new_L ! k2) = enq" using b_act_enq by simp
               thus False using op_new_k2 by simp
             qed
-            
+
             have f2_eq_k2: "f k2 = k2" unfolding f_def using False k2_not_kp1 by simp
-            
+
             have L_last_deq: "\<forall>k3>f k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p"
             proof (intro allI impI)
               fix k3 assume "f k2 < k3" "k3 < length L"
@@ -9864,22 +11624,22 @@ proof (induct L H bt_val rule: modify_lin.induct)
               next
                 case False_inner: False
                 have f_k3_valid: "f k3 < length new_L" using `k3 < length L` len_eq unfolding f_def
-                  using False_inner by auto 
+                  using False_inner by auto
                 have "k2 < f k3"
                 proof -
                   have "k2 < k3" using `f k2 < k3` f2_eq_k2 by simp
                   thus ?thesis using False_inner k2_not_kp1 unfolding f_def
-                    using False by auto 
+                    using False by auto
                 qed
                 have "L ! k3 = new_L ! (f k3)" using eq_nth[OF f_k3_valid] unfolding f_def by (auto split: if_splits)
-                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3` 
+                with prems(5)[rule_format, of "f k3"] f_k3_valid `k2 < f k3`
                 show ?thesis by simp
               qed
             qed
 
             have f1_lt_f2: "f k1 < f k2"
             proof -
-              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)              
+              have v1: "f k1 < length L" using prems(1) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have v2: "f k2 < length L" using prems(2) len_eq L_exp unfolding f_def by (auto split: if_splits)
               have oper_f1: "op_name (L ! f k1) = enq" using prems(3) eq_nth[OF prems(1)] by simp
               have match_f2: "L ! f k2 = mk_op deq (x_var s p) p (s_var s p)" using prems(4) eq_nth[OF prems(2)] by simp
@@ -9892,19 +11652,19 @@ proof (induct L H bt_val rule: modify_lin.induct)
             show "k1 < k2" using f1_lt_f2 f2_eq_k2 unfolding f_def using False k2_not_kp1 prems(2) by (auto split: if_splits)
           qed
         qed
-        
+
         have mset_new_full: "mset new_L = mset (lin_seq s)" using mset_new "1.prems"(6) by simp
 
         have ih_app: "lI10_D4_Enq_Deq_HB_list (modify_lin new_L H bt_val) H pc (x_var s) (s_var s)"
         proof -
           define L_inner where "L_inner = take (nat (find_last_SA L + 1)) L @ l21 @ [o1] @ [b_act] @ tl l22 @ [drop (nat (find_last_SA L + 1)) L ! bt_idx] @ drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L)"
-          
+
           have hd_l22: "hd l22 = o1" using l2_split by (simp add: o1_def)
-          
+
           have new_L_eq_L_inner: "new_L = L_inner"
             unfolding new_L_def l1_def l3_def bt_act_def remaining_def last_sa_pos_def L_inner_def
             using hd_l22 by simp
-            
+
           have p1_in: "data_independent L_inner" using di_new unfolding new_L_eq_L_inner .
           have p2_in: "HB_consistent L_inner H" using hb_new unfolding new_L_eq_L_inner .
           have p3_in: "lI10_D4_Enq_Deq_HB_list L_inner H pc (x_var s) (s_var s)" using lI10_D4_Enq_Deq_HB_new unfolding new_L_eq_L_inner .
@@ -9918,7 +11678,7 @@ proof (induct L H bt_val rule: modify_lin.induct)
             using False unfolding l2_def[symmetric] l2_last_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
           have pre4: "find_last_enq (take bt_idx (drop (nat (find_last_SA L + 1)) L)) = Some (l21, b_act, l22)"
             using l2_split unfolding l2_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by simp
-          
+
           have pre5: "\<not> happens_before (hd l22) (drop (nat (find_last_SA L + 1)) L ! bt_idx) H"
             using c3 hd_l22 unfolding bt_act_def[symmetric] remaining_def[symmetric] last_sa_pos_def[symmetric] by (simp add: HB_def)
           have pre6: "\<not> happens_before b_act (hd l22) H"
@@ -9930,19 +11690,19 @@ proof (induct L H bt_val rule: modify_lin.induct)
           have fact_list_align: "drop (bt_idx + 1) (drop (nat (find_last_SA L + 1)) L) = drop (Suc (bt_idx + nat (find_last_SA L + 1))) L"
             by auto
 
-          show ?thesis 
+          show ?thesis
             unfolding new_L_eq_L_inner L_inner_def fact_o1
             using ih(4) pre1 pre2 pre3 pre4 pre5 pre6
-            using p1_in[unfolded L_inner_def fact_o1] 
-            using p2_in[unfolded L_inner_def fact_o1] 
-            using p3_in[unfolded L_inner_def fact_o1] 
-            using p4_in[unfolded L_inner_def fact_o1] 
-            using p5_in[unfolded L_inner_def fact_o1] 
+            using p1_in[unfolded L_inner_def fact_o1]
+            using p2_in[unfolded L_inner_def fact_o1]
+            using p3_in[unfolded L_inner_def fact_o1]
+            using p4_in[unfolded L_inner_def fact_o1]
+            using p5_in[unfolded L_inner_def fact_o1]
             using "1.prems"(1) "1.prems"(2) "1.prems"(8)
             using fact_the_enq fact_list_align hd_l22
             by simp
         qed
-          
+
         thus ?thesis using step1 by simp
       qed
     qed
@@ -9951,7 +11711,7 @@ qed
 
 
 (* ========================================================================= *)
-(* 🚀 Sorry : modify_preserves_lI10_D4_Enq_Deq_HB (SSN + ) *)
+(* Completed proof: modify_preserves_lI10_D4_Enq_Deq_HB (SSN + large version) *)
 (* ========================================================================= *)
 lemma modify_preserves_lI10_D4_Enq_Deq_HB:
   assumes INV: "system_invariant s"
@@ -9961,46 +11721,46 @@ lemma modify_preserves_lI10_D4_Enq_Deq_HB:
     and base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val
                                 then modify_lin (lin_seq s) (his_seq s) q_val
                                 else lin_seq s)"
-    (* SSN : mk_op 4 , xv / sv *)
+    (* SSN: fill in mk_op of 4, and xv / sv updatepremise *)
     and s'_lin_def: "lin_seq s' = base_lin @ [mk_op deq q_val p (s_var s p)]"
     and xv_s': "x_var s' = (x_var s)(p := q_val)"
     and sv_s': "s_var s' = s_var s"
     and his_eq: "his_seq s' = his_seq s"
     and pc_s': "program_counter s' = (program_counter s)(p := ''D4'')"
     and pc_s: "program_counter s p = ''D3'' "
-    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
-                     (\<forall>k < length (lin_seq s). 
-                       (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow> 
+    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+                     (\<forall>k < length (lin_seq s).
+                       (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow>
                        DeqRetInHis s p (op_val (lin_seq s ! k)) (op_ssn (lin_seq s ! k)))"
   shows "lI10_D4_Enq_Deq_HB s'"
 proof -
-  (* Step 1: 1. basic facts *)
+  (* 1. basicfact *)
   let ?L = "lin_seq s" let ?H = "his_seq s" let ?pc = "program_counter s"
-  
+
   have di: "data_independent ?L" using INV unfolding system_invariant_def by auto
   have hb_cons: "HB_consistent ?L ?H" using INV unfolding system_invariant_def lI3_HB_Ret_Lin_Sync_def
-    by (meson HB_Act_def HB_consistent_def) 
-    
-  have orig_list: "lI10_D4_Enq_Deq_HB_list ?L ?H ?pc (x_var s) (s_var s)" 
+    by (meson HB_Act_def HB_consistent_def)
+
+  have orig_list: "lI10_D4_Enq_Deq_HB_list ?L ?H ?pc (x_var s) (s_var s)"
     using INV lI10_D4_Enq_Deq_HB_implies_list unfolding system_invariant_def by auto
 
-  (* Step 2: 2. q_in_SetB ( lI7_D4_Deq_Deq_HB ) *)
+  (* 2. derivation q_in_SetB (and lI7_D4_Deq_Deq_HB precise use) *)
   have q_in_SetB: "q_val \<in> SetB s"
   proof -
     define jp where "jp = j_var s p"
     have "jp < l_var s p" using INV pc_s unfolding system_invariant_def sI6_D3_Scan_Pointers_def
-      using jp_def by blast 
+      using jp_def by blast
     hence "Q_arr s jp = q_val" using q_val_def jp_def by simp
     with q_not_bot have "Q_arr s jp \<noteq> BOT" by simp
     hence "InQBack s q_val" using INV `jp < l_var s p` unfolding system_invariant_def sI8_Q_Qback_Sync_def jp_def
       by (metis InQBack_def q_val_def)
-    thus ?thesis 
+    thus ?thesis
       unfolding SetB_def TypeB_def using `Q_arr s jp = q_val` pc_s q_not_bot
       using InQBack_non_BOT_implies_Val
-      using QHas_def SetB_def q_in_SetB_raw by blast 
+      using QHas_def SetB_def q_in_SetB_raw by blast
   qed
 
-  (* Step 3: 3. base_lin lI10_D4_Enq_Deq_HB_list *)
+  (* 3. prove base_lin preservebasic of lI10_D4_Enq_Deq_HB_list *)
   have base_list_prop: "lI10_D4_Enq_Deq_HB_list base_lin ?H ?pc (x_var s) (s_var s)"
   proof (cases "should_modify ?L ?H q_val")
     case False thus ?thesis using orig_list base_def by simp
@@ -10012,12 +11772,12 @@ proof -
       have idx_is_jp: "Idx s q_val = jp"
         using q_in_SetB q_val_def jp_def unfolding SetB_def TypeB_def
         by (metis sI10_Qback_Unique_Vals_def AtIdx_def D3_Q_at_j INV Idx_implies_AtIdx
-            InQBack_def pc_s q_not_bot system_invariant_def) 
+            InQBack_def pc_s q_not_bot system_invariant_def)
       have q_in_back: "\<exists>k. Qback_arr s k = q_val"
         using q_in_SetB unfolding SetB_def TypeB_def InQBack_def QHas_def
-        by (metis D3_Q_at_j INV pc_s q_not_bot q_val_def) 
+        by (metis D3_Q_at_j INV pc_s q_not_bot q_val_def)
       have path_bot: "\<forall>k < Idx s q_val. k \<ge> j_var s p \<longrightarrow> Q_arr s k = BOT"
-        using idx_is_jp jp_def by auto 
+        using idx_is_jp jp_def by auto
       show ?thesis
         unfolding TypeBT_def
         using q_in_SetB q_not_bot pc_s q_val_def q_in_back idx_is_jp
@@ -10025,47 +11785,47 @@ proof -
         by (metis sI6_D3_Scan_Pointers_def INV QHas_def jp_def order_refl path_bot
             system_invariant_def)
     qed
-      
+
     have mset_eq: "mset ?L = mset (lin_seq s)" by simp
     have sa_eq: "(\<forall>v. in_SA v ?L \<longleftrightarrow> in_SA v (lin_seq s))" by simp
     show ?thesis
       using lI10_D4_Enq_Deq_HB_list_modify[OF INV refl bt di hb_cons orig_list mset_eq sa_eq refl] True base_def
-      by metis 
+      by metis
   qed
 
   (* ========================================================================= *)
-  (* lI10_D4_Enq_Deq_HB: (Key simplification ) *)
+  (* LI10_D4_Enq_Deq_HB: path derivation (simplification stepversion) *)
   (* ========================================================================= *)
   show "lI10_D4_Enq_Deq_HB s'" unfolding lI10_D4_Enq_Deq_HB_def lI10_D4_Enq_Deq_HB_list_def
-  apply (intro allI impI, elim conjE) (* elim conjE *)
+  apply (intro allI impI, elim conjE) (* Elim conjE premise *)
   subgoal premises prems for k1 k2 q
   proof (cases "q = p")
     case True
     (* --------------------------------------------------------------------- *)
-    (* 1: q = p. : k1 enq, deq, *)
+    (* Branch 1: q = p. simplify: k1 is enq, newaction is deq, contradiction! *)
     (* --------------------------------------------------------------------- *)
     then show "k1 < k2"
     proof (cases "k2 = length base_lin")
-      case True (* Case A: k2 *)
+      case True (* Case A: k2 is of newaction *)
       have "k1 < length base_lin"
       proof (rule ccontr)
         assume "\<not> k1 < length base_lin"
         hence "k1 = length base_lin" using prems(1) s'_lin_def by auto
-        hence "op_name (lin_seq s' ! k1) = deq" 
+        hence "op_name (lin_seq s' ! k1) = deq"
           using s'_lin_def by (simp add: nth_append mk_op_def op_name_def)
         moreover have "op_name (lin_seq s' ! k1) = enq" using prems(3) by blast
         ultimately show False by simp
       qed
       thus ?thesis using True by simp
     next
-      case False (* Case B: k2 *)
+      case False (* Case B: k2 is old action *)
       hence k2_old: "k2 < length base_lin" using prems(2) s'_lin_def by auto
-      
+
       define k3 where "k3 = length base_lin"
       have "k3 > k2" using k2_old k3_def by simp
-      
+
       moreover have "k3 < length (lin_seq s')" by (simp add: k3_def s'_lin_def)
-      moreover have "op_name (lin_seq s' ! k3) = deq" 
+      moreover have "op_name (lin_seq s' ! k3) = deq"
         using s'_lin_def k3_def unfolding mk_op_def op_name_def by (auto simp: nth_append)
       moreover have "op_pid (lin_seq s' ! k3) = p"
         using s'_lin_def k3_def unfolding mk_op_def op_pid_def by (auto simp: nth_append)
@@ -10075,22 +11835,22 @@ proof -
 
   next
     case False (* --------------------------------------------------------- *)
-    (* 2: q \<noteq> p. q , base_list_prop *)
+    (* Branch 2: q \<noteq> p. q of action in old in, call directly base_list_prop direct closure *)
     (* --------------------------------------------------------------------- *)
     have q_not_p: "q \<noteq> p" by (rule False)
-    
-    (* Step 1: 1. k2 *)
+
+    (* 1. prove k2 must in old inside *)
     have k2_old: "k2 < length base_lin"
     proof (rule ccontr)
       assume "\<not> k2 < length base_lin"
       hence "k2 = length base_lin" using prems(2) s'_lin_def by auto
       hence "op_pid (lin_seq s' ! k2) = p" using s'_lin_def by (auto simp: mk_op_def op_pid_def nth_append)
-      moreover have "op_pid (lin_seq s' ! k2) = q" 
+      moreover have "op_pid (lin_seq s' ! k2) = q"
         using prems(4) by (simp add: mk_op_def op_pid_def)
       ultimately show False using q_not_p by auto
     qed
-    
-    (* Step 2: 2. k1 *)
+
+    (* 2. prove k1 must in old inside *)
     have k1_old: "k1 < length base_lin"
     proof (rule ccontr)
       assume "\<not> k1 < length base_lin"
@@ -10100,11 +11860,11 @@ proof -
       ultimately show False by auto
     qed
 
-    (* Step 3: 3. : q \<noteq> p, xv / sv *)
+    (* 3. mapping: since q \<noteq> p, therefore xv / sv *)
     have pc_q: "program_counter s q = ''D4'' "
       using prems(6) q_not_p pc_s' by (metis fun_upd_other)
-    
-    have last_deq_old: "\<forall>k3>k2. k3 < length base_lin \<longrightarrow> 
+
+    have last_deq_old: "\<forall>k3>k2. k3 < length base_lin \<longrightarrow>
                              op_name (base_lin ! k3) \<noteq> deq \<or> op_pid (base_lin ! k3) \<noteq> q"
     proof (intro allI impI)
       fix k3 assume "k2 < k3" and "k3 < length base_lin"
@@ -10119,22 +11879,22 @@ proof -
     proof -
       have cond1: "k1 < length base_lin" by (rule k1_old)
       have cond2: "k2 < length base_lin" by (rule k2_old)
-      have cond3: "op_name (base_lin ! k1) = enq" 
+      have cond3: "op_name (base_lin ! k1) = enq"
         using k1_old s'_lin_def prems(3) by (auto simp: nth_append)
-        
+
       have "x_var s' q = x_var s q" using xv_s' q_not_p by simp
       moreover have "s_var s' q = s_var s q" using sv_s' by simp
       ultimately have cond4: "base_lin ! k2 = mk_op deq (x_var s q) q (s_var s q)"
         using k2_old s'_lin_def prems(4) by (auto simp: nth_append)
-        
+
       have cond5: "\<forall>k3>k2. k3 < length base_lin \<longrightarrow> op_name (base_lin ! k3) \<noteq> deq \<or> op_pid (base_lin ! k3) \<noteq> q"
         by (rule last_deq_old)
       have cond6: "program_counter s q = ''D4''" by (rule pc_q)
-      
+
       have cond7: "HB ?H (base_lin ! k1) (base_lin ! k2)"
         using prems(7) his_eq k1_old k2_old s'_lin_def by (auto simp: nth_append)
-      
-      show ?thesis 
+
+      show ?thesis
         using base_list_prop[unfolded lI10_D4_Enq_Deq_HB_list_def]
         using cond1 cond2 cond3 cond4 cond5 cond6 cond7 by blast
     qed
@@ -10143,38 +11903,45 @@ proof -
 qed
 
 (* ========================================================================= *)
-(* Auxiliary lemma: D3 lI11_D4_Deq_Unique (SSN + 4) *)
+(* Helper lemma: D3 state transitionprecisepreserve lI11_D4_Deq_Unique of uniqueness (SSN + 4 large one version) *)
 (* ========================================================================= *)
 lemma modify_preserves_lI11_D4_Deq_Unique:
   assumes sys_inv: "system_invariant s"
     and type_bt: "TypeBT s q_val"
     and q_val_not_bot: "q_val \<noteq> BOT"
-    and base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val 
-                               then modify_lin (lin_seq s) (his_seq s) q_val 
+    and base_def: "base_lin = (if should_modify (lin_seq s) (his_seq s) q_val
+                               then modify_lin (lin_seq s) (his_seq s) q_val
                                else lin_seq s)"
-    (* 4 mk_op *)
+    (* One: append 4 of mk_op *)
     and s'_lin_def: "lin_seq s' = base_lin @ [mk_op deq q_val p (s_var s p)]"
     and his_eq: "his_seq s' = his_seq s"
     and pc_s': "program_counter s' = (program_counter s)(p := ''D4'')"
     and pc_s: "program_counter s p = ''D3''"
-    (* Proof note. *)
+    (* One: state transitionmapping *)
     and xv_s': "x_var s' = (x_var s)(p := q_val)"
     and sv_s': "s_var s' = s_var s"
-    (* DeqRetInHis SSN *)
-    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
-                     (\<forall>k < length (lin_seq s). 
-                       (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow> 
+    (* One: for DeqRetInHis fill in SSN *)
+    and lI8_D3_Deq_Returned_s: "\<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+                     (\<forall>k < length (lin_seq s).
+                       (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow>
                        DeqRetInHis s p (op_val (lin_seq s ! k)) (op_ssn (lin_seq s ! k)))"
   shows "lI11_D4_Deq_Unique s'"
   unfolding lI11_D4_Deq_Unique_def
 proof (intro allI impI)
   fix q
   assume pc_q_s': "program_counter s' q = ''D4''"
-  
-  (* Proof note. *)
+
+  (* Extract old and invariant *)
   have L_def: "lin_seq s = lin_seq s" by simp
   have inv_lI11_D4_Deq_Unique: "lI11_D4_Deq_Unique s" using sys_inv unfolding system_invariant_def by auto
-  
+  have q_val_in_Val: "q_val \<in> Val"
+  proof -
+    have in_qback: "InQBack s q_val"
+      using type_bt unfolding TypeBT_def by blast
+    show ?thesis
+      using InQBack_non_BOT_implies_Val[OF sys_inv in_qback q_val_not_bot] .
+  qed
+
   show "\<exists>k2 < length (lin_seq s').
           lin_seq s' ! k2 = mk_op deq (x_var s' q) q (s_var s' q) \<and>
           (\<forall>k3 < length (lin_seq s'). op_name (lin_seq s' ! k3) = deq \<and> op_pid (lin_seq s' ! k3) = q \<and> k3 \<noteq> k2 \<longrightarrow>
@@ -10182,98 +11949,99 @@ proof (intro allI impI)
   proof (cases "q = p")
     case True
     (* --------------------------------------------------------------------- *)
-    (* 1: D3 p *)
+    (* Branch 1: when before D3 of process p *)
     (* --------------------------------------------------------------------- *)
     let ?new_k2 = "length base_lin"
-    
-    (* 4 mk_op *)
-    have k2_props: "?new_k2 < length (lin_seq s') \<and> 
+
+    (* Match: use complete of 4 mk_op of *)
+    have k2_props: "?new_k2 < length (lin_seq s') \<and>
                     lin_seq s' ! ?new_k2 = mk_op deq (x_var s' p) p (s_var s' p)"
       using s'_lin_def xv_s' sv_s' by (simp add: nth_append)
-      
-    have other_k3_props: "\<forall>k3 < length (lin_seq s'). 
+
+    have other_k3_props: "\<forall>k3 < length (lin_seq s').
           op_name (lin_seq s' ! k3) = deq \<and> op_pid (lin_seq s' ! k3) = p \<and> k3 \<noteq> ?new_k2 \<longrightarrow>
           k3 < ?new_k2 \<and> DeqRetInHis s' p (op_val (lin_seq s' ! k3)) (op_ssn (lin_seq s' ! k3))"
     proof (intro allI impI)
       fix k3
       assume k3_bound: "k3 < length (lin_seq s')"
       assume cond3: "op_name (lin_seq s' ! k3) = deq \<and> op_pid (lin_seq s' ! k3) = p \<and> k3 \<noteq> ?new_k2"
-      
-      have k3_lt: "k3 < length base_lin" 
+
+      have k3_lt: "k3 < length base_lin"
         using k3_bound cond3 s'_lin_def by auto
-        
-      (* k3 *)
+
+      (* K3 mapping old *)
       have mset_eq: "mset base_lin = mset (lin_seq s)"
-        using base_def modify_preserves_mset by presburger 
-        
+        using base_def modify_preserves_mset by presburger
+
       have "lin_seq s' ! k3 \<in> set base_lin"
         using k3_lt s'_lin_def by (simp add: nth_append)
       hence "lin_seq s' ! k3 \<in> set (lin_seq s)"
         using mset_eq by (metis mset_eq_setD)
-      then obtain old_k3 where old_k3_def: 
-        "old_k3 < length (lin_seq s)" 
-        "lin_seq s ! old_k3 = lin_seq s' ! k3" 
+      then obtain old_k3 where old_k3_def:
+        "old_k3 < length (lin_seq s)"
+        "lin_seq s ! old_k3 = lin_seq s' ! k3"
         by (metis in_set_conv_nth)
-        
-      (* p D3, lI8_D3_Deq_Returned, *)
+
+      (* Old state p in D3, lI8_D3_Deq_Returned, it of old dequeueaction already return *)
       have "DeqRetInHis s p (op_val (lin_seq s ! old_k3)) (op_ssn (lin_seq s ! old_k3))"
-        using lI8_D3_Deq_Returned_s pc_s old_k3_def(1) cond3 old_k3_def(2) by metis 
-        
+        using lI8_D3_Deq_Returned_s pc_s old_k3_def(1) cond3 old_k3_def(2) by metis
+
       show "k3 < ?new_k2 \<and> DeqRetInHis s' p (op_val (lin_seq s' ! k3)) (op_ssn (lin_seq s' ! k3))"
-        using `DeqRetInHis s p (op_val (lin_seq s ! old_k3)) (op_ssn (lin_seq s ! old_k3))` 
+        using `DeqRetInHis s p (op_val (lin_seq s ! old_k3)) (op_ssn (lin_seq s ! old_k3))`
         using k3_lt old_k3_def(2) his_eq unfolding DeqRetInHis_def Let_def by auto
     qed
-    
+
     show ?thesis using True k2_props other_k3_props by blast
-    
+
   next
     case False
     (* --------------------------------------------------------------------- *)
-    (* 2: D4 q *)
+    (* Branch 2: its originally then in D4 of process q *)
     (* --------------------------------------------------------------------- *)
-    have pc_q_s: "program_counter s q = ''D4''" 
+    have pc_q_s: "program_counter s q = ''D4''"
       using pc_q_s' pc_s' False by (metis fun_upd_other)
-      
-    (* q ( mk_op) *)
+
+    (* Old state q uniqueness (extractcomplete mk_op) *)
     obtain old_k2 where old_props:
       "old_k2 < length (lin_seq s)"
       "lin_seq s ! old_k2 = mk_op deq (x_var s q) q (s_var s q)"
       "\<forall>k3 < length (lin_seq s). op_name (lin_seq s ! k3) = deq \<and> op_pid (lin_seq s ! k3) = q \<and> k3 \<noteq> old_k2 \<longrightarrow>
          k3 < old_k2 \<and> DeqRetInHis s q (op_val (lin_seq s ! k3)) (op_ssn (lin_seq s ! k3))"
       using inv_lI11_D4_Deq_Unique pc_q_s unfolding lI11_D4_Deq_Unique_def by blast
-      
+
     let ?P = "\<lambda>act. op_name act = deq \<and> op_pid act = q"
-    
-    (* modify_lin, deq *)
+
+    (* No is modify_lin, deq of for definitely *)
     have filter_eq: "filter ?P base_lin = filter ?P (lin_seq s)"
-      using base_def modify_preserves_deq_filter[OF sys_inv L_def type_bt] by presburger 
-      
-    (* Proof note. *)
+      using base_def modify_preserves_deq_filter[OF sys_inv L_def type_bt q_val_in_Val]
+      by presburger
+
+    (* Element in mapping *)
     have mset_eq: "mset base_lin = mset (lin_seq s)"
-      using base_def modify_preserves_mset by metis 
-      
+      using base_def modify_preserves_mset by metis
+
     have "lin_seq s ! old_k2 \<in> set base_lin"
       using old_props(1) mset_eq by (metis in_set_conv_nth mset_eq_setD)
     then obtain new_k2 where new_k2_props:
       "new_k2 < length base_lin" "base_lin ! new_k2 = lin_seq s ! old_k2"
       by (metis in_set_conv_nth)
-      
-    (* base_lin distinct *)
+
+    (* Prove base_lin is distinct of *)
     have di: "data_independent (lin_seq s)" using sys_inv unfolding system_invariant_def by auto
 
     have distinct_lin: "distinct (lin_seq s)"
     proof (unfold distinct_conv_nth, intro allI impI)
-      fix i j 
-      assume i_lt: "i < length (lin_seq s)" 
-      assume j_lt: "j < length (lin_seq s)" 
+      fix i j
+      assume i_lt: "i < length (lin_seq s)"
+      assume j_lt: "j < length (lin_seq s)"
       assume i_neq_j: "i \<noteq> j"
-      
+
       show "lin_seq s ! i \<noteq> lin_seq s ! j"
       proof
         assume eq: "lin_seq s ! i = lin_seq s ! j"
         let ?v = "op_val (lin_seq s ! i)"
         have val_j: "op_val (lin_seq s ! j) = ?v" using eq by simp
-        
+
         have "i = j"
         proof (cases "op_name (lin_seq s ! i)")
           case enq
@@ -10297,26 +12065,26 @@ proof (intro allI impI)
     qed
 
     hence dist_base: "distinct base_lin" using mset_eq distinct_lin by (metis mset_eq_imp_distinct_iff)
-      
-    (* q mk_op *)
-    have q_props_s': 
+
+    (* New in q processcorresponds to of goal mk_op *)
+    have q_props_s':
       "new_k2 < length (lin_seq s')"
       "lin_seq s' ! new_k2 = mk_op deq (x_var s' q) q (s_var s' q)"
     proof -
       show "new_k2 < length (lin_seq s')" using new_k2_props(1) s'_lin_def by simp
       have "x_var s' q = x_var s q" using xv_s' False by simp
       moreover have "s_var s' q = s_var s q" using sv_s' by simp
-      ultimately show "lin_seq s' ! new_k2 = mk_op deq (x_var s' q) q (s_var s' q)" 
+      ultimately show "lin_seq s' ! new_k2 = mk_op deq (x_var s' q) q (s_var s' q)"
         using new_k2_props s'_lin_def old_props(2) by (simp add: nth_append)
     qed
-    
+
     have q_order_s': "\<forall>new_k3 < length (lin_seq s'). op_name (lin_seq s' ! new_k3) = deq \<and> op_pid (lin_seq s' ! new_k3) = q \<and> new_k3 \<noteq> new_k2 \<longrightarrow>
              new_k3 < new_k2 \<and> DeqRetInHis s' q (op_val (lin_seq s' ! new_k3)) (op_ssn (lin_seq s' ! new_k3))"
     proof (intro allI impI)
       fix new_k3
       assume k3_bound: "new_k3 < length (lin_seq s')"
       assume cond3: "op_name (lin_seq s' ! new_k3) = deq \<and> op_pid (lin_seq s' ! new_k3) = q \<and> new_k3 \<noteq> new_k2"
-                     
+
       have new_k3_lt: "new_k3 < length base_lin"
       proof (rule ccontr)
         assume "\<not> new_k3 < length base_lin"
@@ -10324,59 +12092,59 @@ proof (intro allI impI)
         hence "op_pid (lin_seq s' ! new_k3) = p" using s'_lin_def by (simp add: nth_append mk_op_def op_pid_def)
         thus False using cond3 False by simp
       qed
-      
+
       have "base_lin ! new_k3 \<in> set (lin_seq s)"
         using new_k3_lt mset_eq by (metis in_set_conv_nth mset_eq_setD)
       then obtain old_k3 where old_k3_props:
         "old_k3 < length (lin_seq s)" "lin_seq s ! old_k3 = base_lin ! new_k3"
         by (metis in_set_conv_nth)
-        
+
       have "base_lin ! new_k3 \<noteq> base_lin ! new_k2"
         using dist_base new_k3_lt new_k2_props(1) cond3 by (metis nth_eq_iff_index_eq)
       hence old_k3_neq: "old_k3 \<noteq> old_k2"
         using old_k3_props(2) new_k2_props(2) by auto
-        
+
       have P_old_k3: "?P (lin_seq s ! old_k3)"
         using cond3 old_k3_props(2) s'_lin_def new_k3_lt by (simp add: nth_append)
-        
-      (* 1: 、 old_k2 P , *)
+
+      (* Key fix 1: before, old_k2 of P out, *)
       have P_old_k2: "?P (lin_seq s ! old_k2)"
         using old_props(2) by (simp add: mk_op_def op_name_def op_pid_def)
-        
-      have old_lt: "old_k3 < old_k2" 
+
+      have old_lt: "old_k3 < old_k2"
         using old_props(3) old_k3_props(1) P_old_k3 old_k3_neq by blast
-        
+
       have "new_k3 < new_k2"
-        using filter_order_preserved filter_eq old_lt old_props(1) P_old_k3 P_old_k2 
+        using filter_order_preserved filter_eq old_lt old_props(1) P_old_k3 P_old_k2
               old_k3_props(2) new_k2_props(2) new_k3_lt new_k2_props(1) dist_base
         by (smt (verit, ccfv_SIG) distinct_filter
             filter_order_preserved)
-        
+
       moreover have "DeqRetInHis s' q (op_val (lin_seq s' ! new_k3)) (op_ssn (lin_seq s' ! new_k3))"
       proof -
         have "DeqRetInHis s q (op_val (lin_seq s ! old_k3)) (op_ssn (lin_seq s ! old_k3))"
           using old_props(3) old_k3_props(1) P_old_k3 old_k3_neq by blast
-          
+
         moreover have "op_val (lin_seq s' ! new_k3) = op_val (lin_seq s ! old_k3)"
           using s'_lin_def new_k3_lt old_k3_props(2) by (simp add: nth_append)
-          
+
         moreover have "op_ssn (lin_seq s' ! new_k3) = op_ssn (lin_seq s ! old_k3)"
           using s'_lin_def new_k3_lt old_k3_props(2) by (simp add: nth_append)
-          
+
         ultimately show ?thesis
           using his_eq unfolding DeqRetInHis_def Let_def by auto
-      qed     
+      qed
 
       ultimately show "new_k3 < new_k2 \<and> DeqRetInHis s' q (op_val (lin_seq s' ! new_k3)) (op_ssn (lin_seq s' ! new_k3))" by simp
     qed
-    
+
     show ?thesis using q_props_s' q_order_s' False by blast
   qed
 qed
 
 
 (* ========================================================================= *)
-(* Auxiliary lemma: D3 hI24_HB_Implies_Idx_Order *)
+(* Helper lemma: D3 successupdatepreserve hI24_HB_Implies_Idx_Order *)
 (* ========================================================================= *)
 lemma hI24_HB_Implies_Idx_Order_D3_success_update:
   assumes inv_hI24_HB_Implies_Idx_Order: "hI24_HB_Implies_Idx_Order s"
@@ -10391,11 +12159,11 @@ proof (intro allI impI, elim conjE)
      and arr1_prime: "CState.Q_arr (fst s') idx1 = v1"
      and arr2_prime: "CState.Q_arr (fst s') idx2 = v2"
 
-  (* Step 1: 1. HB *)
+  (* 1. mapping old state of HB *)
   have hb_s: "HB_Act s (mk_op enq v2 u2 sn2) (mk_op enq v1 u1 sn1)"
     using hb_prime his_eq unfolding HB_Act_def by simp
 
-  (* Step 2: 2. , v1, v2 \<in> Val *)
+  (* 2. extracthistory, and prove v1, v2 \<in> Val *)
   obtain k1 k2 where
     m1: "match_ret (his_seq s) k1 (mk_op enq v2 u2 sn2)" and
     m2: "match_call (his_seq s) k2 (mk_op enq v1 u1 sn1)"
@@ -10404,25 +12172,25 @@ proof (intro allI impI, elim conjE)
   have v2_val: "v2 \<in> Val"
   proof -
     have "v2 = act_val (his_seq s ! k1)" using m1 unfolding match_ret_def Let_def
-      by (simp add: op_val_def mk_op_def) 
+      by (simp add: op_val_def mk_op_def)
     moreover have "k1 < length (his_seq s)" using m1 unfolding match_ret_def
-      by auto 
+      by auto
     moreover have "act_name (his_seq s ! k1) = enq" using m1 unfolding match_ret_def Let_def
-      by (simp add: op_name_def mk_op_def) 
+      by (simp add: op_name_def mk_op_def)
     ultimately show "v2 \<in> Val" using inv_hI20_Enq_Val_Valid unfolding hI20_Enq_Val_Valid_def by auto
   qed
 
   have v1_val: "v1 \<in> Val"
   proof -
     have "v1 = act_val (his_seq s ! k2)" using m2 unfolding match_call_def Let_def
-      by (simp add: op_name_def op_val_def mk_op_def) 
+      by (simp add: op_name_def op_val_def mk_op_def)
     moreover have "k2 < length (his_seq s)" using m2 unfolding match_call_def by simp
     moreover have "act_name (his_seq s ! k2) = enq" using m2 unfolding match_call_def Let_def
-      by (simp add: op_name_def mk_op_def) 
+      by (simp add: op_name_def mk_op_def)
     ultimately show "v1 \<in> Val" using inv_hI20_Enq_Val_Valid unfolding hI20_Enq_Val_Valid_def by auto
   qed
 
-  (* Step 3: 3. idx1, idx2 jp *)
+  (* 3. prove idx1, idx2 is be clear of jp *)
   let ?jp = "CState.j_var (fst s) p"
   have Q_jp_bot: "CState.Q_arr (fst s') ?jp = BOT"
     using update unfolding Sys_D3_success_update_def Let_def
@@ -10431,20 +12199,20 @@ proof (intro allI impI, elim conjE)
   have idx_not_jp: "idx1 \<noteq> ?jp" "idx2 \<noteq> ?jp"
     using arr1_prime arr2_prime Q_jp_bot v1_val v2_val unfolding Val_def BOT_def by auto
 
-  (* Step 4: 4. *)
+  (* 4. mapping old state of physicalqueue *)
   have arr_s: "CState.Q_arr (fst s) idx1 = v1" "CState.Q_arr (fst s) idx2 = v2"
     using update arr1_prime arr2_prime idx_not_jp
     unfolding Sys_D3_success_update_def Let_def
     by (auto simp: fun_eq_iff)
 
-  (* Step 5: 5. hI24_HB_Implies_Idx_Order *)
+  (* 5. applyold state of hI24_HB_Implies_Idx_Order obtain directlyconclusion *)
   from inv_hI24_HB_Implies_Idx_Order[unfolded hI24_HB_Implies_Idx_Order_def] hb_s arr_s show "idx2 < idx1" by blast
 qed
 
 
 (* ========================================================================= *)
-(* hI21_D3_step_helper *)
-(* D3 BOT , E2 HB . *)
+(* : hI21_D3_step_helper *)
+(* : prove in D3 scan to BOT and before, E2 process of HB property. *)
 (* ========================================================================= *)
 lemma hI21_D3_step_helper:
   assumes INV: "system_invariant s"
@@ -10453,26 +12221,26 @@ lemma hI21_D3_step_helper:
   shows "hI29_E2_Scanner_Immunity s'"
 proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
   case (1 p_enq a q)
-  
-  (* goal_cases , *)
-  have asm_1: "program_counter s' p_enq = ''E2''" using 1(1) by blast
-  have asm_2: "TypeB s' a"  by (simp add: "1") 
-  have asm_3: "HasPendingDeq s' q" by (simp add: "1") 
-  have asm_4: "program_counter s' q = ''D3''"  by (simp add: "1") 
-  have asm_5: "Idx s' a < j_var s' q"  by (simp add: "1") 
-  have asm_6: "j_var s' q \<le> i_var s' p_enq"  by (simp add: "1") 
-  have asm_7: "i_var s' p_enq < l_var s' q"  by (simp add: "1") 
 
-  (* 1. *)
+  (* Final stepguards: be goal_cases of outside premiseall, definitely *)
+  have asm_1: "program_counter s' p_enq = ''E2''" using 1(1) by blast
+  have asm_2: "TypeB s' a"  by (simp add: "1")
+  have asm_3: "HasPendingDeq s' q" by (simp add: "1")
+  have asm_4: "program_counter s' q = ''D3''"  by (simp add: "1")
+  have asm_5: "Idx s' a < j_var s' q"  by (simp add: "1")
+  have asm_6: "j_var s' q \<le> i_var s' p_enq"  by (simp add: "1")
+  have asm_7: "i_var s' p_enq < l_var s' q"  by (simp add: "1")
+
+  (* --- 1. fill in definition --- *)
   note bridge_defs = program_counter_def j_var_def l_var_def Q_arr_def x_var_def
                      Qback_arr_def i_var_def v_var_def s_var_def his_seq_def
 
-  (* 2. *)
+  (* --- 2. extractbasicguards --- *)
   have hI21_s: "hI29_E2_Scanner_Immunity s" using INV unfolding system_invariant_def by blast
   have hI1_E_Phase_Pending_Enq_s: "hI1_E_Phase_Pending_Enq s" using INV unfolding system_invariant_def by blast
 
-  (* 3. D3 BOT *)
-  from STEP have pc_s_p: "program_counter s p = ''D3'' " 
+  (* --- 3. extract D3 BOT of physicalfact --- *)
+  from STEP have pc_s_p: "program_counter s p = ''D3'' "
     unfolding Sys_D3_def C_D3_def bridge_defs by auto
 
   from STEP q_val have pc_s'_p: "program_counter s' p = (if j_var s p = l_var s p - 1 then ''D1'' else ''D3'')"
@@ -10481,16 +12249,16 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
   from STEP q_val have j_var_inc: "j_var s' p = (if j_var s p = l_var s p - 1 then j_var s p else j_var s p + 1)"
     unfolding Sys_D3_def C_D3_def Let_def bridge_defs by (auto split: if_splits)
 
-  (* 4. *)
-  have conservations: 
-    "his_seq s' = his_seq s" 
+  (* --- 4. one prove --- *)
+  have conservations:
+    "his_seq s' = his_seq s"
     "Qback_arr s' = Qback_arr s"
     "i_var s' = i_var s"
     "v_var s' = v_var s"
     "s_var s' = s_var s"
   proof -
-    from STEP q_val show 
-      "his_seq s' = his_seq s" 
+    from STEP q_val show
+      "his_seq s' = his_seq s"
       "Qback_arr s' = Qback_arr s"
       "i_var s' = i_var s"
       "v_var s' = v_var s"
@@ -10499,7 +12267,7 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
       by (auto split: if_splits)
   qed
 
-  hence his_eq: "his_seq s' = his_seq s" 
+  hence his_eq: "his_seq s' = his_seq s"
     and qback_eq: "Qback_arr s' = Qback_arr s"
     and i_var_eq: "i_var s' = i_var s"
     and v_var_eq: "v_var s' = v_var s"
@@ -10508,7 +12276,7 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
   have Q_arr_eq: "Q_arr s' = Q_arr s"
   proof (rule ext)
     fix k
-    note accessors = Q_arr_def j_var_def 
+    note accessors = Q_arr_def j_var_def
     show "Q_arr s' k = Q_arr s k"
     proof (cases "k = j_var s p", goal_cases)
       case 1
@@ -10519,11 +12287,11 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
     qed
   qed
 
-  (* 5. *)
+  (* --- 5. and mapping --- *)
   have hb_eq: "HB_EnqRetCall s' a (v_var s' p_enq) = HB_EnqRetCall s a (v_var s p_enq)"
     unfolding HB_EnqRetCall_def HB_Act_def HB_def mk_op_def using his_eq
-    by (simp add: v_var_eq) 
-  
+    by (simp add: v_var_eq)
+
   have idx_a_eq: "Idx s' a = Idx s a" unfolding Idx_def AtIdx_def using qback_eq by simp
 
   have pc_E2_eq: "\<forall>p_any. (program_counter s' p_any = ''E2'') \<longleftrightarrow> (program_counter s p_any = ''E2'')"
@@ -10544,31 +12312,17 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
     qed
   qed
 
-  have tb_a_s: "TypeB s a" 
-  proof -
-    from asm_2 have "QHas s' a \<or> (\<exists>px. program_counter s' px = ''E2'' \<and> v_var s' px = a)"
-      unfolding TypeB_def by simp
-    thus ?thesis
-    proof (elim disjE, goal_cases)
-      case 1
-      hence "QHas s a" unfolding QHas_def using Q_arr_eq by simp
-      thus ?thesis unfolding TypeB_def by blast
-    next
-      case 2
-      then obtain px where "program_counter s' px = ''E2''" and "v_var s' px = a" by blast
-      hence "program_counter s px = ''E2''" and "v_var s px = a" using pc_E2_eq v_var_eq by auto
-      thus ?thesis unfolding TypeB_def by blast
-    qed
-  qed
+  have tb_a_s: "TypeB s a"
+    using asm_2 Q_arr_eq unfolding TypeB_def QHas_def by auto
 
   have pc_e_s: "program_counter s p_enq = ''E2''" using asm_1 pc_E2_eq by auto
   have p_enq_neq_p: "p_enq \<noteq> p" using pc_e_s pc_s_p by auto
 
-  (* 4. : q D3 p *)
+  (* --- 4. core case: q is as D3 of process p --- *)
   show "\<not> HB_EnqRetCall s' a (v_var s' p_enq)"
   proof (cases "q = p")
-    case True (* q = p  *)
-    
+    case True (* Case one: q = p (when before of scan) *)
+
     have l_p_eq: "l_var s' p = l_var s p"
       using STEP unfolding Sys_D3_def C_D3_def Let_def bridge_defs by (auto split: if_splits)
 
@@ -10581,10 +12335,10 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
       with pc_p_D3 show False by simp
     qed
 
-    have j_inc: "j_var s' p = j_var s p + 1" 
+    have j_inc: "j_var s' p = j_var s p + 1"
       using j_var_inc j_neq_l by simp
 
-    have pend_p_s: "HasPendingDeq s p" 
+    have pend_p_s: "HasPendingDeq s p"
       using INV pc_s_p unfolding system_invariant_def hI12_D_Phase_Pending_Deq_def by auto
 
     have idx_lt_j_next: "Idx s a < j_var s p + 1" using asm_5 True j_inc idx_a_eq by simp
@@ -10592,18 +12346,18 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
 
     show ?thesis
     proof (cases "Idx s a < j_var s p")
-      case True (* A: a *)
-      
+      case True (* Subcase A: a already be scan complete *)
+
       have cond1: "Idx s a < j_var s p" using True by simp
-      
-      have cond2: "j_var s p \<le> i_var s p_enq" 
+
+      have cond2: "j_var s p \<le> i_var s p_enq"
       proof -
         from asm_6 \<open>q = p\<close> have "j_var s' p \<le> i_var s' p_enq" by simp
         moreover have "j_var s' p = j_var s p + 1" using j_inc by simp
         moreover have "i_var s' p_enq = i_var s p_enq" using i_var_eq by simp
         ultimately show ?thesis by linarith
       qed
-        
+
       have cond3: "i_var s p_enq < l_var s p"
       proof -
         from asm_7 \<open>q = p\<close> have "i_var s' p_enq < l_var s' p" by simp
@@ -10615,118 +12369,61 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
       have "\<not> HB_EnqRetCall s a (v_var s p_enq)"
         using hI21_s[unfolded hI29_E2_Scanner_Immunity_def, rule_format, of p_enq a p]
         using pc_e_s tb_a_s pend_p_s pc_s_p cond1 cond2 cond3
-        using HB_implies_InQBack INV by blast 
-        
+        using HB_implies_InQBack INV by blast
+
       thus ?thesis using hb_eq by simp
     next
-      case False (* B: Idx s a = j_var s p  *)
+      case False (* Subcase B: Idx s a = j_var s p (physical) *)
       hence idx_is_j: "Idx s a = j_var s p" using a_cmp_j by linarith
       have hI20_Enq_Val_Valid_s: "hI20_Enq_Val_Valid s" using INV unfolding system_invariant_def by blast
-      
+
       show ?thesis
       proof (cases "a = BOT")
-        case True (* hI20_Enq_Val_Valid *)
+        case True (* Boundary: use hI20_Enq_Val_Valid guardsderive a contradiction *)
         show ?thesis
-        proof (* notI *)
+        proof (* Apply notI then *)
           assume hb: "HB_EnqRetCall s' a (v_var s' p_enq)"
 
-          (* op_name_def op_val_def, force *)
+          (* Fix: in op_name_def and op_val_def, and use force *)
           have "\<exists>k < length (his_seq s). act_name (his_seq s ! k) = enq \<and> act_val (his_seq s ! k) = BOT"
-            using hb True his_eq 
+            using hb True his_eq
             unfolding HB_EnqRetCall_def HB_Act_def HB_def mk_op_def Let_def match_ret_def match_call_def op_name_def op_val_def
             by auto
 
-          then obtain k where k_len: "k < length (his_seq s)" 
-                          and k_op: "act_name (his_seq s ! k) = enq" 
+          then obtain k where k_len: "k < length (his_seq s)"
+                          and k_op: "act_name (his_seq s ! k) = enq"
                           and k_val: "act_val (his_seq s ! k) = BOT" by blast
           from hI20_Enq_Val_Valid_s k_len k_op have "act_val (his_seq s ! k) \<in> Val" unfolding hI20_Enq_Val_Valid_def by blast
           with k_val have "BOT \<in> Val" by simp
-          thus False by (simp add: BOT_def Val_def)  
+          thus False by (simp add: BOT_def Val_def)
         qed
       next
-        case False (* sI8_Q_Qback_Sync TypeB *)
+        case False (* Element: use sI8_Q_Qback_Sync and TypeB derive a contradiction *)
         hence a_not_bot: "a \<noteq> BOT" by simp
-        
-        from tb_a_s[unfolded TypeB_def] show ?thesis
-        proof (elim disjE)
-          assume "QHas s a"
-          then obtain k where k_idx: "Q_arr s k = a" unfolding QHas_def by blast
-          
-          from INV have sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s" unfolding system_invariant_def by blast
-          have "Qback_arr s k = a" using sI8_Q_Qback_Sync_s k_idx a_not_bot unfolding sI8_Q_Qback_Sync_def by force
-          hence "k = Idx s a" unfolding Idx_def AtIdx_def
-            using INV Idx_eq_j_and_Q_BOT_implies_not_TypeB InQBack_def a_not_bot
-              idx_is_j q_val tb_a_s by blast 
-          with idx_is_j have "Q_arr s (j_var s p) = a" using k_idx by simp
-          
-          with q_val a_not_bot show ?thesis by simp
-        next
-          assume "\<exists>p_o. program_counter s p_o = ''E2'' \<and> v_var s p_o = a"
-          then obtain p_o where po: "program_counter s p_o = ''E2'' \<and> v_var s p_o = a" by blast
-          
-          show ?thesis 
-          proof (* notI *)
-            assume hb_s': "HB_EnqRetCall s' a (v_var s' p_enq)"
-            hence hb_s: "HB_EnqRetCall s a (v_var s p_enq)" using hb_eq by simp
-            
-            have "\<exists>k_ret < length (his_seq s). act_name (his_seq s ! k_ret) = enq \<and> act_val (his_seq s ! k_ret) = a \<and> act_cr (his_seq s ! k_ret) = ret"
-              using hb_s unfolding HB_EnqRetCall_def HB_Act_def HB_def mk_op_def Let_def match_ret_def op_name_def op_val_def by force
-            then obtain k_ret where k_ret_len: "k_ret < length (his_seq s)"
-                                and k_ret_op: "act_name (his_seq s ! k_ret) = enq"
-                                and k_ret_val: "act_val (his_seq s ! k_ret) = a"
-                                and k_ret_cr: "act_cr (his_seq s ! k_ret) = ret" by blast
-            
-            from INV have hI7_His_WF_s: "hI7_His_WF s" unfolding system_invariant_def by blast
-            have "\<exists>k_call < k_ret. act_pid (his_seq s ! k_call) = act_pid (his_seq s ! k_ret) \<and>
-                                   act_ssn (his_seq s ! k_call) = act_ssn (his_seq s ! k_ret) \<and>
-                                   act_name (his_seq s ! k_call) = enq \<and>
-                                   act_cr (his_seq s ! k_call) = call \<and>
-                                   act_val (his_seq s ! k_call) = a"
-              using hI7_His_WF_s k_ret_len k_ret_op k_ret_val k_ret_cr unfolding hI7_His_WF_def Let_def by force
-            then obtain k_call where k_call_len: "k_call < length (his_seq s)"
-                                 and k_call_op: "act_name (his_seq s ! k_call) = enq"
-                                 and k_call_val: "act_val (his_seq s ! k_call) = a"
-                                 and k_call_cr: "act_cr (his_seq s ! k_call) = call"
-                                 and k_call_pid: "act_pid (his_seq s ! k_call) = act_pid (his_seq s ! k_ret)"
-                                 and k_call_ssn: "act_ssn (his_seq s ! k_call) = act_ssn (his_seq s ! k_ret)"
-              using k_ret_len using dual_order.strict_trans by auto 
-              
-            have pending_po: "HasPendingEnq s p_o a" using hI1_E_Phase_Pending_Enq_s po unfolding hI1_E_Phase_Pending_Enq_def by blast
-            have "\<exists>j_call < length (his_seq s). act_name (his_seq s ! j_call) = enq \<and> 
-                                                act_val (his_seq s ! j_call) = a \<and> 
-                                                act_cr (his_seq s ! j_call) = call \<and> 
-                                                act_pid (his_seq s ! j_call) = p_o \<and> 
-                                                act_ssn (his_seq s ! j_call) = s_var s p_o"
-              using pending_po unfolding HasPendingEnq_def EnqCallInHis_def Let_def match_call_def mk_op_def op_name_def op_val_def op_pid_def op_ssn_def
-              by (metis in_set_conv_nth) 
-            then obtain j_call where j_call_len: "j_call < length (his_seq s)"
-                                 and j_call_op: "act_name (his_seq s ! j_call) = enq"
-                                 and j_call_val: "act_val (his_seq s ! j_call) = a"
-                                 and j_call_cr: "act_cr (his_seq s ! j_call) = call"
-                                 and j_call_pid: "act_pid (his_seq s ! j_call) = p_o"
-                                 and j_call_ssn: "act_ssn (his_seq s ! j_call) = s_var s p_o" by blast
-                                 
-            from INV have hI8_Val_Unique_s: "hI8_Val_Unique s" unfolding system_invariant_def by blast
-            have "k_call = j_call"
-              using hI8_Val_Unique_s k_call_len j_call_len k_call_op j_call_op k_call_cr j_call_cr k_call_val j_call_val
-              unfolding hI8_Val_Unique_def by blast
-              
-            hence "act_pid (his_seq s ! k_ret) = p_o" and "act_ssn (his_seq s ! k_ret) = s_var s p_o"
-              using k_call_pid j_call_pid k_call_ssn j_call_ssn by simp_all
-              
-            moreover have "\<not> (\<exists>k < length (his_seq s). act_pid (his_seq s ! k) = p_o \<and> act_ssn (his_seq s ! k) = s_var s p_o \<and> act_cr (his_seq s ! k) = ret)"
-              using pending_po unfolding HasPendingEnq_def EnqRetInHis_def Let_def match_ret_def mk_op_def op_name_def op_val_def op_pid_def op_ssn_def
-              by force
-              
-            ultimately show False using k_ret_len k_ret_cr by blast
-          qed
-        qed
+
+        have qhas_s: "QHas s a"
+          using tb_a_s unfolding TypeB_def by simp
+        then obtain k where k_idx: "Q_arr s k = a"
+          unfolding QHas_def by blast
+
+        from INV have sI8_Q_Qback_Sync_s: "sI8_Q_Qback_Sync s"
+          unfolding system_invariant_def by blast
+        have "Qback_arr s k = a"
+          using sI8_Q_Qback_Sync_s k_idx a_not_bot
+          unfolding sI8_Q_Qback_Sync_def by force
+        hence "k = Idx s a"
+          unfolding Idx_def AtIdx_def
+          using INV Idx_eq_j_and_Q_BOT_implies_not_TypeB InQBack_def
+                a_not_bot idx_is_j q_val tb_a_s by blast
+        with idx_is_j have "Q_arr s (j_var s p) = a"
+          using k_idx by simp
+        with q_val a_not_bot show ?thesis by simp
       qed
     qed
 
   next
-    case False (* q \<noteq> p (q ) *)
-    
+    case False (* At this point to outside of case two: q \<noteq> p (q is its of scan) *)
+
     have pc_q_eq: "program_counter s' q = program_counter s q"
       using False STEP unfolding Sys_D3_def C_D3_def Let_def bridge_defs by (auto split: if_splits)
     have j_q_eq: "j_var s' q = j_var s q"
@@ -10735,10 +12432,10 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
       using False STEP unfolding Sys_D3_def C_D3_def Let_def bridge_defs by (auto split: if_splits)
 
     have pc_q_s: "program_counter s q = ''D3''" using asm_4 pc_q_eq by simp
-    have pend_q_s: "HasPendingDeq s q" 
-      using asm_3 s_var_eq his_eq 
+    have pend_q_s: "HasPendingDeq s q"
+      using asm_3 s_var_eq his_eq
       unfolding HasPendingDeq_def DeqCallInHis_def DeqRetInHis_def Let_def by auto
-    
+
     have cond1: "Idx s a < j_var s q" using asm_5 idx_a_eq j_q_eq by simp
     have cond2: "j_var s q \<le> i_var s p_enq" using asm_6 j_q_eq i_var_eq by simp
     have cond3: "i_var s p_enq < l_var s q" using asm_7 i_var_eq l_q_eq by simp
@@ -10746,13 +12443,13 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI, goal_cases)
     have "\<not> HB_EnqRetCall s a (v_var s p_enq)"
       using hI21_s[unfolded hI29_E2_Scanner_Immunity_def, rule_format, of p_enq a q]
       using pc_e_s tb_a_s pend_q_s pc_q_s cond1 cond2 cond3
-      using HB_implies_InQBack INV by blast 
-      
+      using HB_implies_InQBack INV by blast
+
     thus ?thesis using hb_eq by simp
   qed
 qed
 
-(* ********************Auxiliary lemma********************** *)
+(* ******************** helper lemma********************** *)
 lemma D3_step_unfolded:
   fixes s s' :: SysState and p jp lp q_val current_lin current_his base_lin
   assumes STEP: "Sys_D3 p s s'"
@@ -10786,7 +12483,8 @@ lemma D3_step_unfolded:
         else
           (snd s)\<lparr>
             u_program_counter := (\<lambda>x. if x = p then ''UD3'' else u_program_counter (snd s) x),
-            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)]
+            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)],
+            u_eff_ops := insert (mk_op deq q_val p (s_var s p)) (u_eff_ops (snd s))
           \<rparr>)
     )"
 proof -
@@ -10813,7 +12511,8 @@ proof -
         else
           (snd s)\<lparr>
             u_program_counter := (\<lambda>x. if x = p then ''UD3'' else u_program_counter (snd s) x),
-            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)]
+            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)],
+            u_eff_ops := insert (mk_op deq q_val p (s_var s p)) (u_eff_ops (snd s))
           \<rparr>)
     )"
     using STEP
@@ -10875,7 +12574,8 @@ proof -
         else
           (snd s)\<lparr>
             u_program_counter := (\<lambda>x. if x = p then ''UD3'' else u_program_counter (snd s) x),
-            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)]
+            u_lin_seq := base_lin @ [mk_op deq q_val p (s_var s p)],
+            u_eff_ops := insert (mk_op deq q_val p (s_var s p)) (u_eff_ops (snd s))
           \<rparr>)
     )"
     using D3_step_unfolded[OF STEP jp_def lp_def q_val_def current_lin_def current_his_def base_lin_def] .
@@ -11655,8 +13355,18 @@ proof -
   have DeqRetInHis_eq: "\<And>q a sn. DeqRetInHis s' q a sn = DeqRetInHis s q a sn"
     unfolding DeqRetInHis_def using his_seq_eq s_var_eq by simp
 
+  have e2_count_eq: "E2SlotCount s' = E2SlotCount s"
+  proof (rule E2SlotCount_cong)
+    show "X_var s' = X_var s"
+      using X_var_eq .
+    show "\<And>q. program_counter s' q = ''E2'' \<longleftrightarrow> program_counter s q = ''E2''"
+      using s'_simple D3_pc unfolding program_counter_def by auto
+    show "\<And>q. program_counter s q = ''E2'' \<Longrightarrow> i_var s' q = i_var s q"
+      using s'_simple D3_pc unfolding program_counter_def i_var_def by auto
+  qed
+
   show "hI4_X_var_Lin_Sync s'"
-    using hI4_s X_var_eq lin_seq_eq
+    using hI4_s X_var_eq lin_seq_eq e2_count_eq
     unfolding hI4_X_var_Lin_Sync_def LinEnqCount_def
     by auto
 
@@ -12130,7 +13840,7 @@ proof -
     unfolding sI8_Q_Qback_Sync_def q_val_def jp_def
     by auto
 
-have s'_is_update: "s' = Sys_D3_success_update s p" 
+have s'_is_update: "s' = Sys_D3_success_update s p"
   using STEP q_not_bot
   unfolding Sys_D3_def C_D3_def U_D2_def Sys_D3_success_update_def Let_def
             jp_def q_val_def s_var_def
@@ -12298,7 +14008,7 @@ lemma D3_success_set_and_lin_facts:
     "q_val \<in> SetB s"
     "SetB s' = SetB s - {q_val}"
 "\<And>x. x \<in> Val \<Longrightarrow> TypeB s' x \<longleftrightarrow> TypeB s x \<and> x \<noteq> q_val"
-    "u_lin_seq (snd s) = current_lin" 
+    "u_lin_seq (snd s) = current_lin"
     "u_his_seq (snd s) = current_his"
     "CState.Q_arr (fst s) (CState.j_var (fst s) p) = q_val"
     "Q_arr s' = (Q_arr s)(jp := BOT)"
@@ -12790,6 +14500,7 @@ qed
 lemma D3_success_preserves_hI4_X_var_Lin_Sync:
   fixes s s' :: SysState and p :: nat
   assumes INV: "system_invariant s"
+    and PC: "program_counter s p = ''D3''"
     and s'_is_update: "s' = Sys_D3_success_update s p"
     and count_eq: "LinEnqCount s' (length (lin_seq s')) = LinEnqCount s (length (lin_seq s))"
   shows "hI4_X_var_Lin_Sync s'"
@@ -12805,8 +14516,20 @@ proof -
     unfolding Sys_D3_success_update_def Let_def X_var_def bridge_defs
     by auto
 
+  have e2_count_eq: "E2SlotCount s' = E2SlotCount s"
+  proof (rule E2SlotCount_cong)
+    show "X_var s' = X_var s"
+      using X_var_eq .
+    show "\<And>q. program_counter s' q = ''E2'' \<longleftrightarrow> program_counter s q = ''E2''"
+      using s'_is_update PC
+      unfolding Sys_D3_success_update_def Let_def program_counter_def by auto
+    show "\<And>q. program_counter s q = ''E2'' \<Longrightarrow> i_var s' q = i_var s q"
+      using s'_is_update PC
+      unfolding Sys_D3_success_update_def Let_def program_counter_def i_var_def by auto
+  qed
+
   show ?thesis
-    using hI4_s X_var_eq count_eq
+    using hI4_s X_var_eq count_eq e2_count_eq
     unfolding hI4_X_var_Lin_Sync_def
     by simp
 qed
@@ -14052,19 +15775,19 @@ proof -
       fix act
       assume act_in: "act \<in> set (lin_seq s)"
       assume val_act_q: "op_val act = q_val"
-    
+
       then obtain j where j_lt: "j < length (lin_seq s)" and j_eq: "lin_seq s ! j = act"
         using act_in by (auto simp: in_set_conv_nth)
-    
+
       show "op_name act \<noteq> deq"
       proof
         assume name_deq: "op_name act = deq"
-    
+
         have "j \<in> DeqIdxs s q_val"
           unfolding DeqIdxs_def
           using j_lt j_eq val_act_q name_deq
           by auto
-    
+
         with q_deq_empty show False
           by simp
       qed
@@ -14280,7 +16003,7 @@ proof -
 let ?k_sn = "act_ssn ((his_seq s) ! k)"
 
 have hist_evt_in_set: "(his_seq s ! k) \<in> set (his_seq s)"
-  using k_bounds by simp 
+  using k_bounds by simp
 
 have deq_ret_his: "DeqRetInHis s p q_val ?k_sn"
   unfolding DeqRetInHis_def
@@ -14740,6 +16463,1221 @@ qed
       OF INV type_bt q_not_bot base_def s'_lin_def his_eq pc_s' pc_s xv_s' sv_s' lI8_s
     ]
     by blast
+qed
+
+lemma EnqCallInHis_imp_OpCalledInHis:
+  assumes CALL: "EnqCallInHis s p v sn"
+  shows "OpCalledInHis (his_seq s) (mk_op enq v p sn)"
+proof -
+  obtain e where
+    e_in: "e \<in> set (his_seq s)"
+    and e_pid: "act_pid e = p"
+    and e_ssn: "act_ssn e = sn"
+    and e_name: "act_name e = enq"
+    and e_cr: "act_cr e = call"
+    and e_val: "act_val e = v"
+    using CALL
+    unfolding EnqCallInHis_def
+    by blast
+
+  obtain k where
+    k_lt: "k < length (his_seq s)"
+    and e_eq: "his_seq s ! k = e"
+    using e_in
+    by (meson in_set_conv_nth)
+
+  have "match_call (his_seq s) k (mk_op enq v p sn)"
+    using k_lt e_eq e_pid e_ssn e_name e_cr e_val
+    unfolding match_call_def Let_def
+    by (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+  thus ?thesis
+    unfolding OpCalledInHis_def
+    by blast
+qed
+
+
+lemma DeqCallInHis_imp_OpCalledInHis:
+  assumes CALL: "DeqCallInHis s p sn"
+  shows "OpCalledInHis (his_seq s) (mk_op deq v p sn)"
+proof -
+  obtain e where
+    e_in: "e \<in> set (his_seq s)"
+    and e_pid: "act_pid e = p"
+    and e_ssn: "act_ssn e = sn"
+    and e_name: "act_name e = deq"
+    and e_cr: "act_cr e = call"
+    and e_val: "act_val e = BOT"
+    using CALL
+    unfolding DeqCallInHis_def
+    by blast
+
+  obtain k where
+    k_lt: "k < length (his_seq s)"
+    and e_eq: "his_seq s ! k = e"
+    using e_in
+    by (meson in_set_conv_nth)
+
+  have "match_call (his_seq s) k (mk_op deq v p sn)"
+    using k_lt e_eq e_pid e_ssn e_name e_cr e_val
+    unfolding match_call_def Let_def
+    by (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+  thus ?thesis
+    unfolding OpCalledInHis_def
+    by blast
+qed
+
+
+lemma lin_seq_ops_called_from_lI1:
+  assumes INV: "system_invariant s"
+  assumes AIN: "a \<in> set (lin_seq s)"
+  shows "OpCalledInHis (his_seq s) a"
+proof -
+  have lI1: "lI1_Op_Sets_Equivalence s"
+    using INV unfolding system_invariant_def by blast
+
+  have a_oplin: "a \<in> OPLin s"
+    using AIN
+    unfolding OPLin_def
+    by simp
+
+  have cases:
+    "a \<in> OP_A_enq s \<or> a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    using lI1 a_oplin
+    unfolding lI1_Op_Sets_Equivalence_def
+    by blast
+
+  thus ?thesis
+  proof
+    assume "a \<in> OP_A_enq s"
+    then obtain p v sn where
+      a_eq: "a = mk_op enq v p sn"
+      and call: "EnqCallInHis s p v sn"
+      unfolding OP_A_enq_def
+      by blast
+
+    show ?thesis
+      using EnqCallInHis_imp_OpCalledInHis[OF call]
+      unfolding a_eq
+      by simp
+  next
+    assume rest: "a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    thus ?thesis
+    proof
+      assume "a \<in> OP_A_deq s"
+
+      hence name_deq: "op_name a = deq"
+        and call: "DeqCallInHis s (op_pid a) (op_ssn a)"
+        unfolding OP_A_deq_def
+        by auto
+
+      have a_mk:
+        "mk_op deq (op_val a) (op_pid a) (op_ssn a) = a"
+        using name_deq
+        by (cases a)
+           (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+      have called_mk:
+        "OpCalledInHis (his_seq s)
+           (mk_op deq (op_val a) (op_pid a) (op_ssn a))"
+        using DeqCallInHis_imp_OpCalledInHis[OF call, of "op_val a"] .
+
+      show ?thesis
+        using called_mk a_mk
+        by simp
+    next
+      assume "a \<in> OP_B_enq s"
+      then obtain p v sn where
+        a_eq: "a = mk_op enq v p sn"
+        and call: "EnqCallInHis s p v sn"
+        unfolding OP_B_enq_def
+        by blast
+
+      show ?thesis
+        using EnqCallInHis_imp_OpCalledInHis[OF call]
+        unfolding a_eq
+        by simp
+    qed
+  qed
+qed
+
+lemma D3_bot_advance_current_uI3:
+  fixes s :: SysState and p jp lp :: nat
+  assumes INV: "system_invariant s"
+  assumes PC: "program_counter s p = ''D3''"
+  assumes JP: "jp = j_var s p"
+  assumes LP: "lp = l_var s p"
+  assumes BOT_JP: "Q_arr s jp = BOT"
+  assumes NOT_LAST: "jp \<noteq> lp - 1"
+  assumes NEXT_NONBOT: "Q_arr s (jp + 1) \<noteq> BOT"
+  shows
+    "let cur_lin = lin_seq s;
+         cur_his = his_seq s;
+         x_val = Q_arr s (jp + 1);
+         op = mk_op deq x_val p (s_var s p);
+         new_lin =
+           (if should_modify cur_lin cur_his x_val
+            then modify_lin cur_lin cur_his x_val
+            else cur_lin) @ [op]
+     in USpec_GenLin cur_his (uspec_effOps s) op new_lin"
+proof -
+  let ?x = "Q_arr s (jp + 1)"
+  let ?op = "mk_op deq ?x p (s_var s p)"
+  let ?base =
+    "(if should_modify (lin_seq s) (his_seq s) ?x
+      then modify_lin (lin_seq s) (his_seq s) ?x
+      else lin_seq s)"
+  let ?L = "?base @ [?op]"
+  let ?H = "his_seq s"
+
+  have sI6: "sI6_D3_Scan_Pointers s"
+    using INV unfolding system_invariant_def by blast
+
+  have sI8: "sI8_Q_Qback_Sync s"
+    using INV unfolding system_invariant_def by blast
+
+  have sI10: "sI10_Qback_Unique_Vals s"
+    using INV unfolding system_invariant_def by blast
+
+  have lI3: "lI3_HB_Ret_Lin_Sync s"
+    using INV unfolding system_invariant_def by blast
+
+  have uI1: "uI1_USpec_EffOps_Lin s"
+    using INV unfolding system_invariant_def by blast
+
+  have hI12: "hI12_D_Phase_Pending_Deq s"
+    using INV unfolding system_invariant_def by blast
+
+  have di_lin_s:
+    "data_independent (lin_seq s)"
+    using INV
+    unfolding system_invariant_def
+    by simp
+
+  have hb_lin_s:
+    "HB_consistent (lin_seq s) (his_seq s)"
+    using lI3
+    unfolding lI3_HB_Ret_Lin_Sync_def HB_Act_def HB_consistent_def
+    by simp
+
+  have jp_lt_lp: "jp < lp"
+    using sI6 PC JP LP
+    unfolding sI6_D3_Scan_Pointers_def
+    by blast
+
+  have jp1_lt_lp: "jp + 1 < lp"
+  proof -
+    have "jp + 1 \<le> lp"
+      using jp_lt_lp by linarith
+    moreover have "jp + 1 \<noteq> lp"
+    proof
+      assume "jp + 1 = lp"
+      hence "jp = lp - 1"
+        using jp_lt_lp by simp
+      thus False
+        using NOT_LAST by simp
+    qed
+    ultimately show ?thesis
+      by linarith
+  qed
+
+  have qback_eq:
+    "Qback_arr s (jp + 1) = ?x"
+    using sI8 NEXT_NONBOT
+    unfolding sI8_Q_Qback_Sync_def
+    by metis
+
+  have in_qback:
+    "InQBack s ?x"
+    unfolding InQBack_def
+    using qback_eq
+    by blast
+
+  have x_val:
+    "?x \<in> Val"
+    using InQBack_non_BOT_implies_Val[OF INV in_qback NEXT_NONBOT] .
+
+  have typeB_x:
+    "TypeB s ?x"
+    unfolding TypeB_def QHas_def
+    by blast
+
+  have x_in_SetB:
+    "?x \<in> SetB s"
+    using x_val typeB_x
+    unfolding SetB_def
+    by simp
+
+  have idx_eq:
+    "Idx s ?x = jp + 1"
+  proof -
+    have at_idx:
+      "AtIdx s ?x (Idx s ?x)"
+      using Idx_implies_AtIdx[OF INV in_qback] .
+
+    have qback_idx:
+      "Qback_arr s (Idx s ?x) = ?x"
+      using AtIdx_implies_Qback_eq[OF at_idx] .
+
+    show ?thesis
+    proof (rule ccontr)
+      assume neq: "Idx s ?x \<noteq> jp + 1"
+
+      have "Qback_arr s (Idx s ?x) \<noteq> Qback_arr s (jp + 1)"
+        using sI10 neq qback_idx qback_eq NEXT_NONBOT
+        unfolding sI10_Qback_Unique_Vals_def
+        by metis
+
+      thus False
+        using qback_idx qback_eq
+        by simp
+    qed
+  qed
+
+  have scanned_prefix:
+    "\<forall>k. j_var s p \<le> k \<and> k < Idx s ?x \<longrightarrow> Q_arr s k = BOT"
+  proof (intro allI impI)
+    fix k
+    assume range: "j_var s p \<le> k \<and> k < Idx s ?x"
+
+    have "jp \<le> k \<and> k < jp + 1"
+      using range JP idx_eq
+      by auto
+
+    hence "k = jp"
+      by linarith
+
+    thus "Q_arr s k = BOT"
+      using BOT_JP
+      by simp
+  qed
+
+  have j_le_idx:
+    "j_var s p \<le> Idx s ?x"
+    using JP idx_eq
+    by simp
+
+  have idx_lt_l:
+    "Idx s ?x < l_var s p"
+    using LP idx_eq jp1_lt_lp
+    by simp
+
+  have typeBT_witness:
+    "\<exists>q. program_counter s q = ''D3'' \<and>
+         j_var s q \<le> Idx s ?x \<and>
+         Idx s ?x < l_var s q \<and>
+         (\<forall>k. j_var s q \<le> k \<and> k < Idx s ?x \<longrightarrow> Q_arr s k = BOT)"
+  proof -
+    have "program_counter s p = ''D3'' \<and>
+          j_var s p \<le> Idx s ?x \<and>
+          Idx s ?x < l_var s p \<and>
+          (\<forall>k. j_var s p \<le> k \<and> k < Idx s ?x \<longrightarrow> Q_arr s k = BOT)"
+      using PC j_le_idx idx_lt_l scanned_prefix
+      by simp
+
+    thus ?thesis
+      by blast
+  qed
+
+  have typeBT_x:
+    "TypeBT s ?x"
+    unfolding TypeBT_def
+    using typeB_x in_qback typeBT_witness
+    by blast
+
+  have set_base_eq:
+    "set ?base = set (lin_seq s)"
+  proof (cases "should_modify (lin_seq s) (his_seq s) ?x")
+    case True
+
+    hence base_eq:
+      "?base = modify_lin (lin_seq s) (his_seq s) ?x"
+      by simp
+
+    hence "mset ?base = mset (lin_seq s)"
+      using modify_preserves_mset
+      by simp
+
+    thus ?thesis
+      by (metis set_mset_mset)
+  next
+    case False
+
+    thus ?thesis
+      by simp
+  qed
+
+  have hb_base:
+    "HB_consistent ?base ?H"
+  proof (cases "should_modify (lin_seq s) (his_seq s) ?x")
+    case True
+
+    have base_eq:
+      "?base = modify_lin (lin_seq s) (his_seq s) ?x"
+      using True
+      by simp
+
+    show ?thesis
+      unfolding base_eq
+      by (rule modify_preserves_HB_consistent[
+            where L = "lin_seq s" and H = "his_seq s" and bt_val = ?x,
+            OF INV refl refl hb_lin_s di_lin_s typeBT_x
+          ])
+  next
+    case False
+
+    hence base_eq:
+      "?base = lin_seq s"
+      by simp
+
+    show ?thesis
+      unfolding base_eq
+      using hb_lin_s
+      by simp
+  qed
+
+  have pending_deq:
+    "HasPendingDeq s p"
+    using hI12 PC
+    unfolding hI12_D_Phase_Pending_Deq_def
+    by auto
+
+  have deq_call:
+    "DeqCallInHis s p (s_var s p)"
+    using pending_deq
+    unfolding HasPendingDeq_def Let_def
+    by blast
+
+  have op_called:
+    "OpCalledInHis ?H ?op"
+    using DeqCallInHis_imp_OpCalledInHis[OF deq_call, of ?x]
+    by simp
+
+  have no_HB_from_op:
+    "\<forall>x. \<not> HB ?H ?op x"
+  proof
+    fix x
+    show "\<not> HB ?H ?op x"
+    proof
+      assume hb: "HB ?H ?op x"
+
+      then obtain k1 k2 where
+        k1_lt_k2: "k1 < k2"
+        and mr: "match_ret ?H k1 ?op"
+        and mc: "match_call ?H k2 x"
+        unfolding HB_def
+        by blast
+
+      have k1_lt:
+        "k1 < length ?H"
+        using mr
+        unfolding match_ret_def Let_def
+        by simp
+
+      have pid_eq:
+        "act_pid (?H ! k1) = p"
+        using mr
+        unfolding match_ret_def Let_def
+        by (simp add: mk_op_def op_pid_def)
+
+      have ssn_eq:
+        "act_ssn (?H ! k1) = s_var s p"
+        using mr
+        unfolding match_ret_def Let_def
+        by (simp add: mk_op_def op_ssn_def)
+
+      have cr_eq:
+        "act_cr (?H ! k1) = ret"
+        using mr
+        unfolding match_ret_def Let_def
+        by simp
+
+      have in_his:
+        "?H ! k1 \<in> set ?H"
+        using k1_lt
+        by simp
+
+      have no_ret:
+        "\<forall>e\<in>set ?H.
+          \<not> (act_pid e = p \<and>
+               act_ssn e = s_var s p \<and>
+               act_cr e = ret)"
+        using pending_deq
+        unfolding HasPendingDeq_def Let_def
+        by blast
+
+      show False
+        using no_ret in_his pid_eq ssn_eq cr_eq
+        by blast
+    qed
+  qed
+
+  have hb_final:
+    "HB_consistent ?L ?H"
+  proof (rule HB_consistent_append)
+    show "HB_consistent ?base ?H"
+      using hb_base .
+  next
+    show "\<forall>a\<in>set ?base. \<not> HB ?H ?op a"
+      using no_HB_from_op
+      by blast
+  next
+    show "\<not> HB ?H ?op ?op"
+      using no_HB_from_op
+      by blast
+  qed
+
+  define s_tmp :: SysState where
+    "s_tmp = (fst s, (snd s)\<lparr>u_lin_seq := ?L\<rparr>)"
+
+  have lin_tmp:
+    "lin_seq s_tmp = ?L"
+    unfolding s_tmp_def lin_seq_def
+    by simp
+
+  have qs_final:
+    "QueueSpecLin ?L"
+  proof -
+    have "lI4_FIFO_Semantics s_tmp"
+      by (rule lI4_FIFO_Semantics_deq_step_preservation[
+            where s = s
+              and q_val = ?x
+              and s' = s_tmp
+              and p = p
+              and sn = "s_var s p"
+              and base_lin = ?base
+          ])
+         (use INV x_in_SetB NEXT_NONBOT lin_tmp in auto)
+
+    thus ?thesis
+      unfolding QueueSpecLin_def lI4_FIFO_Semantics_def
+      using lin_tmp
+      by simp
+  qed
+
+  have di_final:
+    "data_independent ?L"
+  proof -
+    have "data_independent (lin_seq s_tmp)"
+      by (rule D3_success_preserves_data_independent_lin_seq[
+            where s = s
+              and s' = s_tmp
+              and p = p
+              and sn = "s_var s p"
+              and q_val = ?x
+              and base_lin = ?base
+          ])
+         (use INV x_in_SetB lin_tmp in auto)
+
+    thus ?thesis
+      using lin_tmp
+      by simp
+  qed
+
+  have lin_called:
+    "\<forall>a\<in>set (lin_seq s). OpCalledInHis ?H a"
+    using lin_seq_ops_called_from_lI1[OF INV]
+    by blast
+
+  have base_called:
+    "\<forall>a\<in>set ?base. OpCalledInHis ?H a"
+    using lin_called set_base_eq
+    by auto
+
+  have all_called:
+    "\<forall>a\<in>set ?L. OpCalledInHis ?H a"
+    using base_called op_called
+    by auto
+
+  have eff_eq:
+    "uspec_effOps s = set (lin_seq s)"
+    using uI1
+    unfolding uI1_USpec_EffOps_Lin_def .
+
+  have finite_eff:
+    "finite (uspec_effOps s)"
+    using eff_eq
+    by simp
+
+  have eff_subset:
+    "uspec_effOps s \<subseteq> set ?L"
+    using eff_eq set_base_eq
+    by auto
+
+  have op_in:
+    "?op \<in> set ?L"
+    by simp
+
+  show ?thesis
+    unfolding USpec_GenLin_def Let_def
+    using finite_eff eff_subset op_in all_called hb_final qs_final di_final
+    by simp
+qed
+
+lemma D3_j_nonBOT_TypeBT_from_local:
+  assumes SI6: "sI6_D3_Scan_Pointers s"
+  assumes SI8: "sI8_Q_Qback_Sync s"
+  assumes SI10: "sI10_Qback_Unique_Vals s"
+  assumes pc: "program_counter s p = ''D3''"
+  assumes q_nonbot: "Q_arr s (j_var s p) \<noteq> BOT"
+  shows "TypeBT s (Q_arr s (j_var s p))"
+proof -
+  let ?j = "j_var s p"
+  let ?x = "Q_arr s ?j"
+
+  have qback_j:
+    "Qback_arr s ?j = ?x"
+    using SI8 q_nonbot
+    unfolding sI8_Q_Qback_Sync_def
+    by force
+
+  have typeB_x:
+    "TypeB s ?x"
+    unfolding TypeB_def QHas_def
+    by blast
+
+  have in_qback:
+    "InQBack s ?x"
+    unfolding InQBack_def
+    using qback_j
+    by blast
+
+  have at_j:
+    "AtIdx s ?x ?j"
+    unfolding AtIdx_def
+    using qback_j
+    by simp
+
+  have idx_eq:
+    "Idx s ?x = ?j"
+    unfolding Idx_def
+  proof (rule some_equality)
+    show "AtIdx s ?x ?j"
+      using at_j .
+  next
+    fix k
+    assume at_k: "AtIdx s ?x k"
+    show "k = ?j"
+    proof (rule ccontr)
+      assume neq: "k \<noteq> ?j"
+
+      have qback_k:
+        "Qback_arr s k = ?x"
+        using at_k
+        unfolding AtIdx_def
+        by simp
+
+      have "Qback_arr s k \<noteq> Qback_arr s ?j"
+        using SI10 neq qback_k qback_j q_nonbot
+        unfolding sI10_Qback_Unique_Vals_def
+        by metis
+
+      thus False
+        using qback_k qback_j
+        by simp
+    qed
+  qed
+
+  have j_lt_l:
+    "?j < l_var s p"
+    using SI6 pc
+    unfolding sI6_D3_Scan_Pointers_def
+    by blast
+
+  have prefix_empty:
+    "\<forall>k. ?j \<le> k \<and> k < Idx s ?x \<longrightarrow> Q_arr s k = BOT"
+    using idx_eq
+    by auto
+
+  show ?thesis
+    unfolding TypeBT_def
+    using typeB_x in_qback pc idx_eq j_lt_l prefix_empty
+    by (metis dual_order.refl)
+qed
+
+
+lemma SetB_implies_enq_in_lin_from_LI2:
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes x_in_SetB: "x \<in> SetB s"
+  shows "\<exists>k < length (lin_seq s).
+           op_name (lin_seq s ! k) = enq \<and>
+           op_val (lin_seq s ! k) = x"
+proof -
+  have card_enq:
+    "card (EnqIdxs s x) = 1"
+    using LI2 x_in_SetB
+    unfolding lI2_Op_Cardinality_def
+    by blast
+
+  then obtain k where k_in:
+    "k \<in> EnqIdxs s x"
+    by (metis card_1_singletonE insert_iff)
+
+  thus ?thesis
+    unfolding EnqIdxs_def
+    by auto
+qed
+
+
+lemma SetB_implies_no_deq_in_lin_from_LI2:
+  assumes LI2: "lI2_Op_Cardinality s"
+  assumes x_in_SetB: "x \<in> SetB s"
+  shows "\<forall>i < length (lin_seq s).
+           op_val (lin_seq s ! i) = x \<longrightarrow>
+           op_name (lin_seq s ! i) \<noteq> deq"
+proof (intro allI impI)
+  fix i
+  assume i_lt: "i < length (lin_seq s)"
+  assume val_eq: "op_val (lin_seq s ! i) = x"
+
+  have card_deq:
+    "card (DeqIdxs s x) = 0"
+    using LI2 x_in_SetB
+    unfolding lI2_Op_Cardinality_def
+    by blast
+
+  show "op_name (lin_seq s ! i) \<noteq> deq"
+  proof
+    assume deq_i: "op_name (lin_seq s ! i) = deq"
+
+    have i_in:
+      "i \<in> DeqIdxs s x"
+      unfolding DeqIdxs_def
+      using i_lt val_eq deq_i
+      by simp
+
+    have finite_deq:
+      "finite (DeqIdxs s x)"
+      unfolding DeqIdxs_def
+      by simp
+
+    have "card (DeqIdxs s x) > 0"
+      using finite_deq i_in
+      using card_gt_0_iff by blast
+
+    thus False
+      using card_deq
+      by simp
+  qed
+qed
+
+lemma not_in_SA_if_no_deq_act:
+  assumes no_deq:
+    "\<forall>a \<in> set L. op_val a = v \<longrightarrow> op_name a \<noteq> deq"
+  shows "\<not> in_SA v L"
+proof -
+  have no_deq_idx:
+    "find_indices (\<lambda>a. op_name a = deq \<and> op_val a = v) L = []"
+  proof -
+    have "\<forall>i \<in> set [0..<length L].
+            \<not> (op_name (L ! i) = deq \<and> op_val (L ! i) = v)"
+    proof
+      fix i
+      assume i_in: "i \<in> set [0..<length L]"
+      hence i_lt: "i < length L"
+        by simp
+
+      hence Li_in: "L ! i \<in> set L"
+        by simp
+
+      show "\<not> (op_name (L ! i) = deq \<and> op_val (L ! i) = v)"
+        using no_deq Li_in
+        by auto
+    qed
+
+    thus ?thesis
+      unfolding find_indices_def
+      by (simp add: filter_empty_conv)
+  qed
+
+  have deq_none:
+    "find_unique_index (\<lambda>a. op_name a = deq \<and> op_val a = v) L = None"
+    unfolding find_unique_index_def Let_def
+    using no_deq_idx
+    by simp
+
+  show ?thesis
+    unfolding in_SA_def
+    using deq_none
+    by (cases "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L") simp_all
+qed
+
+(* ==================================================================== *)
+(* D3 successful dequeue: reusable USpec queue/data-independence lemmas  *)
+(* ==================================================================== *)
+
+lemma D3_base_mset_eq_from_local_invs:
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "mset base_lin = mset L"
+proof (cases "should_modify L H v")
+  case True
+  hence base_eq:
+    "base_lin = modify_lin L H v"
+    using BASE
+    by simp
+
+  show ?thesis
+    unfolding base_eq
+    by (rule modify_preserves_mset)
+next
+  case False
+  hence base_eq:
+    "base_lin = L"
+    using BASE
+    by simp
+
+  show ?thesis
+    unfolding base_eq
+    by simp
+qed
+
+
+lemma D3_base_data_independent_from_local_invs:
+  assumes DI: "data_independent L"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "data_independent base_lin"
+proof -
+  have MSET:
+    "mset base_lin = mset L"
+    using D3_base_mset_eq_from_local_invs[OF BASE] .
+
+  show ?thesis
+    using DI data_independent_cong[OF MSET]
+    by blast
+qed
+
+
+lemma D3_base_pending_from_mset:
+  assumes MSET: "mset base_lin = mset L"
+  assumes PENDING:
+    "\<forall>i < length L.
+       op_val (L ! i) = v \<longrightarrow>
+       op_name (L ! i) \<noteq> deq"
+  shows
+    "\<forall>i < length base_lin.
+       op_val (base_lin ! i) = v \<longrightarrow>
+       op_name (base_lin ! i) \<noteq> deq"
+proof (intro allI impI)
+  fix i
+  assume i_lt: "i < length base_lin"
+  assume val_i: "op_val (base_lin ! i) = v"
+
+  have act_in_base:
+    "base_lin ! i \<in> set base_lin"
+    using i_lt
+    by simp
+
+  hence act_in_L:
+    "base_lin ! i \<in> set L"
+    using MSET
+    by (metis mset_eq_setD)
+
+  then obtain j where
+    j_lt: "j < length L"
+    and j_eq: "L ! j = base_lin ! i"
+    by (auto simp: in_set_conv_nth)
+
+  have val_j:
+    "op_val (L ! j) = v"
+    using j_eq val_i
+    by simp
+
+  have name_j:
+    "op_name (L ! j) \<noteq> deq"
+    using PENDING j_lt val_j
+    by blast
+
+  show "op_name (base_lin ! i) \<noteq> deq"
+    using name_j j_eq
+    by metis
+qed
+
+
+lemma D3_base_no_deq_from_pending:
+  assumes PENDING_BASE:
+    "\<forall>i < length base_lin.
+       op_val (base_lin ! i) = v \<longrightarrow>
+       op_name (base_lin ! i) \<noteq> deq"
+  shows
+    "\<forall>i < length base_lin.
+       op_name (base_lin ! i) = deq \<longrightarrow>
+       op_val (base_lin ! i) \<noteq> v"
+proof (intro allI impI)
+  fix i
+  assume i_lt: "i < length base_lin"
+  assume deq_i: "op_name (base_lin ! i) = deq"
+
+  show "op_val (base_lin ! i) \<noteq> v"
+  proof
+    assume val_i: "op_val (base_lin ! i) = v"
+
+    have "op_name (base_lin ! i) \<noteq> deq"
+      using PENDING_BASE i_lt val_i
+      by blast
+
+    thus False
+      using deq_i
+      by simp
+  qed
+qed
+
+
+lemma D3_base_enq_exists_from_mset:
+  assumes MSET: "mset base_lin = mset L"
+  assumes EXISTS:
+    "\<exists>k < length L.
+       op_name (L ! k) = enq \<and>
+       op_val (L ! k) = v"
+  shows
+    "\<exists>k < length base_lin.
+       op_name (base_lin ! k) = enq \<and>
+       op_val (base_lin ! k) = v"
+proof -
+  obtain k where
+    k_lt: "k < length L"
+    and k_enq: "op_name (L ! k) = enq"
+    and k_val: "op_val (L ! k) = v"
+    using EXISTS
+    by blast
+
+  have act_in_L:
+    "L ! k \<in> set L"
+    using k_lt
+    by simp
+
+  hence act_in_base:
+    "L ! k \<in> set base_lin"
+    using MSET
+    by (metis mset_eq_setD)
+
+  then obtain kb where
+    kb_lt: "kb < length base_lin"
+    and kb_eq: "base_lin ! kb = L ! k"
+    by (auto simp: in_set_conv_nth)
+
+  have kb_enq:
+    "op_name (base_lin ! kb) = enq"
+    using kb_eq k_enq
+    by metis
+
+  have kb_val:
+    "op_val (base_lin ! kb) = v"
+    using kb_eq k_val
+    by metis
+
+  show ?thesis
+  proof (rule exI[where x = kb])
+    show "kb < length base_lin \<and>
+          op_name (base_lin ! kb) = enq \<and>
+          op_val (base_lin ! kb) = v"
+      using kb_lt kb_enq kb_val
+      by simp
+  qed
+qed
+
+
+lemma D3_base_not_in_SA_from_pending:
+  assumes PENDING_BASE:
+    "\<forall>i < length base_lin.
+       op_val (base_lin ! i) = v \<longrightarrow>
+       op_name (base_lin ! i) \<noteq> deq"
+  shows "\<not> in_SA v base_lin"
+proof -
+  have no_deq_act:
+    "\<forall>a \<in> set base_lin.
+       op_val a = v \<longrightarrow>
+       op_name a \<noteq> deq"
+  proof
+    fix a
+    assume a_in: "a \<in> set base_lin"
+
+    then obtain i where
+      i_lt: "i < length base_lin"
+      and a_eq: "base_lin ! i = a"
+      by (auto simp: in_set_conv_nth)
+
+    show "op_val a = v \<longrightarrow> op_name a \<noteq> deq"
+    proof
+      assume val_a: "op_val a = v"
+
+      have val_i:
+        "op_val (base_lin ! i) = v"
+        using a_eq val_a
+        by metis
+
+      have name_i:
+        "op_name (base_lin ! i) \<noteq> deq"
+        using PENDING_BASE i_lt val_i
+        by blast
+
+      show "op_name a \<noteq> deq"
+        using name_i a_eq
+        by metis
+    qed
+  qed
+
+  show ?thesis
+    by (rule not_in_SA_if_no_deq_act[OF no_deq_act])
+qed
+
+
+lemma D3_base_distance_zero_from_local_invs:
+  assumes DI: "data_independent L"
+  assumes I4: "lI4_FIFO_Semantics_list L"
+  assumes I5: "lI5_SA_Prefix_list L"
+  assumes PENDING:
+    "\<forall>k < length L.
+       op_val (L ! k) = v \<longrightarrow>
+       op_name (L ! k) \<noteq> deq"
+  assumes EXISTS:
+    "\<exists>k < length L.
+       op_name (L ! k) = enq \<and>
+       op_val (L ! k) = v"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "Distance base_lin v = 0"
+proof (cases "should_modify L H v")
+  case True
+
+  hence base_eq:
+    "base_lin = modify_lin L H v"
+    using BASE
+    by simp
+
+  show ?thesis
+    unfolding base_eq
+    using modify_lin_Distance_zero_internal[
+      OF DI I4 I5 PENDING EXISTS
+    ]
+    by simp
+next
+  case False
+
+  have dist_L_zero:
+    "Distance L v = 0"
+  proof (rule ccontr)
+    assume dist_not_zero:
+      "Distance L v \<noteq> 0"
+
+    have "should_modify L H v"
+      using should_modify_completeness[
+        OF DI I5 PENDING EXISTS dist_not_zero
+      ] .
+
+    thus False
+      using False
+      by simp
+  qed
+
+  have base_eq:
+    "base_lin = L"
+    using BASE False
+    by simp
+
+  show ?thesis
+    unfolding base_eq
+    using dist_L_zero .
+qed
+
+
+lemma D3_base_lI4_from_local_invs:
+  assumes I4: "lI4_FIFO_Semantics_list L"
+  assumes DI: "data_independent L"
+  assumes I5: "lI5_SA_Prefix_list L"
+  assumes PENDING:
+    "\<forall>k < length L.
+       op_val (L ! k) = v \<longrightarrow>
+       op_name (L ! k) \<noteq> deq"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "lI4_FIFO_Semantics_list base_lin"
+proof (cases "should_modify L H v")
+  case True
+
+  hence base_eq:
+    "base_lin = modify_lin L H v"
+    using BASE
+    by simp
+
+  show ?thesis
+    by (rule move_pending_enq_preserves_lI4_FIFO_Semantics[
+          OF I4 base_eq DI I5 PENDING
+        ])
+next
+  case False
+
+  hence base_eq:
+    "base_lin = L"
+    using BASE
+    by simp
+
+  show ?thesis
+    unfolding base_eq
+    using I4 .
+qed
+
+
+lemma D3_qs_base_from_local_invs:
+  assumes I4: "lI4_FIFO_Semantics_list L"
+  assumes DI: "data_independent L"
+  assumes I5: "lI5_SA_Prefix_list L"
+  assumes PENDING:
+    "\<forall>k < length L.
+       op_val (L ! k) = v \<longrightarrow>
+       op_name (L ! k) \<noteq> deq"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "QueueSpecLin base_lin"
+proof -
+  have "lI4_FIFO_Semantics_list base_lin"
+    by (rule D3_base_lI4_from_local_invs[
+          OF I4 DI I5 PENDING BASE
+        ])
+
+  thus ?thesis
+    unfolding QueueSpecLin_def
+    by simp
+qed
+
+
+lemma D3_qs_final_from_local_invs:
+  assumes I4: "lI4_FIFO_Semantics_list L"
+  assumes DI: "data_independent L"
+  assumes I5: "lI5_SA_Prefix_list L"
+  assumes PENDING:
+    "\<forall>k < length L.
+       op_val (L ! k) = v \<longrightarrow>
+       op_name (L ! k) \<noteq> deq"
+  assumes EXISTS:
+    "\<exists>k < length L.
+       op_name (L ! k) = enq \<and>
+       op_val (L ! k) = v"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  assumes DEQ_NAME: "op_name deq_act = deq"
+  assumes DEQ_VAL: "op_val deq_act = v"
+  shows "QueueSpecLin (base_lin @ [deq_act])"
+proof -
+  have MSET:
+    "mset base_lin = mset L"
+    using D3_base_mset_eq_from_local_invs[OF BASE] .
+
+  have I4_BASE:
+    "lI4_FIFO_Semantics_list base_lin"
+    using D3_base_lI4_from_local_invs[
+      OF I4 DI I5 PENDING BASE
+    ] .
+
+  have DI_BASE:
+    "data_independent base_lin"
+    using D3_base_data_independent_from_local_invs[
+      OF DI BASE
+    ] .
+
+  have PENDING_BASE:
+    "\<forall>i < length base_lin.
+       op_val (base_lin ! i) = v \<longrightarrow>
+       op_name (base_lin ! i) \<noteq> deq"
+    using D3_base_pending_from_mset[
+      OF MSET PENDING
+    ] .
+
+  have EXISTS_BASE:
+    "\<exists>k < length base_lin.
+       op_name (base_lin ! k) = enq \<and>
+       op_val (base_lin ! k) = v"
+    using D3_base_enq_exists_from_mset[
+      OF MSET EXISTS
+    ] .
+
+  have NOT_SA_BASE:
+    "\<not> in_SA v base_lin"
+    using D3_base_not_in_SA_from_pending[
+      OF PENDING_BASE
+    ] .
+
+  have DIST_ZERO:
+    "Distance base_lin v = 0"
+    using D3_base_distance_zero_from_local_invs[
+      OF DI I4 I5 PENDING EXISTS BASE
+    ] .
+
+  have "lI4_FIFO_Semantics_list (base_lin @ [deq_act])"
+    by (rule lI4_FIFO_Semantics_append_deq_success[
+          OF I4_BASE DI_BASE DEQ_NAME DEQ_VAL
+             EXISTS_BASE NOT_SA_BASE DIST_ZERO
+        ])
+
+  thus ?thesis
+    unfolding QueueSpecLin_def
+    by simp
+qed
+
+
+lemma D3_di_final_from_local_invs:
+  assumes DI: "data_independent L"
+  assumes PENDING:
+    "\<forall>k < length L.
+       op_val (L ! k) = v \<longrightarrow>
+       op_name (L ! k) \<noteq> deq"
+  assumes BASE:
+    "base_lin =
+       (if should_modify L H v
+        then modify_lin L H v
+        else L)"
+  shows "data_independent (base_lin @ [mk_op deq v p sn])"
+proof -
+  have MSET:
+    "mset base_lin = mset L"
+    using D3_base_mset_eq_from_local_invs[OF BASE] .
+
+  have DI_BASE:
+    "data_independent base_lin"
+    using D3_base_data_independent_from_local_invs[
+      OF DI BASE
+    ] .
+
+  have PENDING_BASE:
+    "\<forall>i < length base_lin.
+       op_val (base_lin ! i) = v \<longrightarrow>
+       op_name (base_lin ! i) \<noteq> deq"
+    using D3_base_pending_from_mset[
+      OF MSET PENDING
+    ] .
+
+  have NO_DEQ_BASE:
+    "\<forall>i < length base_lin.
+       op_name (base_lin ! i) = deq \<longrightarrow>
+       op_val (base_lin ! i) \<noteq> v"
+    using D3_base_no_deq_from_pending[
+      OF PENDING_BASE
+    ] .
+
+  show ?thesis
+    by (rule data_independent_append_deq_fresh[
+          OF DI_BASE NO_DEQ_BASE
+        ])
 qed
 
 end

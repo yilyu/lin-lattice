@@ -1,34 +1,34 @@
 theory Termination
-  imports 
-    Main 
+  imports
+    Main
     "HOL-Library.Multiset"
     PureLib
     DistLib
 begin
 
 
-(* Case 2.2. *)
+(* Definitions and lemmas for distance and modify_lin. Related symbols: l2, bt_act. *)
 lemma moving_bt_act_forward_over_l2_last_case2:
   assumes "data_independent L"
-  assumes "L = l1 @ l2 @ [bt_act] @ l3"                    (* Comment. *)
-  assumes "l1 = take (nat (last_sa_pos + 1)) L"             (* l1 SA *)
-  assumes "last_sa_pos = find_last_SA L"  
-  assumes "l2 \<noteq> []"                                        (* l2 non-empty *)
-  assumes "l2_last = last l2"                              (* l2 *)
-  assumes "op_name l2_last = enq"                         (* l2_last enq *)
-  assumes "ll2 = butlast l2"                               (* l2 *)
-  assumes "op_name bt_act = enq" "op_val bt_act = bt_val" (* bt_act *)
-  assumes "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"  (* position *)
+  assumes "L = l1 @ l2 @ [bt_act] @ l3"                    (* Proof note. *)
+  assumes "l1 = take (nat (last_sa_pos + 1)) L"             (* Proof note. Related symbols: l1, SA. *)
+  assumes "last_sa_pos = find_last_SA L"
+  assumes "l2 \<noteq> []"                                        (* Proof note. Related symbols: l2. *)
+  assumes "l2_last = last l2"                              (* Proof note. Related symbols: l2. *)
+  assumes "op_name l2_last = enq"                         (* Enqueue-side reasoning. Related symbols: l2_last. *)
+  assumes "ll2 = butlast l2"                               (* Proof note. Related symbols: l2. *)
+  assumes "op_name bt_act = enq" "op_val bt_act = bt_val" (* Proof note. Related symbols: bt_act. *)
+  assumes "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"  (* Original source location. *)
   shows "Distance new_L bt_val < Distance L bt_val"
 proof -
-  (* Step 1. *)
+  (* Step 1 of the proof. *)
   have l2_decomp: "l2 = ll2 @ [l2_last]"
     by (simp add: assms(5,6,8))
-    
+
   have L_decomp: "L = l1 @ ll2 @ [l2_last] @ [bt_act] @ l3"
     using assms(2) l2_decomp by simp
 
-  (* Step 2. *)
+  (* Step 2 of the proof. *)
   have mset_eq: "mset new_L = mset L"
   proof -
     show ?thesis
@@ -36,42 +36,42 @@ proof -
       by (simp add: assms(11))
   qed
 
-  (* Step 3. *)
+  (* Step 3 of the proof. *)
   have di_new_L: "data_independent new_L"
     using assms(1) mset_eq new_L_is_data_independent by blast
 
-(* Step 4. *)
+(* Step 4 of the proof. Related symbols: SA. *)
   have same_SA: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L"
   proof
     fix v
-    (* Final: filter_empty_conv all_set_conv_all_nth, *)
+    (* Set, cardinality, and uniqueness reasoning. Related symbols: filter_empty_conv, all_set_conv_all_nth. *)
     have filter_to_set: "\<And>xs P. (find_indices P xs = []) \<longleftrightarrow> (\<forall>x \<in> set xs. \<not> P x)"
-      unfolding find_indices_def 
+      unfolding find_indices_def
       by (auto simp add: filter_empty_conv all_set_conv_all_nth)
-      
-    (* extract *)
-    have set_eq: "set new_L = set L" 
+
+    (* Extract the required witnesses and facts. *)
+    have set_eq: "set new_L = set L"
       using mset_eq by (metis set_mset_mset)
 
-    (* Comment. *)
-    have enq_eq: "(find_indices (\<lambda>a. op_name a = enq \<and> op_val a = v) new_L = []) \<longleftrightarrow> 
+    (* Use the relevant invariant, lemma, or hypothesis. *)
+    have enq_eq: "(find_indices (\<lambda>a. op_name a = enq \<and> op_val a = v) new_L = []) \<longleftrightarrow>
                   (find_indices (\<lambda>a. op_name a = enq \<and> op_val a = v) L = [])"
       using filter_to_set[of "\<lambda>a. op_name a = enq \<and> op_val a = v"] set_eq by simp
-      
-    have deq_eq: "(find_indices (\<lambda>a. op_name a = deq \<and> op_val a = v) new_L = []) \<longleftrightarrow> 
+
+    have deq_eq: "(find_indices (\<lambda>a. op_name a = deq \<and> op_val a = v) new_L = []) \<longleftrightarrow>
                   (find_indices (\<lambda>a. op_name a = deq \<and> op_val a = v) L = [])"
       using filter_to_set[of "\<lambda>a. op_name a = deq \<and> op_val a = v"] set_eq by simp
-      
+
     show "in_SA v new_L \<longleftrightarrow> in_SA v L"
       unfolding in_SA_def find_unique_index_def Let_def
       using enq_eq deq_eq by simp
   qed
 
-  (* Step 5.1.2. *)
+  (* Step 5 of the proof. Related symbols: l1, ll2. *)
   have prefix_part_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2))).
     distance_func v bt_val new_L \<le> distance_func v bt_val L"
   proof -
-    have bt_pos_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = 
+    have bt_pos_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L =
                     Some (length (l1 @ ll2 @ [l2_last]))"
     proof -
       let ?bt_pos = "length (l1 @ ll2 @ [l2_last])"
@@ -79,10 +79,10 @@ proof -
       have "?bt_pos < length L" by (simp add: L_decomp)
       from assms(1) `?bt_pos < length L` `L ! ?bt_pos = bt_act` assms(9)
       show ?thesis
-        using find_unique_index_def unique_enq_index assms(10) by force 
+        using find_unique_index_def unique_enq_index assms(10) by force
     qed
-    
-    have bt_pos_new: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L = 
+
+    have bt_pos_new: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L =
                       Some (length (l1 @ ll2))"
     proof -
       let ?bt_pos = "length (l1 @ ll2)"
@@ -92,21 +92,21 @@ proof -
       show ?thesis
         using find_unique_index_def unique_enq_index assms(10) by force
     qed
-    
+
     have pos_le: "length (l1 @ ll2) \<le> length (l1 @ ll2 @ [l2_last])" by simp
-    
+
     define rest_L where "rest_L = [l2_last] @ [bt_act] @ l3"
     define rest_new where "rest_new = [bt_act] @ [l2_last] @ l3"
-    
+
     have L_form: "L = (l1 @ ll2) @ rest_L" using L_decomp rest_L_def by simp
     have new_L_form: "new_L = (l1 @ ll2) @ rest_new" using assms(10) rest_new_def by (simp add: assms(11))
-      
+
     show ?thesis
       using l1_distance_non_increasing[OF assms(1) di_new_L L_form new_L_form bt_pos_L bt_pos_new pos_le same_SA]
       by auto
   qed
 
-  (* Step6: analysis l2_last *)
+  (* Step 6 of the proof. Related symbols: l2_last. *)
   have l2_last_strict_decrease: "distance_func (op_val l2_last) bt_val new_L < distance_func (op_val l2_last) bt_val L"
   proof -
     have l2_last_not_in_SA: "\<not> in_SA (op_val l2_last) L"
@@ -119,7 +119,7 @@ proof -
         using l1_contains_all_SA_in_L assms(1-4) `k < length L` `k \<ge> length l1` oper_eq by blast
       show ?thesis using target_not_in_SA L_k_eq by simp
     qed
-    
+
     have dist_old: "distance_func (op_val l2_last) bt_val L = 1"
     proof -
       let ?pos_v = "length (l1 @ ll2)"
@@ -130,71 +130,71 @@ proof -
         using val_at_pos_v assms(7) by auto
       have idx_v: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = op_val l2_last) L = Some ?pos_v"
         unfolding find_unique_index_def using unique_enq_index[OF assms(1) oper_v(1) oper_v(2) pos_v_bound] by simp
-        
+
       have pos_bt_bound: "?pos_bt < length L" using L_decomp by simp
       have val_at_pos_bt: "L ! ?pos_bt = bt_act" using L_decomp by (simp add: nth_append)
       have oper_bt: "op_name (L ! ?pos_bt) = enq" "op_val (L ! ?pos_bt) = bt_val"
-        using val_at_pos_bt assms(9,10) by auto 
+        using val_at_pos_bt assms(9,10) by auto
       have idx_bt: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = Some ?pos_bt"
         unfolding find_unique_index_def using assms(1) pos_bt_bound unique_enq_index oper_bt by auto
       show ?thesis using distance_func_def l2_last_not_in_SA idx_v idx_bt by simp
     qed
-    
+
     have dist_new: "distance_func (op_val l2_last) bt_val new_L = 0"
     proof -
       let ?pos_v = "length (l1 @ ll2) + 1"
       let ?pos_bt = "length (l1 @ ll2)"
       have not_in_sa_new: "\<not> in_SA (op_val l2_last) new_L" using same_SA l2_last_not_in_SA by simp
-      
-      have pos_v_bound: "?pos_v < length new_L" by (simp add: assms(11)) 
-      (* Fix. *)
+
+      have pos_v_bound: "?pos_v < length new_L" by (simp add: assms(11))
+      (* Key proof fix. Related symbols: nth_append. *)
       have val_at_pos_v: "new_L ! ?pos_v = l2_last" by (simp add: assms(11) nth_append)
       have oper_v: "op_name (new_L ! ?pos_v) = enq" "op_val (new_L ! ?pos_v) = op_val l2_last"
         using val_at_pos_v assms(7) by auto
       have idx_v: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = op_val l2_last) new_L = Some ?pos_v"
         unfolding find_unique_index_def using assms(7) di_new_L pos_v_bound unique_enq_index oper_v by auto
-        
-      have pos_bt_bound: "?pos_bt < length new_L" by (simp add: assms(11)) 
-      have val_at_pos_bt: "new_L ! ?pos_bt = bt_act" using assms(11) by (simp add: nth_append) 
+
+      have pos_bt_bound: "?pos_bt < length new_L" by (simp add: assms(11))
+      have val_at_pos_bt: "new_L ! ?pos_bt = bt_act" using assms(11) by (simp add: nth_append)
       have oper_bt: "op_name (new_L ! ?pos_bt) = enq" "op_val (new_L ! ?pos_bt) = bt_val"
         using assms(9,10) val_at_pos_bt by auto
       have idx_bt: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L = Some ?pos_bt"
-        unfolding find_unique_index_def using di_new_L pos_bt_bound unique_enq_index oper_bt by auto 
-        
+        unfolding find_unique_index_def using di_new_L pos_bt_bound unique_enq_index oper_bt by auto
+
       show ?thesis using distance_func_def not_in_sa_new idx_v idx_bt by simp
     qed
-    
+
     show ?thesis using dist_old dist_new by simp
   qed
-  
-  (* Step 7.0.0. *)
+
+  (* Definitions and lemmas for distance and modify_lin. Related symbols: bt_act. *)
   have bt_act_unchanged: "distance_func bt_val bt_val new_L = distance_func bt_val bt_val L"
     using distance_self_zero[OF di_new_L] distance_self_zero[OF assms(1)] by simp
-    
-  (* Step8: analysis l3 (distance 0 = 0) *)
-  have l3_part_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)). 
+
+  (* Definitions and lemmas for distance and modify_lin. Related symbols: l3. *)
+  have l3_part_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)).
     distance_func v bt_val new_L = 0 \<and> distance_func v bt_val L = 0"
   proof
     fix v assume v_in: "v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
-    
+
     have dist_L_zero: "distance_func v bt_val L = 0"
       using l3_distance_zero_observational[OF assms(1) _ _ assms(9,10,3,4) v_in] assms(2) by fastforce
-      
+
     have sa_pos_eq: "find_last_SA new_L = last_sa_pos"
     proof -
       let ?P_L = "\<lambda>a. op_name a = enq \<and> in_SA (op_val a) L"
       let ?P_new = "\<lambda>a. op_name a = enq \<and> in_SA (op_val a) new_L"
       have len_eq: "length new_L = length L" using mset_eq by (metis size_mset)
-      
+
       have P_eq: "\<forall>a. ?P_L a \<longleftrightarrow> ?P_new a" using same_SA by auto
-      
-      (* Fix. *)
+
+      (* Key proof fix. Related symbols: upt_append. *)
       have indices_eq: "find_indices ?P_new new_L = find_indices ?P_L L"
       proof -
-        have split_list: "[0..<length L] = [0..<length l1] @ [length l1..<length L]" 
+        have split_list: "[0..<length L] = [0..<length l1] @ [length l1..<length L]"
           using assms(2) by (metis length_append upt_add_eq_append zero_le)
-          
-        (* explicit L, *)
+
+        (* List-index and filtering reasoning. *)
         have L_indices_scope: "\<forall>i < length L. ?P_L (L ! i) \<longrightarrow> i < length l1"
         proof (intro allI impI)
           fix i assume "i < length L" and "?P_L (L ! i)"
@@ -203,18 +203,18 @@ proof -
             by (metis append_is_Nil_conv leI)
         qed
 
-        (* : l1, extract *)
+        (* Extract the required witnesses and facts. Related symbols: l1. *)
         have part1: "filter (\<lambda>i. ?P_new (new_L ! i)) [0..<length l1] = filter (\<lambda>i. ?P_L (L ! i)) [0..<length l1]"
         proof (rule filter_cong[OF refl])
           fix i assume "i \<in> set [0..<length l1]"
           then have "i < length l1" by simp
-          have "new_L ! i = L ! i" 
+          have "new_L ! i = L ! i"
             using `i < length l1` assms(2,11) by (metis nth_append)
           thus "?P_new (new_L ! i) = ?P_L (L ! i)" using P_eq
             by presburger
         qed
 
-        (* L SA *)
+        (* Proof note. Related symbols: SA. *)
         have part2_L: "filter (\<lambda>i. ?P_L (L ! i)) [length l1..<length L] = []"
         proof -
           have "\<forall>i \<in> set [length l1..<length L]. \<not> ?P_L (L ! i)"
@@ -222,7 +222,7 @@ proof -
           thus ?thesis by (simp add: filter_empty_conv)
         qed
 
-        (* new_L SA () *)
+        (* Use the relevant invariant, lemma, or hypothesis. Related symbols: new_L, SA. *)
         have part2_new: "filter (\<lambda>i. ?P_new (new_L ! i)) [length l1..<length L] = []"
         proof -
           have "\<forall>i \<in> set [length l1..<length L]. \<not> ?P_new (new_L ! i)"
@@ -230,38 +230,38 @@ proof -
             fix i assume "i \<in> set [length l1..<length L]" and "?P_new (new_L ! i)"
             hence i_bounds: "length l1 \<le> i" "i < length L" by auto
             hence i_len_new: "i < length new_L" using len_eq by simp
-            
-            have is_enq: "op_name (new_L ! i) = enq" and in_sa: "in_SA (op_val (new_L ! i)) new_L" 
+
+            have is_enq: "op_name (new_L ! i) = enq" and in_sa: "in_SA (op_val (new_L ! i)) new_L"
               using `?P_new (new_L ! i)` by auto
-            
+
             define val_i where "val_i = op_val (new_L ! i)"
             have "in_SA val_i L" using in_sa same_SA val_i_def by simp
-            
-            (* val_i SA, L l1 *)
+
+            (* Enqueue-side reasoning. Related symbols: val_i, SA, l1. *)
             obtain j where j_def: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = val_i) L = Some j"
-              using `in_SA val_i L` unfolding in_SA_def Let_def 
+              using `in_SA val_i L` unfolding in_SA_def Let_def
               by (auto split: option.splits)
-              
+
             have j_props: "op_name (L ! j) = enq" "op_val (L ! j) = val_i" "j < length L"
               using find_unique_index_enq[OF assms(1) j_def] by auto
-              
-            have "j < length l1" 
+
+            have "j < length l1"
               using L_indices_scope `in_SA val_i L` j_props(1,2) j_props(3) by auto
-              
-            (* prefix, new_L L j *)
-            have "new_L ! j = L ! j" 
+
+            (* Proof note. Related symbols: new_L. *)
+            have "new_L ! j = L ! j"
               using `j < length l1` assms(2,11) by (metis nth_append)
-              
+
             have "op_name (new_L ! j) = enq" "op_val (new_L ! j) = val_i"
               using j_props `new_L ! j = L ! j` by auto
-              
-            (* ,, i j *)
+
+            (* Enqueue-side reasoning. *)
             have "i = j"
               using unique_enq_value[OF di_new_L i_len_new] `j < length l1` len_eq
               is_enq val_i_def `op_name (new_L ! j) = enq` `op_val (new_L ! j) = val_i`
-              by (metis j_props(3)) 
-              
-            (* i, j, ！ *)
+              by (metis j_props(3))
+
+            (* Contradiction argument. *)
             thus False using i_bounds `j < length l1` by simp
           qed
           thus ?thesis by (simp add: filter_empty_conv)
@@ -272,8 +272,8 @@ proof -
       qed
       show ?thesis unfolding find_last_SA_def indices_eq using assms(4) find_last_SA_def by simp
     qed
-    
-    (* distance_zero_observational *)
+
+    (* Proof note. Related symbols: distance_zero_observational. *)
     have dist_new_zero: "distance_func v bt_val new_L = 0"
     proof (rule l3_distance_zero_observational)
       show "data_independent new_L" by (fact di_new_L)
@@ -287,34 +287,34 @@ proof -
       proof -
         have "take (nat (find_last_SA new_L + 1)) new_L = take (nat (last_sa_pos + 1)) new_L"
           using sa_pos_eq by simp
-        
-        (* Fix. *)
+
+        (* Key proof fix. Related symbols: last_sa_pos, l1. *)
         also have "... = take (length l1) new_L"
         proof -
-          (* Step 1.1. *)
+          (* Step 1 of the proof. Related symbols: l1. *)
           have "length l1 = min (nat (last_sa_pos + 1)) (length L)"
             using assms(3) by simp
-          (* Step 2.2.1. *)
+          (* Step 2 of the proof. Related symbols: l2, bt_act, l1. *)
           moreover have "length l1 < length L"
             using assms(2) assms(5) by simp
-          (* Step 3.1. *)
+          (* Step 3 of the proof. Related symbols: l1. *)
           ultimately have "nat (last_sa_pos + 1) = length l1"
             by linarith
-          (* Step 4. *)
+          (* Step 4 of the proof. *)
           thus ?thesis by simp
         qed
-        
+
         also have "... = l1"
           using assms(11) by simp
         finally show ?thesis by simp
       qed
     qed
-    
-    show "distance_func v bt_val new_L = 0 \<and> distance_func v bt_val L = 0" 
+
+    show "distance_func v bt_val new_L = 0 \<and> distance_func v bt_val L = 0"
       using dist_new_zero dist_L_zero by simp
   qed
 
-  (* Step 9. *)
+  (* Step 9 of the proof. *)
   show ?thesis
   proof -
     let ?S_prefix = "set (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2)))"
@@ -323,68 +323,68 @@ proof -
     let ?S_l3 = "set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
     let ?all_enqueues_L = "filter (\<lambda>a. op_name a = enq) L"
     let ?enqueued_values_L = "set (map op_val ?all_enqueues_L)"
-    
-    (* structure *)
+
+    (* Proof note. *)
     have list_structure: "?all_enqueues_L = filter (\<lambda>a. op_name a = enq) (l1 @ ll2) @ [l2_last] @ [bt_act] @ filter (\<lambda>a. op_name a = enq) l3"
       using L_decomp assms(7,9) by auto
-      
+
     have values_decomposition: "?enqueued_values_L = ?S_prefix \<union> ?S_l2_last \<union> ?S_bt \<union> ?S_l3"
       unfolding list_structure by (simp add: assms(10) ac_simps)
-      
+
     have distinct_all: "distinct (map op_val ?all_enqueues_L)"
     proof -
-      (* Proof step. *)
-      have list_equiv: "map op_val ?all_enqueues_L = 
+      (* Prove the required intermediate property. *)
+      have list_equiv: "map op_val ?all_enqueues_L =
                         map (\<lambda>i. op_val (L ! i)) (filter (\<lambda>i. op_name (L ! i) = enq) [0..<length L])"
       proof -
-        (* Step 1. *)
-        have "L = map (\<lambda>i. L ! i) [0..<length L]" 
+        (* Step 1 of the proof. *)
+        have "L = map (\<lambda>i. L ! i) [0..<length L]"
           by (simp add: map_nth)
-        (* Step 2. *)
-        hence "filter (\<lambda>a. op_name a = enq) L = 
-               filter (\<lambda>a. op_name a = enq) (map (\<lambda>i. L ! i) [0..<length L])" 
+        (* Step 2 of the proof. *)
+        hence "filter (\<lambda>a. op_name a = enq) L =
+               filter (\<lambda>a. op_name a = enq) (map (\<lambda>i. L ! i) [0..<length L])"
           by simp
-        (* Step 3. *)
+        (* Step 3: use the available invariant or hypothesis. Related symbols: filter_map, \<circ>. *)
         also have "... = map (\<lambda>i. L ! i) (filter (\<lambda>i. op_name (L ! i) = enq) [0..<length L])"
           by (simp add: filter_map o_def)
-        (* Step 4. *)
-        finally show ?thesis 
+        (* Step 4 of the proof. Related symbols: op_val, map_map. *)
+        finally show ?thesis
           by simp
       qed
-      
-      (* Auxiliary lemma. *)
-      thus ?thesis 
+
+      (* List-index and filtering reasoning. *)
+      thus ?thesis
         using enq_values_distinct[OF assms(1)] by simp
     qed
-      
+
     have disjoints: "?S_prefix \<inter> (?S_l2_last \<union> ?S_bt \<union> ?S_l3) = {}"
                     "?S_l2_last \<inter> (?S_bt \<union> ?S_l3) = {}"
                     "?S_bt \<inter> ?S_l3 = {}"
     proof -
-      (* map, preserve structure *)
-      have mapped_list_eq: "map op_val ?all_enqueues_L = 
-        map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2)) @ 
-        [op_val l2_last] @ [bt_val] @ 
+      (* Proof note. *)
+      have mapped_list_eq: "map op_val ?all_enqueues_L =
+        map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2)) @
+        [op_val l2_last] @ [bt_val] @
         map op_val (filter (\<lambda>a. op_name a = enq) l3)"
         using list_structure assms(10) by simp
 
-      (* , unfold 4,, auto automatic distinct_append *)
-      have "distinct (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2)) @ 
-                      [op_val l2_last] @ [bt_val] @ 
+      (* Proof-automation note. Related symbols: distinct_append. *)
+      have "distinct (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ ll2)) @
+                      [op_val l2_last] @ [bt_val] @
                       map op_val (filter (\<lambda>a. op_name a = enq) l3))"
         using distinct_all mapped_list_eq by simp
-        
+
       thus "?S_prefix \<inter> (?S_l2_last \<union> ?S_bt \<union> ?S_l3) = {}"
            "?S_l2_last \<inter> (?S_bt \<union> ?S_l3) = {}"
            "?S_bt \<inter> ?S_l3 = {}"
         by auto
     qed
-      
-    have sum_L: "(\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val L) = 
+
+    have sum_L: "(\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val L) =
       (\<Sum>v\<in>?S_prefix. distance_func v bt_val L) + (\<Sum>v\<in>?S_l2_last. distance_func v bt_val L) +
       (\<Sum>v\<in>?S_bt. distance_func v bt_val L) + (\<Sum>v\<in>?S_l3. distance_func v bt_val L)"
     proof -
-      have 1: "(\<Sum>v\<in>?S_prefix \<union> (?S_l2_last \<union> ?S_bt \<union> ?S_l3). distance_func v bt_val L) = 
+      have 1: "(\<Sum>v\<in>?S_prefix \<union> (?S_l2_last \<union> ?S_bt \<union> ?S_l3). distance_func v bt_val L) =
                (\<Sum>v\<in>?S_prefix. distance_func v bt_val L) + (\<Sum>v\<in>?S_l2_last \<union> ?S_bt \<union> ?S_l3. distance_func v bt_val L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_prefix" by simp
@@ -392,7 +392,7 @@ proof -
         show "?S_prefix \<inter> (?S_l2_last \<union> ?S_bt \<union> ?S_l3) = {}" by (fact disjoints(1))
       qed
 
-      have 2: "(\<Sum>v\<in>?S_l2_last \<union> (?S_bt \<union> ?S_l3). distance_func v bt_val L) = 
+      have 2: "(\<Sum>v\<in>?S_l2_last \<union> (?S_bt \<union> ?S_l3). distance_func v bt_val L) =
                (\<Sum>v\<in>?S_l2_last. distance_func v bt_val L) + (\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_l2_last" by simp
@@ -400,23 +400,23 @@ proof -
         show "?S_l2_last \<inter> (?S_bt \<union> ?S_l3) = {}" by (fact disjoints(2))
       qed
 
-      have 3: "(\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val L) = 
+      have 3: "(\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val L) =
                (\<Sum>v\<in>?S_bt. distance_func v bt_val L) + (\<Sum>v\<in>?S_l3. distance_func v bt_val L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_bt" by simp
         show "finite ?S_l3" by simp
         show "?S_bt \<inter> ?S_l3 = {}" by (fact disjoints(3))
       qed
-      
+
       show ?thesis unfolding values_decomposition 1 2 3
-        using "1" "2" "3" by auto 
+        using "1" "2" "3" by auto
     qed
-    
-    have sum_new: "(\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val new_L) = 
+
+    have sum_new: "(\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val new_L) =
       (\<Sum>v\<in>?S_prefix. distance_func v bt_val new_L) + (\<Sum>v\<in>?S_l2_last. distance_func v bt_val new_L) +
       (\<Sum>v\<in>?S_bt. distance_func v bt_val new_L) + (\<Sum>v\<in>?S_l3. distance_func v bt_val new_L)"
     proof -
-      have 1: "(\<Sum>v\<in>?S_prefix \<union> (?S_l2_last \<union> ?S_bt \<union> ?S_l3). distance_func v bt_val new_L) = 
+      have 1: "(\<Sum>v\<in>?S_prefix \<union> (?S_l2_last \<union> ?S_bt \<union> ?S_l3). distance_func v bt_val new_L) =
                (\<Sum>v\<in>?S_prefix. distance_func v bt_val new_L) + (\<Sum>v\<in>?S_l2_last \<union> ?S_bt \<union> ?S_l3. distance_func v bt_val new_L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_prefix" by simp
@@ -424,7 +424,7 @@ proof -
         show "?S_prefix \<inter> (?S_l2_last \<union> ?S_bt \<union> ?S_l3) = {}" by (fact disjoints(1))
       qed
 
-      have 2: "(\<Sum>v\<in>?S_l2_last \<union> (?S_bt \<union> ?S_l3). distance_func v bt_val new_L) = 
+      have 2: "(\<Sum>v\<in>?S_l2_last \<union> (?S_bt \<union> ?S_l3). distance_func v bt_val new_L) =
                (\<Sum>v\<in>?S_l2_last. distance_func v bt_val new_L) + (\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val new_L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_l2_last" by simp
@@ -432,19 +432,19 @@ proof -
         show "?S_l2_last \<inter> (?S_bt \<union> ?S_l3) = {}" by (fact disjoints(2))
       qed
 
-      have 3: "(\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val new_L) = 
+      have 3: "(\<Sum>v\<in>?S_bt \<union> ?S_l3. distance_func v bt_val new_L) =
                (\<Sum>v\<in>?S_bt. distance_func v bt_val new_L) + (\<Sum>v\<in>?S_l3. distance_func v bt_val new_L)"
       proof (rule sum.union_disjoint)
         show "finite ?S_bt" by simp
         show "finite ?S_l3" by simp
         show "?S_bt \<inter> ?S_l3 = {}" by (fact disjoints(3))
       qed
-      
+
       show ?thesis unfolding values_decomposition 1 2 3
-        using "1" "2" "3" by auto 
+        using "1" "2" "3" by auto
     qed
 
-    (* : 4 conclusion *)
+    (* Proof note. *)
     have "(\<Sum>v\<in>?S_prefix. distance_func v bt_val new_L) \<le> (\<Sum>v\<in>?S_prefix. distance_func v bt_val L)"
       using prefix_part_unchanged by (meson sum_mono)
     moreover have "(\<Sum>v\<in>?S_l2_last. distance_func v bt_val new_L) < (\<Sum>v\<in>?S_l2_last. distance_func v bt_val L)"
@@ -453,14 +453,14 @@ proof -
       using bt_act_unchanged by simp
     moreover have "(\<Sum>v\<in>?S_l3. distance_func v bt_val new_L) = (\<Sum>v\<in>?S_l3. distance_func v bt_val L)"
       using l3_part_unchanged by (metis sum.not_neutral_contains_not_neutral)
-      
-    (* Core *)
+
+    (* Proof note. *)
     ultimately have strict_ineq: "(\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val new_L) < (\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val L)"
       unfolding sum_L sum_new by linarith
 
-    (* sorry 4: Distance definition *)
-    
-    (* Step 1. *)
+    (* Definition block. *)
+
+    (* Step 1 of the proof. *)
     have dist_L: "Distance L bt_val = (\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val L)"
     proof -
       have "Distance L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?enqueued_values_L))"
@@ -470,16 +470,16 @@ proof -
       finally show ?thesis .
     qed
 
-    (* Step 2. *)
+    (* Step 2: perform the set/cardinality reasoning. Related symbols: new_L. *)
     have enq_vals_new_eq: "set (map op_val (filter (\<lambda>a. op_name a = enq) new_L)) = ?enqueued_values_L"
     proof -
       have "set new_L = set L" using mset_eq by (metis set_mset_mset)
       hence "set (filter (\<lambda>a. op_name a = enq) new_L) = set ?all_enqueues_L" by auto
       thus ?thesis
-        by simp 
+        by simp
     qed
 
-    (* Step 3. *)
+    (* Step 3 of the proof. Related symbols: new_L. *)
     have dist_new: "Distance new_L bt_val = (\<Sum>v\<in>?enqueued_values_L. distance_func v bt_val new_L)"
     proof -
       let ?enqueued_values_new = "set (map op_val (filter (\<lambda>a. op_name a = enq) new_L))"
@@ -492,33 +492,33 @@ proof -
       finally show ?thesis .
     qed
 
-    (* Step 4. *)
+    (* Step 4 of the proof. *)
     show ?thesis
       using dist_L dist_new strict_ineq by simp
   qed
 qed
 
-(* 3 (Case 3): 
-    find_last_enq  o1 (l22) happens_before bt_act ，
-    o1  b_act 。
-   : ... [b_act] @ [o1] @ new_l22 ... -> ... [o1] @ [b_act] @ new_l22 ...
-    b_act  bt_act 。
+(* Definitions and lemmas for distance and modify_lin. Related symbols: find_last_enq, o1, l22, happens_before, bt_act, b_act.
+
+
+
+
 *)
 lemma moving_b_act_forward_over_o1_case3:
   assumes "data_independent L"
-  assumes "L = l1 @ l2 @ [bt_act] @ l3"                    (* Comment. *)
-  assumes "l1 = take (nat (last_sa_pos + 1)) L"             (* l1 SA *)
+  assumes "L = l1 @ l2 @ [bt_act] @ l3"                    (* Proof note. *)
+  assumes "l1 = take (nat (last_sa_pos + 1)) L"             (* Proof note. Related symbols: l1, SA. *)
   assumes "last_sa_pos = find_last_SA L"
-  assumes "find_last_enq l2 = Some (l21, b_act, l22)"     (* l2 *)
-  assumes "l22 \<noteq> []"                                      (* l22 non-empty *)
-  assumes "o1 = hd l22"                                   (* o1 l22 *)
-  assumes "new_l22 = tl l22"                              (* new_l22 *)
-  assumes "op_name b_act = enq" "op_name bt_act = enq"  (* b_act bt_act enq *)
+  assumes "find_last_enq l2 = Some (l21, b_act, l22)"     (* Proof note. Related symbols: l2. *)
+  assumes "l22 \<noteq> []"                                      (* Proof note. Related symbols: l22. *)
+  assumes "o1 = hd l22"                                   (* Proof note. Related symbols: o1, l22. *)
+  assumes "new_l22 = tl l22"                              (* Proof note. Related symbols: new_l22. *)
+  assumes "op_name b_act = enq" "op_name bt_act = enq"  (* Enqueue-side reasoning. Related symbols: b_act, bt_act. *)
   assumes "op_val bt_act = bt_val"
-  assumes "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3" (* Comment. *)
+  assumes "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3" (* Proof note. *)
   shows "Distance new_L bt_val < Distance L bt_val"
 proof -
-  (* Step 1. *)
+  (* Step 1 of the proof. *)
   (* l2 = l21 @ [b_act] @ l22 *)
   from assms(5) have l2_decomp_raw: "l2 = l21 @ [b_act] @ l22"
     unfolding find_last_enq_def
@@ -529,56 +529,56 @@ proof -
     using assms(6,7,8)
     by simp
 
-  (* L *)
+  (* Proof note. *)
   have L_decomp: "L = l1 @ l21 @ [b_act] @ [o1] @ new_l22 @ [bt_act] @ l3"
     using assms(2) l2_decomp_raw l22_decomp by simp
 
-  (* Step 2.22.1. *)
+  (* Step 2 of the proof. Related symbols: l22, o1. *)
   have l22_all_deq: "\<forall>a \<in> set l22. op_name a = deq"
     using assms(5,6) l22_are_all_deq by blast
-  
+
   have o1_is_deq: "op_name o1 = deq"
     using l22_all_deq l22_decomp by simp
 
-(* Step 3. *)
+(* Step 3 of the proof. *)
   have mset_eq: "mset new_L = mset L"
   proof -
-    (* : assumes, new_L definition assms(12) *)
-    (* explicit unfold L_decomp new_L definition *)
+    (* Definition block. Related symbols: new_L. *)
+    (* Unfold the relevant definition and expose the required facts. Related symbols: L_decomp, new_L. *)
     show ?thesis
-      using L_decomp assms(12) 
-      by (simp add: ac_simps) 
+      using L_decomp assms(12)
+      by (simp add: ac_simps)
   qed
 
-  (* Step 4. *)
+  (* Step 4 of the proof. *)
   have di_new_L: "data_independent new_L"
     using assms(1) mset_eq new_L_is_data_independent by blast
 
-  (* Step5: SA stateunchanged *)
+  (* Step 5 of the proof. Related symbols: SA. *)
   have same_SA: "\<forall>v. in_SA v new_L \<longleftrightarrow> in_SA v L"
     using assms(1,3,4,12) di_new_L mset_eq L_and_new_L_have_same_SA
     by (metis append_is_Nil_conv assms(2) list.distinct(1))
 
-  (* Step 6.1. *)
-  have l1_contains_all_SA: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow> 
+  (* Step 6 of the proof. Related symbols: l1, SA. *)
+  have l1_contains_all_SA: "\<forall>i. i \<ge> length l1 \<and> i < length L \<and> op_name (L ! i) = enq \<longrightarrow>
     \<not> in_SA (op_val (L ! i)) L"
     using assms(1,2,3,4) l1_contains_all_SA_in_L by blast
 
-(* Step 7. *)
-  
-  (* Step 7.1.1.21. *)
+(* Step 7 of the proof. *)
+
+  (* Step 7 of the proof. Related symbols: l1, l21. *)
   have prefix_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ l21))).
       distance_func v bt_val new_L \<le> distance_func v bt_val L"
   proof
     fix v assume v_in: "v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ l21)))"
-    
-    (* Proof step. *)
-    
-    (* A. analysis L structure *)
+
+    (* Original source location. *)
+
+    (* Proof note. *)
     let ?pre_L = "l1 @ l21 @ [b_act] @ [o1] @ new_l22"
     have L_struct: "L = ?pre_L @ [bt_act] @ l3" using L_decomp by simp
 
-    (* A1. bt_act L uniqueindex *)
+    (* Set, cardinality, and uniqueness reasoning. Related symbols: A1, bt_act. *)
     have idx_bt_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = Some (length ?pre_L)"
     proof -
       have val_at_idx: "L ! (length ?pre_L) = bt_act" using L_struct by (simp add: nth_append)
@@ -589,11 +589,11 @@ proof -
         using assms(1) valid_idx unique_enq_index val_at_idx cond_holds by fastforce
     qed
 
-    (* B. analysis new_L structure *)
+    (* Proof note. Related symbols: new_L. *)
     let ?pre_new = "l1 @ l21 @ [o1] @ [b_act] @ new_l22"
-    have new_L_struct: "new_L = ?pre_new @ [bt_act] @ l3" by (simp add: assms(12)) 
-      
-    (* B1. bt_act new_L uniqueindex *)
+    have new_L_struct: "new_L = ?pre_new @ [bt_act] @ l3" by (simp add: assms(12))
+
+    (* Set, cardinality, and uniqueness reasoning. Related symbols: B1, bt_act, new_L. *)
     have idx_bt_new: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L = Some (length ?pre_new)"
     proof -
       have val_at_idx: "new_L ! (length ?pre_new) = bt_act" using new_L_struct by (simp add: nth_append)
@@ -604,67 +604,67 @@ proof -
         using di_new_L valid_idx unique_enq_index val_at_idx cond_holds by fastforce
     qed
 
-    (* C. index *)
+    (* List-index and filtering reasoning. *)
     have len_eq: "length ?pre_L = length ?pre_new" by simp
-    have idx_bt_eq: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = 
+    have idx_bt_eq: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L =
                      find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L"
       using idx_bt_L idx_bt_new len_eq by simp
 
-    (* Proof step. *)
-    have idx_v_eq: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = 
+    (* Prove the required intermediate property. *)
+    have idx_v_eq: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L =
                     find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) new_L"
     proof -
-      (* Final: x auto, structure *)
-      obtain i where i_bounds: "i < length (l1 @ l21)" 
-                 and i_act: "op_name ((l1 @ l21) ! i) = enq" 
+      (* Proof-automation note. *)
+      obtain i where i_bounds: "i < length (l1 @ l21)"
+                 and i_act: "op_name ((l1 @ l21) ! i) = enq"
                  and i_val: "op_val ((l1 @ l21) ! i) = v"
       proof -
-        (* :,, extractconcrete x *)
-        obtain x where x_in: "x \<in> set (l1 @ l21)" 
-                   and x_act: "op_name x = enq" 
+        (* Extract the required witnesses and facts. *)
+        obtain x where x_in: "x \<in> set (l1 @ l21)"
+                   and x_act: "op_name x = enq"
                    and x_val: "op_val x = v"
           using v_in by auto
-          
-        (* : x directmap idx *)
+
+        (* List-index and filtering reasoning. *)
         obtain idx where "idx < length (l1 @ l21)" "(l1 @ l21) ! idx = x"
           using x_in by (metis in_set_conv_nth)
-          
-        (* : assembleconclusion *)
-        thus ?thesis 
+
+        (* Proof note. *)
+        thus ?thesis
           using that x_act x_val by blast
       qed
 
-      (* Step 2. *)
+      (* Step 2 of the proof. *)
       have i_valid_L: "i < length L" using i_bounds L_struct by simp
       have L_at_i: "L ! i = (l1 @ l21) ! i" using L_struct i_bounds
-        by (metis append.assoc nth_append_left) 
+        by (metis append.assoc nth_append_left)
       have cond_L: "op_name (L ! i) = enq \<and> op_val (L ! i) = v" using L_at_i i_act i_val by simp
       have idx_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some i"
         unfolding find_unique_index_def using assms(1) cond_L i_valid_L unique_enq_index by force
 
-      (* Step 3. *)
+      (* Step 3 of the proof. Related symbols: new_L. *)
       have i_valid_new: "i < length new_L" using i_bounds new_L_struct by simp
       have new_L_at_i: "new_L ! i = (l1 @ l21) ! i" using new_L_struct i_bounds
-        by (metis append.assoc nth_append_left) 
+        by (metis append.assoc nth_append_left)
       have cond_new: "op_name (new_L ! i) = enq \<and> op_val (new_L ! i) = v" using new_L_at_i i_act i_val by simp
       have idx_new: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) new_L = Some i"
         unfolding find_unique_index_def using cond_new di_new_L i_valid_new unique_enq_index by fastforce
-        
-      (* Step 4. *)
+
+      (* Step 4 of the proof. *)
       show ?thesis using idx_L idx_new by simp
     qed
 
-    (* E. conclusion *)
+    (* Proof note. *)
     show "distance_func v bt_val new_L \<le> distance_func v bt_val L"
       unfolding distance_func_def
       using idx_bt_eq idx_v_eq less_eq_nat.simps(1) same_SA by presburger
   qed
 
 
-(* Step 7.2. *)
+(* Definitions and lemmas for distance and modify_lin. Related symbols: b_act. *)
   have b_act_strict_decrease: "distance_func (op_val b_act) bt_val new_L < distance_func (op_val b_act) bt_val L"
   proof -
-    (* Proof step. *)
+    (* Prove the required intermediate property. Related symbols: b_act, SA. *)
     have b_not_in_SA: "\<not> in_SA (op_val b_act) L"
     proof -
       let ?idx = "length l1 + length l21"
@@ -674,111 +674,111 @@ proof -
       ultimately show ?thesis
         using l1_contains_all_SA assms(9) by blast
     qed
-    
+
     have b_not_in_SA_new: "\<not> in_SA (op_val b_act) new_L"
       using b_not_in_SA same_SA by simp
 
-    (* B. L distance *)
+    (* Definitions and lemmas for distance and modify_lin. *)
     have dist_L: "distance_func (op_val b_act) bt_val L = 2 + length new_l22"
     proof -
       let ?idx_b = "length l1 + length l21"
       let ?idx_bt = "length l1 + length l21 + 2 + length new_l22"
-      
-      (* --- 1. b_act position --- *)
+
+      (* Original source location: approximately lines 1. *)
       have idx_b_valid: "?idx_b < length L" using L_decomp by simp
       have val_b: "L ! ?idx_b = b_act" using L_decomp by (simp add: nth_append)
-      
+
       have cond_b: "op_name (L ! ?idx_b) = enq \<and> op_val (L ! ?idx_b) = op_val b_act"
         using val_b assms(9) by simp
-        
+
       have pos_b: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = op_val b_act) L = Some ?idx_b"
         unfolding find_unique_index_def
         using assms(1,9) idx_b_valid unique_enq_index val_b
         by auto
 
-      (* --- 2. bt_act position --- *)
-      (* constructionprefix index *)
+      (* Original source location: approximately lines 2. *)
+      (* List-index and filtering reasoning. *)
       let ?prefix_bt = "l1 @ l21 @ [b_act] @ [o1] @ new_l22"
       have L_struct_bt: "L = ?prefix_bt @ [bt_act] @ l3" using L_decomp by simp
-      
+
       have idx_bt_calc: "?idx_bt = length ?prefix_bt" by simp
       have idx_bt_valid: "?idx_bt < length L" using L_struct_bt idx_bt_calc by simp
       have val_bt: "L ! ?idx_bt = bt_act" using L_struct_bt idx_bt_calc by (simp add: nth_append)
-        
+
       have cond_bt: "op_name (L ! ?idx_bt) = enq \<and> op_val (L ! ?idx_bt) = bt_val"
         using val_bt assms(10,11) by simp
-        
+
       have pos_bt: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = Some ?idx_bt"
         unfolding find_unique_index_def
         using assms(1,10,11) idx_bt_valid unique_enq_index val_bt
         by force
 
-      (* Comment. *)
-      show ?thesis 
+      (* Proof note. *)
+      show ?thesis
         using distance_func_def b_not_in_SA pos_b pos_bt by simp
     qed
 
-(* C. new_L distance *)
+(* Definitions and lemmas for distance and modify_lin. Related symbols: new_L. *)
     have dist_new: "distance_func (op_val b_act) bt_val new_L = 1 + length new_l22"
     proof -
       let ?idx_b = "length l1 + length l21 + 1"
       let ?idx_bt = "length l1 + length l21 + 2 + length new_l22"
-      
-      (* --- 1. b_act position --- *)
-      (* assms(12) replace new_L_def *)
+
+      (* Original source location: approximately lines 1. *)
+      (* Use the relevant invariant, lemma, or hypothesis. Related symbols: new_L_def. *)
       have idx_b_valid: "?idx_b < length new_L" using assms(12) by simp
-      
-      (* new_L, b_act l1 @ l21 @ [o1] *)
+
+      (* Proof note. Related symbols: new_L, b_act, l1, l21, o1. *)
       have val_b: "new_L ! ?idx_b = b_act" using assms(12) by (simp add: nth_append)
 
       have cond_b: "op_name (new_L ! ?idx_b) = enq \<and> op_val (new_L ! ?idx_b) = op_val b_act"
         using val_b assms(9) by simp
 
-      (* : di_new_L *)
+      (* Proof note. Related symbols: di_new_L. *)
       have pos_b: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = op_val b_act) new_L = Some ?idx_b"
         unfolding find_unique_index_def
         using assms(9) di_new_L idx_b_valid unique_enq_index val_b
         by fastforce
-      
-      (* --- 2. bt_act position --- *)
+
+      (* Original source location: approximately lines 2. *)
       let ?prefix_bt = "l1 @ l21 @ [o1] @ [b_act] @ new_l22"
       have new_L_struct_bt: "new_L = ?prefix_bt @ [bt_act] @ l3" using assms(12) by simp
-      
+
       have idx_bt_calc: "?idx_bt = length ?prefix_bt" by simp
       have idx_bt_valid: "?idx_bt < length new_L" using new_L_struct_bt idx_bt_calc by simp
       have val_bt: "new_L ! ?idx_bt = bt_act" using new_L_struct_bt idx_bt_calc by (simp add: nth_append)
-      
+
       have cond_bt: "op_name (new_L ! ?idx_bt) = enq \<and> op_val (new_L ! ?idx_bt) = bt_val"
         using val_bt assms(10,11) by simp
-        
+
       have pos_bt: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L = Some ?idx_bt"
         unfolding find_unique_index_def
         using cond_bt di_new_L idx_bt_valid unique_enq_index
         by force
-        
-      (* Comment. *)
-      show ?thesis 
+
+      (* Proof note. *)
+      show ?thesis
         using distance_func_def b_not_in_SA_new pos_b pos_bt by simp
     qed
 
-    (* D. *)
+    (* Proof note. *)
     show ?thesis using dist_L dist_new by simp
   qed
 
 
-(* Step 7.3.3.0. *)
-  have l3_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)). 
+(* Definitions and lemmas for distance and modify_lin. Related symbols: l3. *)
+  have l3_unchanged: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)).
       distance_func v bt_val new_L = 0 \<and> distance_func v bt_val L = 0"
   proof (rule ballI)
     fix v assume v_in: "v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
-    
-    (* Proof step. *)
+
+    (* Prove the required intermediate property. *)
     have dist_L: "distance_func v bt_val L = 0"
     proof -
       let ?middle = "l21 @ [b_act] @ [o1] @ new_l22 @ [bt_act]"
       have L_decomp_middle: "L = l1 @ ?middle @ l3" by (simp add: L_decomp)
       have bt_in_middle: "bt_act \<in> set ?middle" by auto
-      
+
       show "distance_func v bt_val L = 0"
         apply (rule l3_distance_zero_observational[where middle="?middle"])
         apply (rule assms(1))
@@ -792,15 +792,15 @@ proof -
         done
     qed
 
-    (* Proof step. *)
-    
-    (* Step 1. *)
+    (* Extract the required witnesses and facts. Related symbols: find_last_SA, l1_new, dist_new. *)
+
+    (* Step 1: prove the required intermediate property. *)
     have prefix_L: "take (length l1) L = l1"
       using assms(2) assms(3) by (metis append_eq_conv_conj)
     have prefix_new: "take (length l1) new_L = l1"
       using assms(12) by simp
 
-    (* 2. Proof find_last_SA new_L = find_last_SA L *)
+    (* Step 2: prove the required intermediate property. Related symbols: find_last_SA, new_L. *)
     have same_find_last_SA: "find_last_SA new_L = last_sa_pos"
     proof -
       let ?idxs_L = "find_indices (\<lambda>a. op_name a = enq \<and> in_SA (op_val a) L) L"
@@ -808,10 +808,10 @@ proof -
       let ?S_L = "set ?idxs_L"
       let ?S_new = "set ?idxs_new"
 
-      (* Proof step. *)
+      (* Prove the required intermediate property. *)
       have sets_eq: "?S_L = ?S_new"
       proof -
-        (* A1. i < length l1 *)
+        (* List-index and filtering reasoning. Related symbols: A1, l1. *)
         have part_prefix: "{i \<in> ?S_L. i < length l1} = {i \<in> ?S_new. i < length l1}"
         proof -
           have val_eq: "\<forall>i < length l1. L!i = new_L!i"
@@ -837,7 +837,7 @@ proof -
           then show ?thesis by auto
         qed
 
-        (* A2. i >= length l1, L *)
+        (* List-index and filtering reasoning. Related symbols: A2, l1. *)
         have part_suffix_L: "{i \<in> ?S_L. i \<ge> length l1} = {}"
         proof (rule equals0I)
           fix i assume asm: "i \<in> {i \<in> ?S_L. i \<ge> length l1}"
@@ -850,7 +850,7 @@ proof -
           show False using i_prop(2) `\<not> in_SA (op_val (L!i)) L` by simp
         qed
 
-        (* A3. i >= length l1, new_L *)
+        (* List-index and filtering reasoning. Related symbols: A3, l1, new_L. *)
         have part_suffix_new: "{i \<in> ?S_new. i \<ge> length l1} = {}"
         proof (rule ccontr)
           assume "{i \<in> ?S_new. i \<ge> length l1} \<noteq> {}"
@@ -861,19 +861,19 @@ proof -
           have elem_prop: "op_name ?elem = enq" "in_SA ?v new_L"
             using i_bad unfolding find_indices_def by auto
 
-          have "?elem \<in> set L" 
+          have "?elem \<in> set L"
             using mset_eq `i < length new_L` by (metis nth_mem set_mset_mset)
           then obtain j where j_def: "j < length L" "L!j = ?elem"
             by (auto simp: in_set_conv_nth)
-          
+
           have "in_SA ?v L" using elem_prop same_SA by simp
           have "j < length l1"
             using l1_contains_all_SA_in_L j_def elem_prop `in_SA ?v L`
-            by (metis l1_contains_all_SA leI) 
-          
+            by (metis l1_contains_all_SA leI)
+
           have "i = j"
           proof -
-            have "new_L ! j = L ! j" 
+            have "new_L ! j = L ! j"
               using `j < length l1` prefix_new prefix_L by (metis nth_take)
             then have val_j: "op_name (new_L!j) = enq \<and> op_val (new_L!j) = ?v"
               using j_def elem_prop by simp
@@ -881,16 +881,16 @@ proof -
               using elem_prop by simp
             let ?S_match = "{k. k < length new_L \<and> op_name (new_L!k) = enq \<and> op_val (new_L!k) = ?v}"
             have "i \<in> ?S_match" using `i < length new_L` val_i by simp
-            have "j \<in> ?S_match" using `j < length l1` prefix_new val_j 
+            have "j \<in> ?S_match" using `j < length l1` prefix_new val_j
               using mem_Collect_eq j_def(1) mset_eq mset_eq_length by fastforce
-            have "card ?S_match \<le> 1" 
+            have "card ?S_match \<le> 1"
               using di_new_L unfolding data_independent_def by simp
             show ?thesis using `i \<in> ?S_match` `j \<in> ?S_match` `card ?S_match \<le> 1`
               using di_new_L same_enq_value_same_index by blast
           qed
           show False using `i = j` `i \<ge> length l1` `j < length l1` by simp
         qed
-        
+
         show ?thesis
         proof (rule set_eqI)
           fix x show "x \<in> ?S_L \<longleftrightarrow> x \<in> ?S_new"
@@ -899,7 +899,7 @@ proof -
         qed
       qed
 
-      (* Proof step. *)
+      (* Prove the required intermediate property. *)
       have props_L: "sorted ?idxs_L \<and> distinct ?idxs_L"
         unfolding find_indices_def by (simp add: sorted_wrt_filter)
       have props_new: "sorted ?idxs_new \<and> distinct ?idxs_new"
@@ -907,20 +907,20 @@ proof -
       have idxs_eq: "?idxs_L = ?idxs_new"
         using sets_eq props_L props_new by (metis sorted_distinct_set_unique)
 
-      (* C. conclusion *)
+      (* Proof note. *)
       show ?thesis
         unfolding find_last_SA_def
         using idxs_eq assms(4)
         by (simp add: find_last_SA_def)
     qed
 
-    (* Step 3.1. *)
+    (* Step 3: prove the required intermediate property. Related symbols: l1. *)
     have l1_new: "l1 = take (nat (last_sa_pos + 1)) new_L"
       using same_find_last_SA assms(3) prefix_new
       using length_take min_def nat_le_iff_add plus_1_eq_Suc assms(4)
       by (metis mset_eq prefix_L size_mset take_all_iff)
 
-    (* Proof step. *)
+    (* Prove the required intermediate property. Related symbols: new_L, dist_new. *)
     have dist_new: "distance_func v bt_val new_L = 0"
     proof -
       let ?middle_new = "l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act]"
@@ -936,25 +936,25 @@ proof -
         apply (rule assms(10))
         apply (rule assms(11))
         apply (rule l1_new)
-        apply (simp add: same_find_last_SA) 
+        apply (simp add: same_find_last_SA)
         apply (rule v_in)
         done
     qed
-    
+
     show "distance_func v bt_val new_L = 0 \<and> distance_func v bt_val L = 0"
       using dist_L dist_new by simp
   qed
 
-(* Step 8. *)
+(* Step 8 of the proof. *)
   show ?thesis
   proof -
-    (* definition *)
+    (* Set, cardinality, and uniqueness reasoning. *)
     let ?S_prefix = "set (map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ l21)))"
     let ?S_b = "{op_val b_act}"
     let ?S_bt = "{bt_val}"
     let ?S_l3 = "set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
-    
-    (* Step 1. *)
+
+    (* Step 1 of the proof. *)
     have sum_prefix: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix \<le> sum (\<lambda>v. distance_func v bt_val L) ?S_prefix"
       using prefix_unchanged by (meson sum_mono)
     have sum_b: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_b < sum (\<lambda>v. distance_func v bt_val L) ?S_b"
@@ -964,25 +964,25 @@ proof -
     have sum_l3: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_l3 = sum (\<lambda>v. distance_func v bt_val L) ?S_l3"
       using l3_unchanged by (auto simp: sum.neutral)
 
-    (* Proof step. *)
-    (* Proof step. *)
-    have enq_list_L: "map op_val (filter (\<lambda>a. op_name a = enq) L) = 
-          map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ l21)) @ 
-          [op_val b_act] @ 
-          [bt_val] @ 
+    (* Prove the required intermediate property. *)
+    (* Prove the required intermediate property. *)
+    have enq_list_L: "map op_val (filter (\<lambda>a. op_name a = enq) L) =
+          map op_val (filter (\<lambda>a. op_name a = enq) (l1 @ l21)) @
+          [op_val b_act] @
+          [bt_val] @
           map op_val (filter (\<lambda>a. op_name a = enq) l3)"
     proof -
-      (* Proof step. *)
+      (* Prove the required intermediate property. *)
       have part_b: "map op_val (filter (\<lambda>a. op_name a = enq) [b_act]) = [op_val b_act]"
         using assms(9) by simp
-      
+
       have part_o1: "map op_val (filter (\<lambda>a. op_name a = enq) [o1]) = []"
         using o1_is_deq by simp
-        
+
       have part_new_l22: "map op_val (filter (\<lambda>a. op_name a = enq) new_l22) = []"
       proof -
         have "set new_l22 \<subseteq> set l22" using l22_decomp by auto
-        then have "\<forall>x \<in> set new_l22. op_name x \<noteq> enq" 
+        then have "\<forall>x \<in> set new_l22. op_name x \<noteq> enq"
           using l22_all_deq by auto
         then show ?thesis by (simp add: filter_empty_conv)
       qed
@@ -990,160 +990,160 @@ proof -
       have part_bt: "map op_val (filter (\<lambda>a. op_name a = enq) [bt_act]) = [bt_val]"
         using assms(10,11) by simp
 
-      (* combine *)
+      (* Proof note. *)
       show ?thesis
         unfolding L_decomp
         by (smt (verit, del_insts) append_assoc filter_append map_append
             part_b part_bt part_new_l22 part_o1 self_append_conv2)
     qed
 
-    (* Proof step. *)
-    (* Proof step. *)
-    
-    (* Step 3.1. *)
+    (* Use the relevant invariant, lemma, or hypothesis. *)
+    (* Prove the required intermediate property. *)
+
+    (* Step 3: prove the required intermediate property. *)
     have distinct_enqs: "distinct (map op_val (filter (\<lambda>a. op_name a = enq) L))"
     proof -
-      (* distinct *)
+      (* Proof note. *)
       have "\<forall>v. count (mset (map op_val (filter (\<lambda>a. op_name a = enq) L))) v \<le> 1"
       proof
         fix v
-        (* map+filter filter *)
-        have "count (mset (map op_val (filter (\<lambda>a. op_name a = enq) L))) v = 
+        (* List-index and filtering reasoning. *)
+        have "count (mset (map op_val (filter (\<lambda>a. op_name a = enq) L))) v =
               length (filter (\<lambda>a. op_name a = enq \<and> op_val a = v) L)"
           by (induction L) auto
-        (* index *)
+        (* Set, cardinality, and uniqueness reasoning. *)
         also have "... = card {i. i < length L \<and> op_name (L!i) = enq \<and> op_val (L!i) = v}"
           using length_filter_conv_card by fastforce
-        (* apply definition *)
+        (* Definition block. *)
         finally show "count (mset (map op_val (filter (\<lambda>a. op_name a = enq) L))) v \<le> 1"
           using assms(1) unfolding data_independent_def by simp
       qed
-      thus ?thesis using distinct_count_atmost_1 
+      thus ?thesis using distinct_count_atmost_1
         by (metis count_mset_0_iff less_one nless_le)
     qed
-      
-    (* Step 3.2. *)
-    (* distinct, set *)
-    (* Proof step. *)
-    have disjoints: 
+
+    (* Step 3 of the proof. *)
+    (* Proof note. *)
+    (* Prove the required intermediate property. *)
+    have disjoints:
       "?S_prefix \<inter> ?S_b = {}" "?S_prefix \<inter> ?S_bt = {}" "?S_prefix \<inter> ?S_l3 = {}"
       "?S_b \<inter> ?S_bt = {}" "?S_b \<inter> ?S_l3 = {}" "?S_bt \<inter> ?S_l3 = {}"
       using distinct_enqs unfolding enq_list_L
       by auto
 
-    (* Step 4. *)
+    (* Step 4 of the proof. *)
     let ?S_all = "set (map op_val (filter (\<lambda>a. op_name a = enq) L))"
     have S_union: "?S_all = ?S_prefix \<union> ?S_b \<union> ?S_bt \<union> ?S_l3"
       unfolding enq_list_L
       by auto
 
-    have dist_L: "Distance L bt_val = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix + 
-                                      sum (\<lambda>v. distance_func v bt_val L) ?S_b + 
-                                      sum (\<lambda>v. distance_func v bt_val L) ?S_bt + 
+    have dist_L: "Distance L bt_val = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix +
+                                      sum (\<lambda>v. distance_func v bt_val L) ?S_b +
+                                      sum (\<lambda>v. distance_func v bt_val L) ?S_bt +
                                       sum (\<lambda>v. distance_func v bt_val L) ?S_l3"
     proof -
-      (* A. unfold Distance definition (strict) *)
-      
-      (* definition all_enqueues *)
+      (* Unfold the relevant definition and expose the required facts. *)
+
+      (* Enqueue-side reasoning. Related symbols: all_enqueues. *)
       let ?all_enqueues = "filter (\<lambda>a. op_name a = enq) L"
-      
-      (* definition enqueued_values *)
+
+      (* Enqueue-side reasoning. Related symbols: enqueued_values. *)
       let ?enqueued_values = "set (map op_val ?all_enqueues)"
-      
-      (* Proof step. *)
+
+      (* Prove the required intermediate property. Related symbols: ?enqueued_values, ?S_all. *)
       have "?enqueued_values = ?S_all" by simp
-      
-      (* Distance L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_all)) *)
+
+      (* Proof note. Related symbols: bt_val, sum_list, \<lambda>, distance_func, sorted_list_of_set, ?S_all. *)
       have "Distance L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_all))"
         unfolding Distance_def
         by (simp add: `?enqueued_values = ?S_all`)
-      
-      (* Proof step. *)
-      (* distinct_enqs, map op_val (filter (\<lambda>a. op_name a = enq) L) distinct *)
-      (* ?S_all *)
+
+      (* Prove the required intermediate property. Related symbols: sorted_list_of_set, ?S_all, distinct_enqs. *)
+      (* List-index and filtering reasoning. Related symbols: distinct_enqs, op_val, \<lambda>, op_name. *)
+      (* Proof note. Related symbols: ?S_all. *)
       have "card ?S_all = length (map op_val (filter (\<lambda>a. op_name a = enq) L))"
         using distinct_enqs distinct_card by blast
-        
-      (* sum_list sum *)
-      (* : distinct xs, sum_list (map f xs) = sum f (set xs) *)
-      have "sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_all)) = 
+
+      (* Proof note. Related symbols: sum_list. *)
+      (* Proof note. Related symbols: sum_list. *)
+      have "sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_all)) =
             sum (\<lambda>v. distance_func v bt_val L) ?S_all"
       proof -
-        (* Auxiliary lemma. *)
-        (* direct sum_list_distinct_conv_sum_set *)
-        (* Proof step. *)
+        (* Use the relevant invariant, lemma, or hypothesis. Related symbols: sum_list. *)
+        (* Use the relevant invariant, lemma, or hypothesis. Related symbols: sum_list_distinct_conv_sum_set. *)
+        (* Prove the required intermediate property. Related symbols: sorted_list_of_set, ?S_all. *)
         have "distinct (sorted_list_of_set ?S_all)"
           by simp
-        
-        (* Proof step. *)
+
+        (* Prove the required intermediate property. Related symbols: sorted_list_of_set, ?S_all. *)
         have "set (sorted_list_of_set ?S_all) = ?S_all"
           by simp
-        
-        (* apply sum_list_distinct_conv_sum_set *)
+
+        (* Proof note. Related symbols: sum_list_distinct_conv_sum_set. *)
         show ?thesis
           using `distinct (sorted_list_of_set ?S_all)`
           by (simp add: sum_list_distinct_conv_sum_set)
       qed
-      
-      (* C. Distance L bt_val = sum (\<lambda>v. distance_func v bt_val L) ?S_all *)
+
+      (* Proof note. Related symbols: bt_val, \<lambda>, distance_func, ?S_all. *)
       then have "Distance L bt_val = sum (\<lambda>v. distance_func v bt_val L) ?S_all"
         using `Distance L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_all))`
         by simp
-        
-      (* D. unfold *)
+
+      (* Unfold the relevant definition and expose the required facts. *)
       also have "... = sum (\<lambda>v. distance_func v bt_val L) (?S_prefix \<union> ?S_b \<union> ?S_bt \<union> ?S_l3)"
         using S_union by simp
-        
-      (* Step. *)
-      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix + 
+
+      (* Use the relevant invariant, lemma, or hypothesis. *)
+      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix +
                        sum (\<lambda>v. distance_func v bt_val L) (?S_b \<union> ?S_bt \<union> ?S_l3)"
       proof -
         have "finite ?S_prefix" by simp
         have "finite (?S_b \<union> ?S_bt \<union> ?S_l3)" by simp
         have "?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_prefix` `finite (?S_b \<union> ?S_bt \<union> ?S_l3)` `?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_prefix` `finite (?S_b \<union> ?S_bt \<union> ?S_l3)` `?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}`]
           by simp
       qed
-      
-      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix + 
-                       (sum (\<lambda>v. distance_func v bt_val L) ?S_b + 
+
+      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix +
+                       (sum (\<lambda>v. distance_func v bt_val L) ?S_b +
                         sum (\<lambda>v. distance_func v bt_val L) (?S_bt \<union> ?S_l3))"
       proof -
         have "finite ?S_b" by simp
         have "finite (?S_bt \<union> ?S_l3)" by simp
         have "?S_b \<inter> (?S_bt \<union> ?S_l3) = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_b` `finite (?S_bt \<union> ?S_l3)` `?S_b \<inter> (?S_bt \<union> ?S_l3) = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_b` `finite (?S_bt \<union> ?S_l3)` `?S_b \<inter> (?S_bt \<union> ?S_l3) = {}`]
           by simp
       qed
-      
-      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix + 
-                       sum (\<lambda>v. distance_func v bt_val L) ?S_b + 
-                       (sum (\<lambda>v. distance_func v bt_val L) ?S_bt + 
+
+      also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_prefix +
+                       sum (\<lambda>v. distance_func v bt_val L) ?S_b +
+                       (sum (\<lambda>v. distance_func v bt_val L) ?S_bt +
                         sum (\<lambda>v. distance_func v bt_val L) ?S_l3)"
       proof -
         have "finite ?S_bt" by simp
         have "finite ?S_l3" by simp
         have "?S_bt \<inter> ?S_l3 = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_bt` `finite ?S_l3` `?S_bt \<inter> ?S_l3 = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_bt` `finite ?S_l3` `?S_bt \<inter> ?S_l3 = {}`]
           by simp
       qed
-      
+
       finally show ?thesis by simp
     qed
 
-    (* Step 5. *)
-    have dist_new: "Distance new_L bt_val = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix + 
-                                            sum (\<lambda>v. distance_func v bt_val new_L) ?S_b + 
-                                            sum (\<lambda>v. distance_func v bt_val new_L) ?S_bt + 
+    (* Step 5 of the proof. Related symbols: new_L. *)
+    have dist_new: "Distance new_L bt_val = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix +
+                                            sum (\<lambda>v. distance_func v bt_val new_L) ?S_b +
+                                            sum (\<lambda>v. distance_func v bt_val new_L) ?S_bt +
                                             sum (\<lambda>v. distance_func v bt_val new_L) ?S_l3"
     proof -
-      (* A. unfold Distance definition () *)
+      (* Unfold the relevant definition and expose the required facts. *)
       let ?all_enqueues_new = "filter (\<lambda>a. op_name a = enq) new_L"
       let ?enqueued_values_new = "set (map op_val ?all_enqueues_new)"
-      
+
       have "?enqueued_values_new = ?S_all"
       proof -
         have "mset (map op_val ?all_enqueues_new) = mset (map op_val (filter (\<lambda>a. op_name a = enq) L))"
@@ -1152,15 +1152,15 @@ proof -
         then show ?thesis
           by (metis set_mset_mset)
       qed
-      
+
       have "Distance new_L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val new_L) (sorted_list_of_set ?S_all))"
         unfolding Distance_def
         by (metis `?enqueued_values_new = ?S_all`)
-      
-      (* B. sum_list sum () *)
+
+      (* Proof note. Related symbols: sum_list. *)
       have "distinct (sorted_list_of_set ?S_all)" by simp
-      
-      have "sum_list (map (\<lambda>v. distance_func v bt_val new_L) (sorted_list_of_set ?S_all)) = 
+
+      have "sum_list (map (\<lambda>v. distance_func v bt_val new_L) (sorted_list_of_set ?S_all)) =
             sum (\<lambda>v. distance_func v bt_val new_L) ?S_all"
       proof -
         have "set (sorted_list_of_set ?S_all) = ?S_all" by simp
@@ -1168,57 +1168,57 @@ proof -
           using `distinct (sorted_list_of_set ?S_all)`
           by (simp add: sum_list_distinct_conv_sum_set)
       qed
-      
-      (* C. Distance new_L bt_val = sum... () *)
+
+      (* Proof note. Related symbols: new_L, bt_val. *)
       then have "Distance new_L bt_val = sum (\<lambda>v. distance_func v bt_val new_L) ?S_all"
         using `Distance new_L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val new_L) (sorted_list_of_set ?S_all))`
         by simp
-        
-      (* D. unfold apply sum.union_disjoint () *)
+
+      (* Unfold the relevant definition and expose the required facts. Related symbols: sum.union_disjoint. *)
       also have "... = sum (\<lambda>v. distance_func v bt_val new_L) (?S_prefix \<union> ?S_b \<union> ?S_bt \<union> ?S_l3)"
         using S_union by simp
-        
-      (* Proof step. *)
-      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix + 
+
+      (* Use the relevant invariant, lemma, or hypothesis. *)
+      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix +
                        sum (\<lambda>v. distance_func v bt_val new_L) (?S_b \<union> ?S_bt \<union> ?S_l3)"
       proof -
         have "finite ?S_prefix" by simp
         have "finite (?S_b \<union> ?S_bt \<union> ?S_l3)" by simp
         have "?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_prefix` `finite (?S_b \<union> ?S_bt \<union> ?S_l3)` `?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_prefix` `finite (?S_b \<union> ?S_bt \<union> ?S_l3)` `?S_prefix \<inter> (?S_b \<union> ?S_bt \<union> ?S_l3) = {}`]
           by simp
       qed
 
-      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix + 
-                       (sum (\<lambda>v. distance_func v bt_val new_L) ?S_b + 
+      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix +
+                       (sum (\<lambda>v. distance_func v bt_val new_L) ?S_b +
                         sum (\<lambda>v. distance_func v bt_val new_L) (?S_bt \<union> ?S_l3))"
       proof -
         have "finite ?S_b" by simp
         have "finite (?S_bt \<union> ?S_l3)" by simp
         have "?S_b \<inter> (?S_bt \<union> ?S_l3) = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_b` `finite (?S_bt \<union> ?S_l3)` `?S_b \<inter> (?S_bt \<union> ?S_l3) = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_b` `finite (?S_bt \<union> ?S_l3)` `?S_b \<inter> (?S_bt \<union> ?S_l3) = {}`]
           by simp
       qed
 
-      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix + 
-                       sum (\<lambda>v. distance_func v bt_val new_L) ?S_b + 
-                       (sum (\<lambda>v. distance_func v bt_val new_L) ?S_bt + 
+      also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix +
+                       sum (\<lambda>v. distance_func v bt_val new_L) ?S_b +
+                       (sum (\<lambda>v. distance_func v bt_val new_L) ?S_bt +
                         sum (\<lambda>v. distance_func v bt_val new_L) ?S_l3)"
       proof -
         have "finite ?S_bt" by simp
         have "finite ?S_l3" by simp
         have "?S_bt \<inter> ?S_l3 = {}" using disjoints by auto
-        show ?thesis 
-          using sum.union_disjoint[OF `finite ?S_bt` `finite ?S_l3` `?S_bt \<inter> ?S_l3 = {}`] 
+        show ?thesis
+          using sum.union_disjoint[OF `finite ?S_bt` `finite ?S_l3` `?S_bt \<inter> ?S_l3 = {}`]
           by simp
       qed
 
       finally show ?thesis by simp
     qed
 
-    (* --- 6. final --- *)
+    (* Proof note. *)
     show ?thesis
       unfolding dist_L dist_new
       using sum_prefix sum_b sum_bt sum_l3
@@ -1230,14 +1230,14 @@ qed
 lemma moving_bt_act_before_b_act_case4:
   assumes "data_independent L"
   assumes "L = l1 @ l21 @ [b_act] @ l22 @ [bt_act] @ l3"
-  assumes "op_name b_act = enq" 
+  assumes "op_name b_act = enq"
   assumes "op_name bt_act = enq"
   assumes "op_val bt_act = bt_val"
   assumes "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
-  assumes "l1 = take (nat (find_last_SA L + 1)) L" 
+  assumes "l1 = take (nat (find_last_SA L + 1)) L"
   shows "Distance new_L bt_val < Distance L bt_val"
 proof -
-  (* 1. basicstructurepreparation *)
+  (* Step 1 of the proof. *)
   have mset_eq: "mset new_L = mset L"
     using assms(2,6) by (simp add: ac_simps)
   have di_new_L: "data_independent new_L"
@@ -1246,8 +1246,8 @@ proof -
     by (metis (no_types, lifting) L_and_new_L_have_same_SA
         Nil_is_append_conv assms(1,2,6,7) mset_eq)
 
-  (* --- preparationpositionLemma --- *)
-  
+  (* Original source location. *)
+
   let ?prefix_list = "l1 @ l21"
   let ?jumped_list = "[b_act] @ l22"
   let ?rest_list = "[bt_act] @ l3"
@@ -1255,64 +1255,64 @@ proof -
   let ?pos_bt_L = "length ?prefix_list + length ?jumped_list"
   let ?pos_bt_new = "length ?prefix_list"
 
-  (* Step 1. *)
+  (* Original source location: approximately lines 1. *)
   have pos_bt_L_val: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = Some ?pos_bt_L"
   proof -
    have L_expanded: "L = ?prefix_list @ ?jumped_list @ [bt_act] @ l3"
       by (subst assms(2), simp)
-    
+
     have val_at_pos: "L ! ?pos_bt_L = bt_act"
       using L_expanded by (simp add: nth_append)
     have idx_bound: "?pos_bt_L < length L"
         using L_expanded by simp
-    
+
     show ?thesis
       unfolding find_unique_index_def
       using val_at_pos idx_bound assms(4,5)
       using unique_enq_value[OF assms(1)]
       using L_expanded
-      using assms(1) unique_enq_index by force 
+      using assms(1) unique_enq_index by force
   qed
 
-  (* Step 2. *)
+  (* Original source location: approximately lines 2. *)
   have pos_bt_new_val: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) new_L = Some ?pos_bt_new"
   proof -
     have new_L_expanded: "new_L = ?prefix_list @ [bt_act] @ (?jumped_list @ l3)"
       using assms(6)
       by simp
-      
+
     have val_at_pos: "new_L ! ?pos_bt_new = bt_act"
       using new_L_expanded by (simp add: nth_append)
     have idx_bound: "?pos_bt_new < length new_L"
       using new_L_expanded
       by force
-      
+
     show ?thesis
       unfolding find_unique_index_def
       using val_at_pos idx_bound assms(4,5)
       using unique_enq_value[OF di_new_L]
       using new_L_expanded
-      using di_new_L unique_enq_index by force 
+      using di_new_L unique_enq_index by force
   qed
 
-  (* : positionstrict *)
+  (* Original source location. *)
   have pos_decrease: "?pos_bt_new < ?pos_bt_L"
-    by simp 
+    by simp
 
-  (* --- distanceanalysis --- *)
-  
-  (* A. definition *)
+  (* Definitions and lemmas for distance and modify_lin. *)
+
+  (* Set, cardinality, and uniqueness reasoning. *)
   let ?S_prefix = "set (map op_val (filter (\<lambda>a. op_name a = enq) ?prefix_list))"
   let ?S_jumped = "set (map op_val (filter (\<lambda>a. op_name a = enq) ?jumped_list))"
   let ?S_rest = "set (map op_val (filter (\<lambda>a. op_name a = enq) ?rest_list))"
   let ?S_total = "set (map op_val (filter (\<lambda>a. op_name a = enq) L))"
 
-  (* Proof step. *)
+  (* Prove the required intermediate property. *)
   have set_decomp: "?S_total = ?S_prefix \<union> ?S_jumped \<union> ?S_rest"
   proof -
-    have "filter (\<lambda>a. op_name a = enq) L = 
-          filter (\<lambda>a. op_name a = enq) ?prefix_list @ 
-          filter (\<lambda>a. op_name a = enq) ?jumped_list @ 
+    have "filter (\<lambda>a. op_name a = enq) L =
+          filter (\<lambda>a. op_name a = enq) ?prefix_list @
+          filter (\<lambda>a. op_name a = enq) ?jumped_list @
           filter (\<lambda>a. op_name a = enq) ?rest_list"
       using assms(2)
       by simp
@@ -1321,15 +1321,15 @@ proof -
 
   have finite_sets: "finite ?S_prefix" "finite ?S_jumped" "finite ?S_rest" by auto
 
-  (* Proof step. *)
-  
-  (* C.1 Prefix Jumped *)
+  (* Use the relevant invariant, lemma, or hypothesis. *)
+
+  (* Proof note. Related symbols: C.1. *)
   have disjoint_1: "?S_prefix \<inter> ?S_jumped = {}"
   proof (rule ccontr)
      assume "\<not> ?thesis"
      then obtain v where "v \<in> ?S_prefix" "v \<in> ?S_jumped" by blast
-     
-     (* Prefix index *)
+
+     (* List-index and filtering reasoning. *)
      obtain x where x_in: "x \<in> set ?prefix_list" "op_name x = enq" "op_val x = v"
        using `v \<in> ?S_prefix` unfolding set_map set_filter image_iff by blast
      obtain i where i_bound: "i < length ?prefix_list" and l1_at_i: "?prefix_list ! i = x"
@@ -1337,30 +1337,30 @@ proof -
      have L_at_i: "L ! i = x" using assms(2) i_bound l1_at_i
        by (metis append.assoc nth_append_left)
 
-     (* Jumped index *)
+     (* List-index and filtering reasoning. *)
      obtain y where y_in: "y \<in> set ?jumped_list" "op_name y = enq" "op_val y = v"
        using `v \<in> ?S_jumped` unfolding set_map set_filter image_iff by blast
      obtain k where k_bound: "k < length ?jumped_list" and j_at_k: "?jumped_list ! k = y"
        using y_in(1) by (metis in_set_conv_nth)
-     
+
      let ?global_k = "length ?prefix_list + k"
      have global_k_bound: "?global_k < length L" using assms(2) k_bound by simp
-     have L_at_k: "L ! ?global_k = y" 
+     have L_at_k: "L ! ?global_k = y"
        using assms(2) k_bound j_at_k by (metis append_assoc nth_append_left nth_append_length_plus)
-     
+
      have "i < ?global_k" using i_bound by simp
-     show False 
+     show False
        using unique_enq_value[OF assms(1), of i ?global_k]
        using L_at_i L_at_k x_in(2,3) y_in(2,3) `i < ?global_k`
-       using i_bound global_k_bound by simp 
+       using i_bound global_k_bound by simp
   qed
 
-  (* C.2 Prefix Rest *)
+  (* Proof note. Related symbols: C.2. *)
   have disjoint_2: "?S_prefix \<inter> ?S_rest = {}"
   proof (rule ccontr)
      assume "\<not> ?thesis"
      then obtain v where "v \<in> ?S_prefix" "v \<in> ?S_rest" by blast
-     
+
      (* Prefix *)
      obtain x where x_in: "x \<in> set ?prefix_list" "op_name x = enq" "op_val x = v"
        using `v \<in> ?S_prefix` unfolding set_map set_filter image_iff by blast
@@ -1368,16 +1368,16 @@ proof -
        using x_in(1) by (metis in_set_conv_nth)
      have L_at_i: "L ! i = x" using assms(2) i_bound l1_at_i
        by (metis append.assoc nth_append_left)
-     
+
      (* Rest *)
      obtain z where z_in: "z \<in> set ?rest_list" "op_name z = enq" "op_val z = v"
        using `v \<in> ?S_rest` unfolding set_map set_filter image_iff by blast
      obtain k where k_bound: "k < length ?rest_list" and r_at_k: "?rest_list ! k = z"
        using z_in(1) by (metis in_set_conv_nth)
-     
+
      let ?offset = "length ?prefix_list + length ?jumped_list"
      let ?global_k = "?offset + k"
-     
+
      have global_k_bound: "?global_k < length L" using assms(2) k_bound by simp
      have L_at_k: "L ! ?global_k = z" using assms(2) k_bound r_at_k by (simp add: nth_append)
 
@@ -1388,7 +1388,7 @@ proof -
        using i_bound global_k_bound by simp
    qed
 
-  (* C.3 Jumped Rest *)
+  (* Proof note. Related symbols: C.3. *)
   have disjoint_3: "?S_jumped \<inter> ?S_rest = {}"
   proof (rule ccontr)
      assume "\<not> ?thesis"
@@ -1399,7 +1399,7 @@ proof -
        using `v \<in> ?S_jumped` unfolding set_map set_filter image_iff by blast
      obtain j where j_bound: "j < length ?jumped_list" and j_at_j: "?jumped_list ! j = y"
        using y_in(1) by (metis in_set_conv_nth)
-     
+
      let ?global_j = "length ?prefix_list + j"
      have L_at_j: "L ! ?global_j = y" using assms(2) j_bound j_at_j by (metis append_assoc nth_append_left nth_append_length_plus)
      have global_j_bound: "?global_j < length L" using assms(2) j_bound by simp
@@ -1412,8 +1412,8 @@ proof -
 
      let ?offset = "length ?prefix_list + length ?jumped_list"
      let ?global_k = "?offset + k"
-     
-     have L_at_k: "L ! ?global_k = z" using assms(2) k_bound r_at_k by (simp add: nth_append) 
+
+     have L_at_k: "L ! ?global_k = z" using assms(2) k_bound r_at_k by (simp add: nth_append)
      have global_k_bound: "?global_k < length L" using assms(2) k_bound by simp
 
      have "?global_j < ?global_k" using j_bound by simp
@@ -1423,49 +1423,49 @@ proof -
        using global_j_bound global_k_bound by auto
   qed
 
-  (* Proof step. *)
+  (* Definitions and lemmas for distance and modify_lin. *)
 
-  (* D.1 Prefix (l1 + l21): distance *)
+  (* Definitions and lemmas for distance and modify_lin. Related symbols: D.1, l1, l21. *)
   have sum_prefix_le: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix \<le> sum (\<lambda>v. distance_func v bt_val L) ?S_prefix"
   proof -
     have "\<forall>v \<in> ?S_prefix. distance_func v bt_val new_L \<le> distance_func v bt_val L"
     proof
       fix v assume v_in: "v \<in> ?S_prefix"
-      
-      (* Step 1. *)
+
+      (* Step 1 of the proof. *)
       obtain e where e_in: "e \<in> set ?prefix_list" "op_name e = enq" "op_val e = v"
         using v_in unfolding set_map set_filter image_iff by blast
       obtain k where k_bound: "k < length ?prefix_list" and act_at_k: "?prefix_list ! k = e"
         using e_in by (metis in_set_conv_nth)
 
-      (* Step 2. *)
+      (* Step 2 of the proof. Related symbols: SA. *)
       show "distance_func v bt_val new_L \<le> distance_func v bt_val L"
       proof (cases "in_SA v L")
         case True
-        (* Case 0. *)
+        (* Definitions and lemmas for distance and modify_lin. Related symbols: SA. *)
         then have sa_new: "in_SA v new_L" using same_SA by simp
-        have "distance_func v bt_val L = 0" 
+        have "distance_func v bt_val L = 0"
           using True unfolding distance_func_def by simp
-        moreover have "distance_func v bt_val new_L = 0" 
+        moreover have "distance_func v bt_val new_L = 0"
           using sa_new unfolding distance_func_def by simp
         ultimately show ?thesis by simp
       next
         case False
-        (* Case. *)
+        (* Original source location. *)
         note not_sa_L = False
         have not_sa_new: "\<not> in_SA v new_L" using same_SA False by simp
 
-        (* v L position *)
+        (* Original source location. *)
         have L_at_k: "L ! k = e" using assms(2) k_bound act_at_k
           by (metis append.assoc nth_append_left)
         have k_less_bt_L: "k < ?pos_bt_L" using k_bound by simp
-        
+
         have idx_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some k"
           unfolding find_unique_index_def
           using L_at_k assms(2) k_bound e_in(2,3) unique_enq_value[OF assms(1)]
           using assms(1) unique_enq_index by simp fastforce
 
-        (* v new_L position *)
+        (* Original source location. *)
         have new_L_at_k: "new_L ! k = e" using assms(6) k_bound act_at_k
           by (metis append_eq_appendI nth_append_left)
         have k_less_bt_new: "k < ?pos_bt_new" using k_bound by simp
@@ -1475,16 +1475,16 @@ proof -
           using new_L_at_k assms(6) k_bound e_in(2,3) unique_enq_value[OF di_new_L]
           using di_new_L unique_enq_index by simp fastforce
 
-        (* distance *)
+        (* Definitions and lemmas for distance and modify_lin. *)
         have dL: "distance_func v bt_val L = ?pos_bt_L - k"
           unfolding distance_func_def
           using idx_L pos_bt_L_val not_sa_L k_less_bt_L by auto
-        
+
         have dNew: "distance_func v bt_val new_L = ?pos_bt_new - k"
           unfolding distance_func_def
           using idx_new pos_bt_new_val not_sa_new k_less_bt_new by auto
 
-        (* : pos_bt, k unchanged, distance *)
+        (* Definitions and lemmas for distance and modify_lin. Related symbols: pos_bt. *)
         show ?thesis using dL dNew pos_decrease by simp
       qed
     qed
@@ -1492,11 +1492,11 @@ proof -
       by metis
   qed
 
-  (* D.2 Jumped (b_act + l22): distancestrict () *)
-  (* Core: L bt_act, new_L bt_act *)
+  (* Definitions and lemmas for distance and modify_lin. Related symbols: D.2, b_act, l22. *)
+  (* Proof note. Related symbols: bt_act, new_L. *)
   have sum_jumped_strict: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_jumped < sum (\<lambda>v. distance_func v bt_val L) ?S_jumped"
   proof -
-    (* non-empty (b_act) *)
+    (* Set, cardinality, and uniqueness reasoning. Related symbols: b_act. *)
     have "b_act \<in> set ?jumped_list" by simp
     then have "op_val b_act \<in> ?S_jumped" using assms(3) unfolding set_map set_filter image_iff by blast
     then have not_empty: "?S_jumped \<noteq> {}" by auto
@@ -1504,25 +1504,25 @@ proof -
     have "\<forall>v \<in> ?S_jumped. distance_func v bt_val new_L < distance_func v bt_val L"
     proof
       fix v assume v_in: "v \<in> ?S_jumped"
-      
-      (* Step 1. *)
+
+      (* Step 1 of the proof. *)
       obtain e where e_in: "e \<in> set ?jumped_list" "op_name e = enq" "op_val e = v"
         using v_in unfolding set_map set_filter image_iff by blast
       obtain k where k_bound: "k < length ?jumped_list" and act_at_k: "?jumped_list ! k = e"
         using e_in by (metis in_set_conv_nth)
 
-      (* Step 2.4. *)
-      (* l1 SA. Jumped (b_act+l22) l1, SA *)
+      (* Step 2: prove the required intermediate property. Related symbols: SA. *)
+      (* Proof note. Related symbols: l1, SA, b_act, l22. *)
       have "\<not> in_SA v L"
       proof -
-        (* A. v L position *)
+        (* Original source location. *)
         let ?pos_v_L = "length ?prefix_list + k"
-        have L_at_pos: "L ! ?pos_v_L = e" 
-          using assms(2) k_bound act_at_k 
+        have L_at_pos: "L ! ?pos_v_L = e"
+          using assms(2) k_bound act_at_k
           by (metis append_assoc nth_append_left nth_append_length_plus)
-          
-        (* B. position *)
-        have pos_bound: "?pos_v_L < length L" 
+
+        (* Original source location. *)
+        have pos_bound: "?pos_v_L < length L"
           using assms(2) k_bound by simp
 
         show ?thesis
@@ -1531,65 +1531,65 @@ proof -
           by force
       qed
 
-      (* Step 3.0. *)
+      (* Step 3 of the proof. Related symbols: bt_act. *)
       let ?pos_v_L = "length ?prefix_list + k"
-      
-      (* Proof step. *)
-      have L_at_pos: "L ! ?pos_v_L = e" 
-        using assms(2) k_bound act_at_k 
+
+      (* Original source location. *)
+      have L_at_pos: "L ! ?pos_v_L = e"
+        using assms(2) k_bound act_at_k
         by (metis append_assoc nth_append_left nth_append_length_plus)
-      
-      (* Proof step. *)
-      have pos_bound: "?pos_v_L < length L" 
+
+      (* Prove the required intermediate property. *)
+      have pos_bound: "?pos_v_L < length L"
         using assms(2) k_bound by simp
 
-      (* Proof step. *)
+      (* Prove the required intermediate property. Related symbols: find_unique_index. *)
       have idx_L: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some ?pos_v_L"
         unfolding find_unique_index_def
-        using L_at_pos pos_bound e_in(2,3) (* e_in oper=enq, val=v *)
-        using unique_enq_value[OF assms(1)] (* unique *)
-        using assms(1) unique_enq_index 
+        using L_at_pos pos_bound e_in(2,3) (* Enqueue-side reasoning. Related symbols: e_in. *)
+        using unique_enq_value[OF assms(1)] (* Set, cardinality, and uniqueness reasoning. *)
+        using assms(1) unique_enq_index
         by fastforce
 
       have pos_rel: "?pos_v_L < ?pos_bt_L" using k_bound by simp
-      
+
       have dist_L_pos: "distance_func v bt_val L > 0"
         unfolding distance_func_def
         using idx_L pos_bt_L_val `\<not> in_SA v L` pos_rel by simp
 
-     (* Step 4.0. *)
+     (* Step 4 of the proof. Related symbols: new_L, bt_act. *)
       (* new_L = prefix @ [bt] @ jumped @ ... *)
       let ?pos_v_new = "length ?prefix_list + 1 + k"
-      
-      have new_L_at_new: "new_L ! ?pos_v_new = e" 
+
+      have new_L_at_new: "new_L ! ?pos_v_new = e"
       proof -
-        (* Step 1. *)
+        (* Step 1 of the proof. Related symbols: new_L. *)
         have struct: "new_L = ?prefix_list @ ([bt_act] @ ?jumped_list @ l3)"
           using assms(6) by simp
-          
-        (* Step 2. *)
-        (* index len(prefix) + (1 + k) *)
+
+        (* Step 2 of the proof. *)
+        (* List-index and filtering reasoning. *)
         have "new_L ! ?pos_v_new = (?prefix_list @ ([bt_act] @ ?jumped_list @ l3)) ! (length ?prefix_list + (1 + k))"
           using struct by simp
         also have "... = ([bt_act] @ ?jumped_list @ l3) ! (1 + k)"
           by (rule nth_append_length_plus)
-          
-        (* Step 3. *)
-        (* [bt_act] 1, index 1 + k *)
+
+        (* Step 3 of the proof. Related symbols: bt_act. *)
+        (* List-index and filtering reasoning. Related symbols: bt_act. *)
         also have "... = ([bt_act] @ (?jumped_list @ l3)) ! (length [bt_act] + k)"
           by simp
         also have "... = (?jumped_list @ l3) ! k"
           by (rule nth_append_length_plus)
-          
-        (* Step 4. *)
+
+        (* Step 4 of the proof. *)
         also have "... = ?jumped_list ! k"
           using k_bound
           using nth_append_left by blast
-          
-        (* 5. conclusion *)
+
+        (* Step 5 of the proof. *)
         finally show ?thesis using act_at_k by simp
       qed
-        
+
       have idx_new: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) new_L = Some ?pos_v_new"
         unfolding find_unique_index_def
         using new_L_at_new assms(6) k_bound e_in(2,3) unique_enq_value[OF di_new_L]
@@ -1601,19 +1601,19 @@ proof -
         unfolding distance_func_def
         using idx_new pos_bt_new_val pos_rel_new by simp
 
-      (* conclusion *)
+      (* Proof note. *)
       show "distance_func v bt_val new_L < distance_func v bt_val L"
         using dist_L_pos dist_new_zero by simp
     qed
     then show ?thesis
       using not_empty sum_strict_mono
-      by (metis (lifting) finite_sets(2)) 
+      by (metis (lifting) finite_sets(2))
   qed
 
-(* D.3 Rest (bt_act + l3): distanceunchanged (0) *)
+(* Definitions and lemmas for distance and modify_lin. Related symbols: D.3, bt_act, l3. *)
   have rest_unchanged: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_rest = sum (\<lambda>v. distance_func v bt_val L) ?S_rest"
   proof -
-    (* Step 1.3.0. *)
+    (* Definitions and lemmas for distance and modify_lin. Related symbols: l3. *)
     have l3_zeros_L: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)). distance_func v bt_val L = 0"
     proof
       fix v assume v_in_l3: "v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
@@ -1624,8 +1624,8 @@ proof -
 
       let ?pre_bt = "l1 @ l21 @ [b_act] @ l22"
       let ?pos_bt = "length ?pre_bt"
-      let ?pos_v = "?pos_bt + 1 + k" 
-      
+      let ?pos_v = "?pos_bt + 1 + k"
+
       have L_bt: "L ! ?pos_bt = bt_act" using assms(2) by (simp add: nth_append)
       have L_v: "L ! ?pos_v = z" using assms(2) l3_at_k k_bound by (simp add: nth_append)
       have len_L: "length L = ?pos_bt + 1 + length l3" using assms(2) by simp
@@ -1635,7 +1635,7 @@ proof -
       have idx_bt: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) L = Some ?pos_bt"
         unfolding find_unique_index_def
         using L_bt bound_bt assms(4,5) unique_enq_value[OF assms(1)]
-        using find_unique_index_def pos_bt_L_val by auto  
+        using find_unique_index_def pos_bt_L_val by auto
 
       have idx_v: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = v) L = Some ?pos_v"
         unfolding find_unique_index_def
@@ -1648,7 +1648,7 @@ proof -
         using idx_bt idx_v `?pos_v > ?pos_bt` by simp
     qed
 
-    (* Step 2.3.0. *)
+    (* Definitions and lemmas for distance and modify_lin. Related symbols: new_L, l3. *)
     have l3_zeros_new: "\<forall>v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3)). distance_func v bt_val new_L = 0"
     proof
       fix v assume v_in_l3: "v \<in> set (map op_val (filter (\<lambda>a. op_name a = enq) l3))"
@@ -1661,17 +1661,17 @@ proof -
       let ?pos_bt_new = "length ?pre_bt_new"
       (* new_L = prefix @ [bt] @ (jumped @ l3) *)
       (* pos_v = len(prefix) + 1 + len(jumped) + k *)
-      let ?pos_v_new = "?pos_bt_new + 1 + length ([b_act] @ l22) + k" 
-      
-      have new_L_bt: "new_L ! ?pos_bt_new = bt_act" 
+      let ?pos_v_new = "?pos_bt_new + 1 + length ([b_act] @ l22) + k"
+
+      have new_L_bt: "new_L ! ?pos_bt_new = bt_act"
         using assms(6) by (simp add: nth_append)
-        
-      have new_L_v: "new_L ! ?pos_v_new = z" 
+
+      have new_L_v: "new_L ! ?pos_v_new = z"
         using assms(6) l3_at_k k_bound by (simp add: nth_append)
-        
+
       have len_new: "length new_L = ?pos_bt_new + 1 + length ([b_act] @ l22) + length l3"
         using assms(6) by simp
-        
+
       have bound_bt: "?pos_bt_new < length new_L" using len_new by simp
       have bound_v: "?pos_v_new < length new_L" using len_new k_bound by simp
 
@@ -1687,7 +1687,7 @@ proof -
         have unique: "\<forall>j < length new_L. ?P (new_L ! j) \<longrightarrow> j = ?pos_v_new"
           using P_holds bound_v di_new_L same_enq_value_same_index by blast
         have exists_unique: "\<exists>!i. i < length new_L \<and> ?P (new_L ! i)"
-          using assms(1,2) di_new_L unique_enq_value P_holds bound_v by blast 
+          using assms(1,2) di_new_L unique_enq_value P_holds bound_v by blast
         have the_is_idx: "(THE i. i < length new_L \<and> ?P (new_L ! i)) = ?pos_v_new"
           apply (rule the_equality)
           apply (simp add: bound_v P_holds)
@@ -1712,7 +1712,7 @@ proof -
         using idx_bt idx_v `?pos_v_new > ?pos_bt_new` by simp
     qed
 
-    (* Step 3.0. *)
+    (* Definitions and lemmas for distance and modify_lin. Related symbols: ?S_rest. *)
     have d_bt_L: "distance_func bt_val bt_val L = 0" using distance_self_zero[OF assms(1)] .
     have d_bt_new: "distance_func bt_val bt_val new_L = 0" using distance_self_zero[OF di_new_L] .
 
@@ -1738,14 +1738,14 @@ proof -
       using all_L_0 all_new_0 by (simp add: sum.neutral)
   qed
 
-  (* --- F. combineconclusion --- *)
-  
+  (* Proof note. *)
+
   have finite_S: "finite ?S_total" by simp
   have union_disjoint_rest: "(?S_prefix \<union> ?S_jumped) \<inter> ?S_rest = {}"
     using disjoint_2 disjoint_3
-    by blast 
-  
-  (* 2. Distance L unfold *)
+    by blast
+
+  (* Step 2 of the proof. *)
   have dist_L_sum: "Distance L bt_val = sum (\<lambda>v. distance_func v bt_val L) ?S_total"
   proof -
     have "Distance L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val L) (sorted_list_of_set ?S_total))"
@@ -1755,7 +1755,7 @@ proof -
           sorted_list_of_set.set_sorted_key_list_of_set)
   qed
 
-  (* 3. Distance new_L unfold *)
+  (* Step 3 of the proof. Related symbols: new_L. *)
   have dist_new_sum: "Distance new_L bt_val = sum (\<lambda>v. distance_func v bt_val new_L) ?S_total"
   proof -
     let ?S_new = "set (map op_val (filter (\<lambda>a. op_name a = enq) new_L))"
@@ -1767,7 +1767,7 @@ proof -
         by (metis set_mset_mset)
       then show ?thesis unfolding set_map by simp
     qed
-    
+
     have "Distance new_L bt_val = sum_list (map (\<lambda>v. distance_func v bt_val new_L) (sorted_list_of_set ?S_new))"
       unfolding Distance_def Let_def by simp
     also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_new"
@@ -1777,19 +1777,19 @@ proof -
     finally show ?thesis using S_eq by simp
   qed
 
-  (* Step 4. *)
-  (* unfold new_L Sum *)
+  (* Step 4 of the proof. *)
+  (* Unfold the relevant definition and expose the required facts. Related symbols: new_L. *)
   have "Distance new_L bt_val = sum (\<lambda>v. distance_func v bt_val new_L) ?S_total"
     using dist_new_sum by simp
-  
+
   also have "... = sum (\<lambda>v. distance_func v bt_val new_L) (?S_prefix \<union> ?S_jumped \<union> ?S_rest)"
     using set_decomp by simp
-    
+
   also have "... = sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix + sum (\<lambda>v. distance_func v bt_val new_L) ?S_jumped + sum (\<lambda>v. distance_func v bt_val new_L) ?S_rest"
     using finite_sets disjoint_1 disjoint_2 disjoint_3 union_disjoint_rest
     by (simp add: finite_UnI sum.union_disjoint)
-    
-  (* Comment. *)
+
+  (* Proof note. *)
   also have "... < sum (\<lambda>v. distance_func v bt_val L) ?S_prefix + sum (\<lambda>v. distance_func v bt_val L) ?S_jumped + sum (\<lambda>v. distance_func v bt_val L) ?S_rest"
   proof -
     have le1: "sum (\<lambda>v. distance_func v bt_val new_L) ?S_prefix \<le> sum (\<lambda>v. distance_func v bt_val L) ?S_prefix"
@@ -1800,34 +1800,34 @@ proof -
       using rest_unchanged by simp
     show ?thesis using le1 less2 eq3 by linarith
   qed
-  
-  (* L Sum *)
+
+  (* Proof note. *)
   also have "... = sum (\<lambda>v. distance_func v bt_val L) (?S_prefix \<union> ?S_jumped \<union> ?S_rest)"
     using finite_sets disjoint_1 disjoint_2 disjoint_3 union_disjoint_rest
     by (simp add: sum.union_disjoint)
-    
+
   also have "... = sum (\<lambda>v. distance_func v bt_val L) ?S_total"
     using set_decomp by simp
-    
+
   also have "... = Distance L bt_val"
     using dist_L_sum by simp
-    
+
   finally show ?thesis .
 qed
 
 
 
 
-(* Proof step. *)
+(* Prove the required intermediate property. *)
 termination modify_lin
 proof (relation "measure (\<lambda>(L, H, bt_val). Distance L bt_val)")
-  (* Subgoal 1. *)
+  (* Prove the required intermediate property. *)
   show "wf (measure (\<lambda>(L, H, bt_val). Distance L bt_val))"
     using Distance_nonneg
     by simp
-  
+
 next
-(* Case 2.2.2. *)
+(* Enqueue-side reasoning. Related symbols: l2_last. *)
   show "\<And>L H bt_val x xa xb xc xd xe xf xg xh xi xj.
         \<not> \<not> should_modify L H bt_val \<Longrightarrow>
         x = Distance L bt_val \<Longrightarrow>
@@ -1842,14 +1842,14 @@ next
         op_name xh = enq \<Longrightarrow>
         xi = butlast xf \<Longrightarrow> xj = xb @ xi @ [xe] @ [xh] @ xg \<Longrightarrow> ((xj, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
   proof -
-    (* Step 1. *)
+    (* Step 1 of the proof. *)
     fix L H bt_val x xa xb xc xd xe xf xg xh xi xj
     assume prems:
       "\<not> \<not> should_modify L H bt_val"
       "x = Distance L bt_val"
       "xa = find_last_SA L"
-      "xb = take (nat (xa + 1)) L"   (* 1:, show strictalignment *)
-      "xc = drop (nat (xa + 1)) L"   (* 1:, show strictalignment *)
+      "xb = take (nat (xa + 1)) L"   (* Proof note. *)
+      "xc = drop (nat (xa + 1)) L"   (* Proof note. *)
       "xd = the (find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) xc)"
       "xe = xc ! xd"
       "xf = take xd xc"
@@ -1859,12 +1859,12 @@ next
       "xi = butlast xf"
       "xj = xb @ xi @ [xe] @ [xh] @ xg"
 
-    (* should_modify extract *)
+    (* Extract the required witnesses and facts. Related symbols: should_modify. *)
     from prems(1) have should_mod: "should_modify L H bt_val" by simp
-    from should_mod have di_L: "data_independent L" 
+    from should_mod have di_L: "data_independent L"
       unfolding should_modify_def by simp
 
-    (* map *)
+    (* Proof note. *)
     define last_sa_pos where "last_sa_pos = xa"
     define l1 where "l1 = xb"
     define remaining where "remaining = xc"
@@ -1876,8 +1876,8 @@ next
     define ll2 where "ll2 = xi"
     define new_L where "new_L = xj"
 
-    (* Proof step. *)
-    (* Branch 2. *)
+    (* Prove the required intermediate property. Related symbols: l1, l2, bt_act, l3. *)
+    (* Proof-automation note. *)
     have bt_in_remaining: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
     proof (rule ccontr)
       assume "\<not> ?thesis"
@@ -1886,7 +1886,7 @@ next
         unfolding should_modify_def Let_def remaining_def
         by (auto split: option.splits)
     qed
-      
+
     then have bt_idx_some: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       unfolding bt_idx_def using option.collapse by (simp add: prems(6) remaining_def)
 
@@ -1895,7 +1895,7 @@ next
       unfolding bt_act_def using prems(7) remaining_def bt_idx_def
       apply simp
       using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close>
-        bt_idx_def prems(7) remaining_def by auto 
+        bt_idx_def prems(7) remaining_def by auto
 
     have remaining_split: "remaining = l2 @ [bt_act] @ l3"
     proof -
@@ -1912,21 +1912,21 @@ next
       using prems(4,5) append_take_drop_id remaining_split
       by (metis remaining_def)
 
-    (* Proof l2 non-empty *)
+    (* Prove the required intermediate property. Related symbols: l2. *)
     have l2_not_empty: "l2 \<noteq> []"
       using should_mod unfolding should_modify_def Let_def
       unfolding l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
       unfolding last_sa_pos_def[symmetric] l1_def[symmetric]
-      using prems(6) 
+      using prems(6)
       by (smt (z3) l2_def option.case_eq_if prems(10,3,5,8))
 
-    (* construction new_L structure *)
+    (* Proof note. Related symbols: new_L. *)
     have new_L_struct: "new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3"
       unfolding new_L_def l1_def ll2_def bt_act_def l2_last_def l3_def
       using prems(13) by simp
 
 
-    (* applyLemma *)
+    (* Proof note. *)
     have "Distance new_L bt_val < Distance L bt_val"
       apply (rule moving_bt_act_forward_over_l2_last_case2)
       apply (rule di_L)                         (* 1 *)
@@ -1939,14 +1939,14 @@ next
       unfolding ll2_def l2_def apply (rule prems(12))        (* 8 *)
       apply (rule bt_act_props(1))              (* 9 *)
       apply (rule bt_act_props(2))               (* 10 *)
-      by (simp add: bt_act_def l3_def new_L_def prems(13))             
+      by (simp add: bt_act_def l3_def new_L_def prems(13))
 
     thus "((xj, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
       unfolding new_L_def[symmetric] by simp
   qed
 
 next
-  (* Subgoal3: happens_before o1 bt_act H Branch (Case 3) *)
+  (* Proof note. Related symbols: happens_before, o1, bt_act. *)
   show "\<And>L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn xo.
        \<not> \<not> should_modify L H bt_val \<Longrightarrow>
        x = Distance L bt_val \<Longrightarrow>
@@ -1968,7 +1968,7 @@ next
        xn = tl ya \<Longrightarrow>
        xo = xb @ xj @ [xl] @ [xk] @ xn @ [xe] @ xg \<Longrightarrow> ((xo, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
   proof -
-    (* Step 1. *)
+    (* Step 1 of the proof. *)
     fix L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn xo
     assume prems:
       "\<not> \<not> should_modify L H bt_val"
@@ -1991,12 +1991,12 @@ next
       "xn = tl ya"
       "xo = xb @ xj @ [xl] @ [xk] @ xn @ [xe] @ xg"
 
-    (* should_modify extract *)
+    (* Extract the required witnesses and facts. Related symbols: should_modify. *)
     from prems(1) have should_mod: "should_modify L H bt_val" by simp
-    from should_mod have di_L: "data_independent L" 
+    from should_mod have di_L: "data_independent L"
       unfolding should_modify_def by simp
 
-    (* Auxiliary lemma. *)
+    (* Proof note. *)
     define last_sa_pos where "last_sa_pos = xa"
     define l1 where "l1 = xb"
     define remaining where "remaining = xc"
@@ -2011,7 +2011,7 @@ next
     define new_l22 where "new_l22 = xn"
     define new_L where "new_L = xo"
 
-    (* Step 2. *)
+    (* Step 2: prove the required intermediate property. *)
     have bt_in_remaining: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
     proof (rule ccontr)
       assume "\<not> ?thesis"
@@ -2019,29 +2019,29 @@ next
         using should_mod prems(3) prems(5)
         unfolding should_modify_def Let_def remaining_def
         by (auto split: option.splits)
-    qed    
-    
+    qed
+
     then have bt_idx_some: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       unfolding bt_idx_def using option.collapse
       by (simp add: prems(6) remaining_def)
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_unique_index, bt_act, bt_val. *)
     have bt_act_props: "op_name bt_act = enq" "op_val bt_act = bt_val"
       using find_unique_index_prop[OF bt_idx_some]
-      unfolding bt_act_def 
+      unfolding bt_act_def
       using bt_idx_def prems(7) remaining_def
       apply meson
-      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto 
+      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto
 
-    (* combineProof L = l1 @ l2 @ [bt_act] @ l3 *)
+    (* Prove the required intermediate property. Related symbols: l1, l2, bt_act, l3. *)
     have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
     proof -
-      (* : L = l1 @ remaining *)
+      (* Proof note. Related symbols: l1. *)
       have step1: "L = l1 @ remaining"
         unfolding l1_def remaining_def using append_take_drop_id
         by (simp add: prems(4,5))
-      
-      (* : remaining = l2 @ [bt_act] @ l3 *)
+
+      (* Proof note. Related symbols: l2, bt_act, l3. *)
       have step2: "remaining = l2 @ [bt_act] @ l3"
       proof -
         have "bt_idx < length remaining"
@@ -2049,34 +2049,34 @@ next
         then show ?thesis
           unfolding l2_def l3_def bt_act_def
           using append_take_drop_id Cons_nth_drop_Suc
-          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def) 
+          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def)
       qed
-      
-      (* Comment. *)
+
+      (* Proof note. *)
       from step1 step2 show ?thesis by simp
     qed
 
-    (* Step 3.2. *)
-    
-    (* l2 enq (should_modify execution path) *)
+    (* Step 3: prove the required intermediate property. Related symbols: l2. *)
+
+    (* Enqueue-side reasoning. Related symbols: l2, should_modify. *)
     have find_last_enq_not_none: "find_last_enq l2 \<noteq> None"
-      using should_mod unfolding should_modify_def Let_def 
+      using should_mod unfolding should_modify_def Let_def
       l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
       last_sa_pos_def[symmetric] l1_def[symmetric]
-      using prems(6) 
-      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8)) 
+      using prems(6)
+      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8))
 
     then have find_last_enq_eq: "find_last_enq l2 = Some (l21, b_act, l22)"
       using prems(12-14) unfolding l2_def l21_def b_act_def l22_def
       using option.collapse by fastforce
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_last_enq_props, b_act. *)
     have b_act_enq: "op_name b_act = enq"
       using find_last_enq_props[OF find_last_enq_eq] by simp
 
-    (* Step 4.22.1. *)
+    (* Step 4: prove the required intermediate property. Related symbols: l22, o1. *)
 
-    (* l22 non-empty *)
+    (* Proof note. Related symbols: l22. *)
     have l22_not_empty: "l22 \<noteq> []"
       using should_mod unfolding should_modify_def Let_def
       unfolding l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
@@ -2085,15 +2085,15 @@ next
       using b_act_enq find_last_enq_props(1) l2_def prems(10,11)
       by fastforce
 
-    (* o1 l22 (hd) *)
+    (* Proof note. Related symbols: o1, l22. *)
     have o1_is_hd: "o1 = hd l22"
       using prems(15) unfolding o1_def l22_def by simp
 
-    (* new_l22 l22 (tl) *)
+    (* Proof note. Related symbols: new_l22, l22. *)
     have new_l22_is_tl: "new_l22 = tl l22"
       using prems(18) unfolding new_l22_def l22_def by simp
 
-    (* Case 1.5. *)
+    (* Prove the required intermediate property. Related symbols: o1, ou_is_deq. *)
     have o1_is_deq: "op_name o1 = deq"
     proof -
       have all_deq: "\<forall>a \<in> set l22. op_name a = deq"
@@ -2103,27 +2103,27 @@ next
       with all_deq show ?thesis by auto
     qed
 
-    (* Step 5. *)
+    (* Step 5 of the proof. Related symbols: new_L. *)
     (* new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3 *)
     have new_L_struct: "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
       unfolding new_L_def prems(19)
       unfolding l1_def l21_def o1_def b_act_def new_l22_def bt_act_def l3_def
       by simp
 
-    (* Case 3.1.3. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: moving_b_act_forward_over_o1_case3. *)
     have "Distance new_L bt_val < Distance L bt_val"
       apply (rule moving_b_act_forward_over_o1_case3)
       apply (rule di_L)                              (* 1: data_independent L *)
       apply (rule L_decomp)                          (* 2: L = ... *)
-      
+
       (* 3: l1 = take ... *)
-      unfolding l1_def last_sa_pos_def 
-      apply (rule prems(4)) 
-      
+      unfolding l1_def last_sa_pos_def
+      apply (rule prems(4))
+
       (* 4: last_sa_pos = find_last_SA L *)
-      unfolding last_sa_pos_def 
+      unfolding last_sa_pos_def
       apply (rule prems(3))
-      
+
       apply (rule find_last_enq_eq)                  (* 5: find_last_enq l2 = Some ... *)
       apply (rule l22_not_empty)                     (* 6: l22 \<noteq> [] *)
       apply (rule o1_is_hd)                          (* 7: o1 = hd l22 *)
@@ -2133,15 +2133,15 @@ next
       apply (rule bt_act_props(2))                   (* 11: op_val bt_act = bt_val *)
       by (simp add: l1_def new_L_struct)             (* 12: new_L definition *)
 
-    (* 6. conclusion *)
+    (* Step 6 of the proof. *)
     thus "((xo, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
       unfolding new_L_def[symmetric]
       by simp
   qed
 
 next
-  (* Subgoal4: happens_before b_act o1 H Branch (Case 4) *)
-  (* logical: bt_act b_act *)
+  (* Proof note. Related symbols: happens_before, b_act, o1. *)
+  (* Proof note. Related symbols: bt_act, b_act. *)
   show "\<And>L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn.
        \<not> \<not> should_modify L H bt_val \<Longrightarrow>
        x = Distance L bt_val \<Longrightarrow>
@@ -2163,7 +2163,7 @@ next
        happens_before xk xl H \<Longrightarrow>
        xn = xb @ xj @ [xe] @ [xk] @ ya @ xg \<Longrightarrow> ((xn, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
   proof -
-    (* Step 1. *)
+    (* Step 1 of the proof. *)
     fix L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn
     assume prems:
       "\<not> \<not> should_modify L H bt_val"
@@ -2186,12 +2186,12 @@ next
       "happens_before xk xl H"
       "xn = xb @ xj @ [xe] @ [xk] @ ya @ xg"
 
-    (* should_modify extract *)
+    (* Extract the required witnesses and facts. Related symbols: should_modify. *)
     from prems(1) have should_mod: "should_modify L H bt_val" by simp
-    from should_mod have di_L: "data_independent L" 
+    from should_mod have di_L: "data_independent L"
       unfolding should_modify_def by simp
 
-    (* Auxiliary lemma. *)
+    (* Proof note. *)
     define last_sa_pos where "last_sa_pos = xa"
     define l1 where "l1 = xb"
     define remaining where "remaining = xc"
@@ -2204,34 +2204,34 @@ next
     define l22 where "l22 = ya"
     define new_L where "new_L = xn"
 
-    (* Step 2. *)
-    
-    (* Proof step. *)
+    (* Step 2: prove the required intermediate property. *)
+
+    (* Prove the required intermediate property. Related symbols: bt_val. *)
     have bt_in_remaining: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
       using should_mod unfolding should_modify_def Let_def remaining_def last_sa_pos_def
       using option.simps(4) prems(3,5) by fastforce
-    
+
     then have bt_idx_some: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       unfolding bt_idx_def using option.collapse
       by (simp add: prems(6) remaining_def)
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_unique_index, bt_act, bt_val. *)
     have bt_act_props: "op_name bt_act = enq" "op_val bt_act = bt_val"
       using find_unique_index_prop[OF bt_idx_some]
-      unfolding bt_act_def 
+      unfolding bt_act_def
       using bt_idx_def prems(7) remaining_def
       apply meson
-      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto 
+      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto
 
-    (* combineProof L = l1 @ l2 @ [bt_act] @ l3 *)
+    (* Prove the required intermediate property. Related symbols: l1, l2, bt_act, l3. *)
     have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
     proof -
-      (* : L = l1 @ remaining *)
+      (* Proof note. Related symbols: l1. *)
       have step1: "L = l1 @ remaining"
         unfolding l1_def remaining_def using append_take_drop_id
         by (simp add: prems(4,5))
-      
-      (* : remaining = l2 @ [bt_act] @ l3 *)
+
+      (* Proof note. Related symbols: l2, bt_act, l3. *)
       have step2: "remaining = l2 @ [bt_act] @ l3"
       proof -
         have "bt_idx < length remaining"
@@ -2239,41 +2239,41 @@ next
         then show ?thesis
           unfolding l2_def l3_def bt_act_def
           using append_take_drop_id Cons_nth_drop_Suc
-          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def) 
+          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def)
       qed
-      
-      (* Comment. *)
+
+      (* Proof note. *)
       from step1 step2 show ?thesis by simp
     qed
 
-    (* Step 3.2. *)
-    
-    (* l2 enq (should_modify execution path) *)
+    (* Step 3: prove the required intermediate property. Related symbols: l2. *)
+
+    (* Enqueue-side reasoning. Related symbols: l2, should_modify. *)
     have find_last_enq_not_none: "find_last_enq l2 \<noteq> None"
-      using should_mod unfolding should_modify_def Let_def 
+      using should_mod unfolding should_modify_def Let_def
       l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
       last_sa_pos_def[symmetric] l1_def[symmetric]
-      using prems(6) 
-      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8)) 
+      using prems(6)
+      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8))
 
     then have find_last_enq_eq: "find_last_enq l2 = Some (l21, b_act, l22)"
       using prems(12-14) unfolding l2_def l21_def b_act_def l22_def
       using option.collapse by fastforce
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_last_enq_props, b_act. *)
     have b_act_enq: "op_name b_act = enq"
       using find_last_enq_props[OF find_last_enq_eq] by simp
 
-    (* Step 4. *)
+    (* Step 4 of the proof. Related symbols: new_L. *)
     (* new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 *)
-    (* : premise xn = xb @ xj @ [xe] @ [xk] @ ya @ xg *)
-    (* corresponding: l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 *)
+    (* Proof note. *)
+    (* Proof note. Related symbols: l1, l21, bt_act, b_act, l22, l3. *)
     have new_L_struct: "new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3"
       unfolding new_L_def prems(19)
       unfolding l1_def l21_def bt_act_def b_act_def l22_def l3_def
       by simp
 
-    (* Case 4.4. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: moving_bt_act_before_b_act_case4. *)
     have "Distance new_L bt_val < Distance L bt_val"
       apply (rule moving_bt_act_before_b_act_case4)
       apply (rule di_L)                              (* 1: data_independent L *)
@@ -2282,17 +2282,17 @@ next
       apply (rule bt_act_props(1))                   (* 4: op_name bt_act = enq *)
       apply (rule bt_act_props(2))
       apply (simp add: new_L_struct)
-      by (simp add: l1_def prems(3,4))   
+      by (simp add: l1_def prems(3,4))
 
 
-    (* 5. conclusion *)
+    (* Step 5 of the proof. *)
     thus "((xn, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
       unfolding new_L_def[symmetric]
       by simp
   qed
 
 next
-  (* Case 5.1.5. *)
+  (* Prove the required intermediate property. Related symbols: \<not>, happens_before, b_act, o1. *)
   show "\<And>L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn xo.
        \<not> \<not> should_modify L H bt_val \<Longrightarrow>
        x = Distance L bt_val \<Longrightarrow>
@@ -2315,11 +2315,11 @@ next
        \<not> happens_before xk xl H \<Longrightarrow>
        xn = tl ya \<Longrightarrow> xo = xb @ xj @ [xl] @ [xk] @ xn @ [xe] @ xg \<Longrightarrow> ((xo, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, v). Distance L v)"
   proof -
-    (* Step 1. *)
+    (* Step 1 of the proof. *)
     fix L H bt_val x xa xb xc xd xe xf xg xh xi xj y xk ya xl xm xn xo
-    assume prems: 
+    assume prems:
       "\<not> \<not> should_modify L H bt_val"
-      "x = Distance L bt_val" 
+      "x = Distance L bt_val"
       "xa = find_last_SA L"
       "xb = take (nat (xa + 1)) L"
       "xc = drop (nat (xa + 1)) L"
@@ -2340,12 +2340,12 @@ next
       "xn = tl ya"
       "xo = xb @ xj @ [xl] @ [xk] @ xn @ [xe] @ xg"
 
-    (* should_modify extract *)
+    (* Extract the required witnesses and facts. Related symbols: should_modify. *)
     from prems(1) have should_mod: "should_modify L H bt_val" by simp
-    from should_mod have di_L: "data_independent L" 
+    from should_mod have di_L: "data_independent L"
       unfolding should_modify_def by simp
 
-    (* Auxiliary lemma. *)
+    (* Proof note. *)
     define last_sa_pos where "last_sa_pos = xa"
     define l1 where "l1 = xb"
     define remaining where "remaining = xc"
@@ -2360,7 +2360,7 @@ next
     define new_l22 where "new_l22 = xn"
     define new_L where "new_L = xo"
 
-    (* Step 2. *)
+    (* Step 2: prove the required intermediate property. *)
     have bt_in_remaining: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining \<noteq> None"
     proof (rule ccontr)
       assume "\<not> ?thesis"
@@ -2368,29 +2368,29 @@ next
         using should_mod prems(3) prems(5)
         unfolding should_modify_def Let_def remaining_def
         by (auto split: option.splits)
-    qed    
-    
+    qed
+
     then have bt_idx_some: "find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining = Some bt_idx"
       unfolding bt_idx_def using option.collapse
       by (simp add: prems(6) remaining_def)
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_unique_index, bt_act, bt_val. *)
     have bt_act_props: "op_name bt_act = enq" "op_val bt_act = bt_val"
       using find_unique_index_prop[OF bt_idx_some]
-      unfolding bt_act_def 
+      unfolding bt_act_def
       using bt_idx_def prems(7) remaining_def
       apply meson
-      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto 
+      using \<open>bt_idx < length remaining \<and> op_name (remaining ! bt_idx) = enq \<and> op_val (remaining ! bt_idx) = bt_val\<close> bt_idx_def prems(7) remaining_def by auto
 
-    (* combineProof L = l1 @ l2 @ [bt_act] @ l3 *)
+    (* Prove the required intermediate property. Related symbols: l1, l2, bt_act, l3. *)
     have L_decomp: "L = l1 @ l2 @ [bt_act] @ l3"
     proof -
-      (* : L = l1 @ remaining *)
+      (* Proof note. Related symbols: l1. *)
       have step1: "L = l1 @ remaining"
         unfolding l1_def remaining_def using append_take_drop_id
         by (simp add: prems(4,5))
-      
-      (* : remaining = l2 @ [bt_act] @ l3 *)
+
+      (* Proof note. Related symbols: l2, bt_act, l3. *)
       have step2: "remaining = l2 @ [bt_act] @ l3"
       proof -
         have "bt_idx < length remaining"
@@ -2398,34 +2398,34 @@ next
         then show ?thesis
           unfolding l2_def l3_def bt_act_def
           using append_take_drop_id Cons_nth_drop_Suc
-          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def) 
+          by (metis Suc_eq_plus1 append_Cons append_self_conv2 bt_idx_def prems(7,8,9) remaining_def)
       qed
-      
-      (* Comment. *)
+
+      (* Proof note. *)
       from step1 step2 show ?thesis by simp
     qed
 
-    (* Step 3.2. *)
-    
-    (* l2 enq (should_modify execution path) *)
+    (* Step 3: prove the required intermediate property. Related symbols: l2. *)
+
+    (* Enqueue-side reasoning. Related symbols: l2, should_modify. *)
     have find_last_enq_not_none: "find_last_enq l2 \<noteq> None"
-      using should_mod unfolding should_modify_def Let_def 
+      using should_mod unfolding should_modify_def Let_def
       l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
       last_sa_pos_def[symmetric] l1_def[symmetric]
-      using prems(6) 
-      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8)) 
+      using prems(6)
+      by (smt (z3) l2_def option.case_eq_if prems(10,11,3,5,8))
 
     then have find_last_enq_eq: "find_last_enq l2 = Some (l21, b_act, l22)"
       using prems(12-14) unfolding l2_def l21_def b_act_def l22_def
       using option.collapse by fastforce
 
-    (* Proof step. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: find_last_enq_props, b_act. *)
     have b_act_enq: "op_name b_act = enq"
       using find_last_enq_props[OF find_last_enq_eq] by simp
 
-    (* Step 4.22.1. *)
+    (* Step 4: prove the required intermediate property. Related symbols: l22, o1. *)
 
-    (* l22 non-empty *)
+    (* Proof note. Related symbols: l22. *)
     have l22_not_empty: "l22 \<noteq> []"
       using should_mod unfolding should_modify_def Let_def
       unfolding l2_def[symmetric] remaining_def[symmetric] bt_idx_def[symmetric]
@@ -2434,16 +2434,16 @@ next
       using b_act_enq find_last_enq_props(1) l2_def prems(10,11)
       by fastforce
 
-    (* o1 l22 (hd) *)
+    (* Proof note. Related symbols: o1, l22. *)
     have o1_is_hd: "o1 = hd l22"
       using prems(15) unfolding o1_def l22_def by simp
 
-    (* new_l22 l22 (tl) *)
+    (* Proof note. Related symbols: new_l22, l22. *)
     have new_l22_is_tl: "new_l22 = tl l22"
       using prems(18) unfolding new_l22_def l22_def
-      by (simp add: prems(20)) 
+      by (simp add: prems(20))
 
-    (* Case 1.5. *)
+    (* Prove the required intermediate property. Related symbols: o1, ou_is_deq. *)
     have o1_is_deq: "op_name o1 = deq"
     proof -
       have all_deq: "\<forall>a \<in> set l22. op_name a = deq"
@@ -2453,27 +2453,27 @@ next
       with all_deq show ?thesis by auto
     qed
 
-    (* Step 5. *)
+    (* Step 5 of the proof. Related symbols: new_L. *)
     (* new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3 *)
     have new_L_struct: "new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3"
       unfolding new_L_def prems(19)
       unfolding l1_def l21_def o1_def b_act_def new_l22_def bt_act_def l3_def
       by (simp add: prems(21))
 
-    (* Case 3.1.3. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: moving_b_act_forward_over_o1_case3. *)
     have "Distance new_L bt_val < Distance L bt_val"
       apply (rule moving_b_act_forward_over_o1_case3)
       apply (rule di_L)                              (* 1: data_independent L *)
       apply (rule L_decomp)                          (* 2: L = ... *)
-      
+
       (* 3: l1 = take ... *)
-      unfolding l1_def last_sa_pos_def 
-      apply (rule prems(4)) 
-      
+      unfolding l1_def last_sa_pos_def
+      apply (rule prems(4))
+
       (* 4: last_sa_pos = find_last_SA L *)
-      unfolding last_sa_pos_def 
+      unfolding last_sa_pos_def
       apply (rule prems(3))
-      
+
       apply (rule find_last_enq_eq)                  (* 5: find_last_enq l2 = Some ... *)
       apply (rule l22_not_empty)                     (* 6: l22 \<noteq> [] *)
       apply (rule o1_is_hd)                          (* 7: o1 = hd l22 *)
@@ -2483,7 +2483,7 @@ next
       apply (rule bt_act_props(2))                   (* 11: op_val bt_act = bt_val *)
       by (simp add: l1_def new_L_struct)             (* 12: new_L definition *)
 
-    (* 6. conclusion *)
+    (* Step 6 of the proof. *)
     thus "((xo, H, bt_val), L, H, bt_val) \<in> measure (\<lambda>(L, H, bt_val). Distance L bt_val)"
       unfolding new_L_def[symmetric]
       by simp

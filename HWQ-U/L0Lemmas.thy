@@ -7,13 +7,8 @@ theory L0Lemmas
     StateLib
     DeqLib
     EnqLib
+    D3Lemmas
 begin
-
-(* ========================================================== *)
-(* L0 transition lemmas for the combined HWQ/U-state system    *)
-(* ========================================================== *)
-
-(* ========== Canonical descriptions of the two L0 branches ========== *)
 
 definition L0 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "L0 p s s' \<longleftrightarrow> Sys_L0 p s s'"
@@ -33,8 +28,6 @@ definition L0_D1_update_state :: "SysState \<Rightarrow> nat \<Rightarrow> SysSt
        (cs\<lparr> c_program_counter := (\<lambda>x. if x = p then ''D1'' else CState.c_program_counter cs x) \<rparr>,
         us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD2'' else u_program_counter us x),
             u_his_seq := u_his_seq us @ [mk_act deq BOT p (UState.S_var us p) call] \<rparr>))"
-
-(* ========== Basic shape of an L0 step ========== *)
 
 lemma L0_pc_cases:
   assumes STEP: "L0 p s s'"
@@ -58,19 +51,19 @@ proof -
     using STEP PC
     unfolding L0_def Sys_L0_def C_L0_def program_counter_def
     by (auto simp: Let_def split: if_splits)
-  
+
   obtain us_mid where
     mid_E: "U_L0_E p (snd s) us_mid" and
     mid_E1: "U_E1 p (CState.V_var (fst s)) (s_var s p) us_mid (snd s')"
     using STEP pc_E1
     unfolding L0_def Sys_L0_def
     by auto
-    
+
   have us_mid_def:
     "us_mid =
       (snd s)\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE1'' else u_program_counter (snd s) x) \<rparr>"
     using mid_E unfolding U_L0_E_def by auto
-    
+
   have snd_eq:
     "snd s' =
       (snd s)\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE2'' else u_program_counter (snd s) x),
@@ -78,7 +71,7 @@ proof -
     using mid_E1 us_mid_def
     unfolding U_E1_def
     by (simp add: fun_eq_iff)
-    
+
 show ?thesis
   using fst_eq snd_eq
   unfolding L0_E1_update_state_def s_var_def
@@ -98,19 +91,19 @@ proof -
     using STEP PC
     unfolding L0_def Sys_L0_def C_L0_def program_counter_def
     by (auto simp: Let_def split: if_splits)
-  
+
   obtain us_mid where
     mid_D: "U_L0_D p (snd s) us_mid" and
     mid_D1: "U_D1 p (s_var s p) us_mid (snd s')"
     using STEP pc_D1
     unfolding L0_def Sys_L0_def
     by auto
-    
+
   have us_mid_def:
     "us_mid =
       (snd s)\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD1'' else u_program_counter (snd s) x) \<rparr>"
     using mid_D unfolding U_L0_D_def by auto
-    
+
   have snd_eq:
     "snd s' =
       (snd s)\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD2'' else u_program_counter (snd s) x),
@@ -118,7 +111,7 @@ proof -
     using mid_D1 us_mid_def
     unfolding U_D1_def
     by (simp add: fun_eq_iff)
-    
+
 show ?thesis
   using fst_eq snd_eq
   unfolding L0_D1_update_state_def s_var_def
@@ -189,7 +182,162 @@ proof -
     by (simp add: Let_def)
 qed
 
-(* ========== Generic append-call preservation lemmas ========== *)
+lemma L0_no_match_ret_no_HB_from:
+  assumes NORET: "\<forall>k<length H. \<not> match_ret H k op"
+  shows "\<not> HB H op x"
+proof
+  assume hb: "HB H op x"
+
+  obtain kr kc where
+    kr_lt_kc: "kr < kc"
+    and mr: "match_ret H kr op"
+    and mc: "match_call H kc x"
+    using hb
+    unfolding HB_def
+    by metis
+
+  have kr_lt_H:
+    "kr < length H"
+    using mr
+    unfolding match_ret_def
+    by simp
+
+  show False
+    using NORET kr_lt_H mr
+    by blast
+qed
+
+
+lemma L0_HB_consistent_append_no_ret:
+  assumes HBc: "HB_consistent L H"
+  assumes NORET: "\<forall>k<length H. \<not> match_ret H k op"
+  shows "HB_consistent (L @ [op]) H"
+proof (rule HB_consistent_append)
+  show "HB_consistent L H"
+    using HBc .
+next
+  show "\<forall>x\<in>set L. \<not> HB H op x"
+    using L0_no_match_ret_no_HB_from[OF NORET]
+    by blast
+next
+  show "\<not> HB H op op"
+    using L0_no_match_ret_no_HB_from[OF NORET] .
+qed
+
+
+lemma L0_all_lin_called_from_lI1:
+  assumes LI1: "lI1_Op_Sets_Equivalence s"
+  shows "\<forall>a\<in>set (lin_seq s). OpCalledInHis (his_seq s) a"
+proof
+  fix a
+  assume a_in: "a \<in> set (lin_seq s)"
+
+  have a_oplin:
+    "a \<in> OPLin s"
+    using a_in unfolding OPLin_def by simp
+
+  have cases:
+    "a \<in> OP_A_enq s \<or> a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    using LI1 a_oplin
+    unfolding lI1_Op_Sets_Equivalence_def
+    by blast
+
+  thus "OpCalledInHis (his_seq s) a"
+  proof
+    assume "a \<in> OP_A_enq s"
+    then obtain qq vv sn where
+      a_eq: "a = mk_op enq vv qq sn"
+      and call: "EnqCallInHis s qq vv sn"
+      unfolding OP_A_enq_def by blast
+
+    show ?thesis
+      using EnqCallInHis_imp_OpCalledInHis[OF call]
+      unfolding a_eq by simp
+  next
+    assume rest: "a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+    thus ?thesis
+    proof
+      assume "a \<in> OP_A_deq s"
+
+      hence name_deq: "op_name a = deq"
+        and call: "DeqCallInHis s (op_pid a) (op_ssn a)"
+        unfolding OP_A_deq_def
+        by auto
+
+      have a_mk:
+        "mk_op deq (op_val a) (op_pid a) (op_ssn a) = a"
+        using name_deq
+        by (cases a)
+           (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+      have called_mk:
+        "OpCalledInHis (his_seq s)
+           (mk_op deq (op_val a) (op_pid a) (op_ssn a))"
+        using DeqCallInHis_imp_OpCalledInHis[OF call, of "op_val a"] .
+
+      show ?thesis
+        using called_mk a_mk
+        by simp
+    next
+      assume "a \<in> OP_B_enq s"
+      then obtain qq vv sn where
+        a_eq: "a = mk_op enq vv qq sn"
+        and call: "EnqCallInHis s qq vv sn"
+        unfolding OP_B_enq_def by blast
+
+      show ?thesis
+        using EnqCallInHis_imp_OpCalledInHis[OF call]
+        unfolding a_eq by simp
+    qed
+  qed
+qed
+
+lemma hI21_enq_ret_obtain_call:
+  assumes H21: "hI21_Ret_Implies_Call s"
+  assumes k_lt: "k < length (his_seq s)"
+  assumes name_enq: "act_name (his_seq s ! k) = enq"
+  assumes cr_ret: "act_cr (his_seq s ! k) = ret"
+  obtains tm where
+    "tm < k"
+    "act_pid (his_seq s ! tm) = act_pid (his_seq s ! k)"
+    "act_name (his_seq s ! tm) = act_name (his_seq s ! k)"
+    "act_cr (his_seq s ! tm) = call"
+    "act_val (his_seq s ! tm) = act_val (his_seq s ! k)"
+proof -
+  have raw:
+    "\<exists>tm<k.
+       act_pid (his_seq s ! tm) = act_pid (his_seq s ! k) \<and>
+       act_name (his_seq s ! tm) = act_name (his_seq s ! k) \<and>
+       act_cr (his_seq s ! tm) = call \<and>
+       (if act_name (his_seq s ! k) = enq
+        then act_val (his_seq s ! tm) = act_val (his_seq s ! k)
+        else act_val (his_seq s ! tm) = BOT)"
+    using H21 k_lt cr_ret
+    unfolding hI21_Ret_Implies_Call_def
+    by blast
+
+  then obtain tm where
+    tm_lt: "tm < k"
+    and pid_eq:
+      "act_pid (his_seq s ! tm) = act_pid (his_seq s ! k)"
+    and name_eq:
+      "act_name (his_seq s ! tm) = act_name (his_seq s ! k)"
+    and cr_call:
+      "act_cr (his_seq s ! tm) = call"
+    and val_eq_if:
+      "(if act_name (his_seq s ! k) = enq
+        then act_val (his_seq s ! tm) = act_val (his_seq s ! k)
+        else act_val (his_seq s ! tm) = BOT)"
+    by blast
+
+  have val_eq:
+    "act_val (his_seq s ! tm) = act_val (his_seq s ! k)"
+    using val_eq_if name_enq
+    by simp
+
+  show ?thesis
+    using that[OF tm_lt pid_eq name_eq cr_call val_eq] .
+qed
 
 lemma hI7_His_WF_append_call:
   assumes WF: "hI7_His_WF s"
@@ -571,27 +719,6 @@ proof -
 qed
 
 
-(*
-definition EnqCallInHis3 :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
-  "EnqCallInHis3 s q a \<equiv> (\<exists>sn. Model.EnqCallInHis s q a sn)"
-
-definition EnqRetInHis3 :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
-  "EnqRetInHis3 s q a \<equiv> (\<exists>sn. Model.EnqRetInHis s q a sn)"
-
-definition DeqCallInHis2 :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
-  "DeqCallInHis2 s q \<equiv> (\<exists>sn. Model.DeqCallInHis s q sn)"
-
-definition DeqRetInHis3 :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
-  "DeqRetInHis3 s q a \<equiv> (\<exists>sn. Model.DeqRetInHis s q a sn)"
-
-notation EnqCallInHis3 ("EnqCallInHis _ _ _" [100, 100, 100] 100)
-notation EnqRetInHis3 ("EnqRetInHis _ _ _" [100, 100, 100] 100)
-notation DeqCallInHis2 ("DeqCallInHis _ _" [100, 100] 100)
-notation DeqRetInHis3 ("DeqRetInHis _ _ _" [100, 100, 100] 100)
-*)
-
-(* ========== Immediate consequences of the L0 transition ========== *)
-
 lemma L0_step_facts:
   assumes STEP: "L0 p s s'"
   shows "program_counter s p = ''L0''"
@@ -926,6 +1053,7 @@ proof -
     unfolding HasPendingDeq_def Let_def
     using call_eq ret_eq by blast
 qed
+
 
 lemma hI23_Deq_Call_Ret_Balanced_append_enq_call_if_balanced_deq:
   assumes HI15: "hI23_Deq_Call_Ret_Balanced s"
@@ -1423,17 +1551,15 @@ next
     by blast
 qed
 
-(* hI3_L0_E_Phase_Bounds is the most delicate invariant affected by L0.
-   The L0 rule can branch to either E1 or D1, so both cases must be analyzed separately. *)
-(* ========== Preservation of hI3_L0_E_Phase_Bounds ========== *)
-
+(* Proof note. Related symbols: hI3_L0_E_Phase_Bounds, L0, E1, D1.
+*)
 lemma hI3_L0_E_Phase_Bounds_L0_to_E1:
   assumes hI3_L0_E_Phase_Bounds_s: "hI3_L0_E_Phase_Bounds s"
   assumes pc_L0: "program_counter s p = ''L0''"
   assumes s'_def: "s' = L0_E1_update_state s p"
   shows "hI3_L0_E_Phase_Bounds s'"
 proof -
-  (* Step 1: derive the basic state mappings for the E1 branch. *)
+  (* Step 1: extract the required facts. Related symbols: i_var, j_var. *)
   have pc_eq: "program_counter s' q = (if q = p then ''E1'' else program_counter s q)" for q
     using s'_def
     unfolding L0_E1_update_state_def program_counter_def
@@ -1462,7 +1588,7 @@ proof -
   show ?thesis
   proof (rule hI3_L0_E_Phase_BoundsI)
     (* --------------------------------------------------------------------- *)
-    (* Clause 1: the L0 process has no pending request. *)
+    (* Clause 1 of the invariant preservation proof. Related symbols: L0. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q = ''L0'' \<longrightarrow> (\<forall>a. \<not> HasPendingEnq s' q a) \<and> \<not> HasPendingDeq s' q"
     proof (intro allI impI)
@@ -1483,7 +1609,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 2: the dequeue history of an idle process stays balanced. *)
+    (* Clause 2 of the invariant preservation proof. Related symbols: L0. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q = ''L0'' \<longrightarrow>
           length (filter (\<lambda>e. act_pid e = q \<and> act_name e = deq \<and> act_cr e = call) (his_seq s')) =
@@ -1506,7 +1632,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 3: the new enqueue ticket stays strictly below the updated global bound. *)
+    (* Clause 3 of the invariant preservation proof. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q \<in> {''E1'', ''E2'', ''E3''} \<longrightarrow> v_var s' q < V_var s'"
     proof (intro allI impI)
@@ -1515,14 +1641,14 @@ proof -
       show "v_var s' q < V_var s'"
       proof (cases "q = p")
         case True
-        (* The current process just takes the old ticket while V_var is incremented immediately afterwards. *)
+        (* Extract the required witnesses and facts. *)
         have "v_var s' p = V_var s" using v_eq True by simp
         also have "... < Suc (V_var s)" by simp
         also have "... = V_var s'" using V_suc by simp
         finally show ?thesis using True by simp
       next
         case False
-        (* Existing enqueue processes inherit the old bound unchanged. *)
+        (* Enqueue-side reasoning. *)
         have old_E: "program_counter s q \<in> {''E1'', ''E2'', ''E3''}" using q_E pc_eq False by auto
         have old_lt: "v_var s q < V_var s" using hI3_L0_E_Phase_Bounds_E_v_var_lt[OF hI3_L0_E_Phase_Bounds_s old_E] .
         have "v_var s' q = v_var s q" using v_eq False by simp
@@ -1533,7 +1659,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 4: enqueue values recorded in history remain below the new global bound. *)
+    (* Clause 4 of the invariant preservation proof. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>k<length (his_seq s'). act_name (his_seq s' ! k) = enq \<and> act_cr (his_seq s' ! k) = call \<longrightarrow> act_val (his_seq s' ! k) < V_var s'"
     proof (intro allI impI)
@@ -1560,7 +1686,7 @@ proof -
         case False
         with k_lt len' have k_last: "k = ?n"
           by linarith
-        (* The appended call uses exactly the freshly obtained enqueue value. *)
+        (* Reasoning about appending one history or sequence element. *)
         have "his_seq s' ! k = mk_act enq (V_var s) p (s_var s p) call"
           using his_eq k_last by simp
         then have "act_val (his_seq s' ! k) = V_var s"
@@ -1571,7 +1697,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 5: valid Qback values remain below the global ticket bound. *)
+    (* Clause 5 of the invariant preservation proof. Related symbols: Qback. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>k. Qback_arr s' k = BOT \<or> Qback_arr s' k < V_var s'"
     proof (intro allI)
@@ -1590,7 +1716,7 @@ lemma hI3_L0_E_Phase_Bounds_L0_to_D1:
   assumes s'_def: "s' = L0_D1_update_state s p"
   shows "hI3_L0_E_Phase_Bounds s'"
 proof -
-  (* Step 1: derive the basic state mappings for the D1 branch. *)
+  (* Step 1: extract the required facts. *)
   have pc_eq: "program_counter s' q = (if q = p then ''D1'' else program_counter s q)" for q
     using s'_def
     unfolding L0_D1_update_state_def program_counter_def
@@ -1619,7 +1745,7 @@ proof -
   show ?thesis
   proof (rule hI3_L0_E_Phase_BoundsI)
     (* --------------------------------------------------------------------- *)
-    (* Clause 1: the L0 process has no pending request. *)
+    (* Clause 1 of the invariant preservation proof. Related symbols: L0. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q = ''L0'' \<longrightarrow> (\<forall>a. \<not> HasPendingEnq s' q a) \<and> \<not> HasPendingDeq s' q"
     proof (intro allI impI)
@@ -1640,7 +1766,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 2: the dequeue history of an idle process stays balanced. *)
+    (* Clause 2 of the invariant preservation proof. Related symbols: L0. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q = ''L0'' \<longrightarrow>
           length (filter (\<lambda>e. act_pid e = q \<and> act_name e = deq \<and> act_cr e = call) (his_seq s')) =
@@ -1663,23 +1789,23 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 3: active enqueue tickets remain below the current V_var bound. *)
+    (* Clause 3 of the invariant preservation proof. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>q. program_counter s' q \<in> {''E1'', ''E2'', ''E3''} \<longrightarrow> v_var s' q < V_var s'"
     proof (intro allI impI)
       fix q
       assume q_E: "program_counter s' q \<in> {''E1'', ''E2'', ''E3''}"
-      (* Since p moves to D1, any process currently in an enqueue phase must be different from p. *)
+      (* State-transition reasoning. Related symbols: D1. *)
       have q_ne_p: "q \<noteq> p" using q_E pc_eq by auto
       have old_E: "program_counter s q \<in> {''E1'', ''E2'', ''E3''}" using q_E pc_eq q_ne_p by auto
       have old_lt: "v_var s q < V_var s" using hI3_L0_E_Phase_Bounds_E_v_var_lt[OF hI3_L0_E_Phase_Bounds_s old_E] .
-      
+
       show "v_var s' q < V_var s'"
         using old_lt v_eq V_eq by simp
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 4: enqueue values appearing in history remain below the current V_var bound. *)
+    (* Clause 4 of the invariant preservation proof. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>k<length (his_seq s'). act_name (his_seq s' ! k) = enq \<and> act_cr (his_seq s' ! k) = call \<longrightarrow> act_val (his_seq s' ! k) < V_var s'"
     proof (intro allI impI)
@@ -1706,7 +1832,7 @@ proof -
         case False
         with k_lt len' have k_last: "k = ?n"
           by linarith
-        (* The appended event is a dequeue call, so any premise requiring an enqueue action is vacuous here. *)
+        (* Reasoning about appending one history or sequence element. *)
         have last_nth: "his_seq s' ! k = mk_act deq BOT p (s_var s p) call"
           using his_eq k_last by simp
         have False
@@ -1718,7 +1844,7 @@ proof -
     qed
 
     (* --------------------------------------------------------------------- *)
-    (* Clause 5: valid Qback values remain below the global ticket bound. *)
+    (* Clause 5 of the invariant preservation proof. Related symbols: Qback. *)
     (* --------------------------------------------------------------------- *)
     show "\<forall>k. Qback_arr s' k = BOT \<or> Qback_arr s' k < V_var s'"
     proof (intro allI)
@@ -1732,11 +1858,9 @@ proof -
 qed
 
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI5_SSN_Unique_s' *)
-(* Location: around lines 563-654 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
-(* ========== E1-branch preservation lemmas ========== *)
-
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI5_SSN_Unique_s'. *)
+(* Original locationoriginal file 563-654 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_ssn_unique:
   fixes s s' :: SysState and p :: nat
   assumes hI5_SSN_Unique_s: "hI5_SSN_Unique s"
@@ -1840,9 +1964,9 @@ proof (unfold hI5_SSN_Unique_def, intro allI impI)
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI14_Pending_Enq_Qback_Exclusivity_s' *)
-(* Location: around lines 878-948 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI14_Pending_Enq_Qback_Exclusivity_s'. *)
+(* Original locationoriginal file 878-948 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_pending_enq_qback_exclusive:
   fixes s s' :: SysState and p :: nat
   assumes hI14_Pending_Enq_Qback_Exclusivity_s: "hI14_Pending_Enq_Qback_Exclusivity s"
@@ -1926,9 +2050,9 @@ next
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI30_Ticket_HB_Immunity_s' *)
-(* Location: around lines 1302-1388 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI30_Ticket_HB_Immunity_s'. *)
+(* Original locationoriginal file 1302-1388 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_ticket_hb_immune:
   fixes s s' :: SysState and p :: nat
   assumes hI30_Ticket_HB_Immunity_s: "hI30_Ticket_HB_Immunity s"
@@ -1967,7 +2091,7 @@ proof (unfold hI30_Ticket_HB_Immunity_def, intro allI impI)
     using prem' u_ne_p v_eq_E1[of u]
     by auto
 
-  (* Show that the observed value is not the freshly generated V_var s, which keeps the HB relation stable. *)
+  (* HB stability argument. Related symbols: V_var, HB. *)
   have neq_fresh_u: "v_var s u \<noteq> V_var s"
   proof
     assume eq_fresh: "v_var s u = V_var s"
@@ -1990,7 +2114,7 @@ proof (unfold hI30_Ticket_HB_Immunity_def, intro allI impI)
       k_lt: "k < length (his_seq s)" and
       kth: "his_seq s ! k = e"
       by (meson in_set_conv_nth)
-    (* Use hI3_L0_E_Phase_Bounds to show that enqueue calls already in history remain below V_var s. *)
+    (* Use the relevant invariant, lemma, or hypothesis. Related symbols: hI3_L0_E_Phase_Bounds, V_var. *)
     have lt_fresh: "act_val (his_seq s ! k) < V_var s"
       using hI3_L0_E_Phase_Bounds_hist_call_lt[OF hI3_L0_E_Phase_Bounds_s k_lt] kth e_props
       by auto
@@ -2081,11 +2205,11 @@ proof -
         using xdef aA' enq' unfolding OP_A_enq_def by blast
     qed
   qed
-  
+
   have op_a_deq_eq: "OP_A_deq s' = OP_A_deq s"
     using SetA_eq_E1 DeqCallInHis_append_enq_call_iff[OF his_eq] lin_seq_eq
     unfolding OP_A_deq_def OPLin_def by auto
-    
+
   have op_b_enq_eq: "OP_B_enq s' = OP_B_enq s"
   proof (rule subset_antisym)
     show "OP_B_enq s' \<subseteq> OP_B_enq s"
@@ -2134,7 +2258,7 @@ proof -
         using xdef aB' enq' unfolding OP_B_enq_def by blast
     qed
   qed
-  
+
   show ?thesis
     using lI1_Op_Sets_Equivalence_s lin_seq_eq op_a_enq_eq op_a_deq_eq op_b_enq_eq
     unfolding lI1_Op_Sets_Equivalence_def OPLin_def by simp
@@ -2151,12 +2275,12 @@ lemma L0_E1_deq_result_exclusive:
     and pc_L0: "program_counter s p = ''L0''"
   shows "hI15_Deq_Result_Exclusivity s'"
 proof -
-  (* Fact 1: the appended action is a call, so all DeqRet-based history facts are preserved. *)
+  (* Reasoning about appending one history or sequence element. *)
   have deq_ret_eq: "\<And>q a sn. Model.DeqRetInHis s' q a sn \<longleftrightarrow> Model.DeqRetInHis s q a sn"
     using DeqRetInHis_append_call_iff[of s' s "mk_act enq (V_var s) p (s_var s p) call"]
     using his_eq by (simp add: mk_act_def act_cr_def)
 
-  (* Fact 2: process p moves from L0 to E1 and never touches D4-specific state, so all D4 tests are unchanged. *)
+  (* State-transition reasoning. Related symbols: L0, E1, D4. *)
   have d4_eq: "\<And>q. (program_counter s' q = ''D4'') \<longleftrightarrow> (program_counter s q = ''D4'')"
     using pc_eq_E1 pc_L0 by auto
 
@@ -2164,7 +2288,7 @@ proof -
     unfolding hI15_Deq_Result_Exclusivity_def
   proof (intro conjI)
     (* ================================================================= *)
-    (* Case 1: exclusivity of dequeue results across distinct processes. *)
+    (* Branch 1 of the proof. *)
     (* ================================================================= *)
     show "\<forall>a p1 p2. a \<in> Val \<longrightarrow> p1 \<noteq> p2 \<longrightarrow>
           \<not> (((\<exists>sn1. Model.DeqRetInHis s' p1 a sn1) \<or> program_counter s' p1 = ''D4'' \<and> x_var s' p1 = a) \<and>
@@ -2172,19 +2296,19 @@ proof -
     proof (intro allI impI)
       fix a p1 p2 :: nat
       assume "a \<in> Val" "p1 \<noteq> p2"
-      
-      (* Rewrite the state of p1 through the E1 update equation. *)
+
+      (* State-transition reasoning. Related symbols: p1. *)
       have "((\<exists>sn1. Model.DeqRetInHis s' p1 a sn1) \<or> program_counter s' p1 = ''D4'' \<and> x_var s' p1 = a) \<longleftrightarrow>
             ((\<exists>sn1. Model.DeqRetInHis s p1 a sn1) \<or> program_counter s p1 = ''D4'' \<and> x_var s p1 = a)"
         using deq_ret_eq[of p1 a] d4_eq[of p1] x_eq_E1[of p1]
-        by simp 
-        
-      (* Rewrite the state of p2 through the E1 update equation. *)
+        by simp
+
+      (* State-transition reasoning. Related symbols: p2. *)
       moreover have "((\<exists>sn2. Model.DeqRetInHis s' p2 a sn2) \<or> program_counter s' p2 = ''D4'' \<and> x_var s' p2 = a) \<longleftrightarrow>
                      ((\<exists>sn2. Model.DeqRetInHis s p2 a sn2) \<or> program_counter s p2 = ''D4'' \<and> x_var s p2 = a)"
         using deq_ret_eq[of p2 a] d4_eq[of p2] x_eq_E1[of p2] by simp
-        
-      (* Invoke the old-state invariant directly. *)
+
+      (* State-transition reasoning. *)
       ultimately show "\<not> (((\<exists>sn1. Model.DeqRetInHis s' p1 a sn1) \<or> program_counter s' p1 = ''D4'' \<and> x_var s' p1 = a) \<and>
                          ((\<exists>sn2. Model.DeqRetInHis s' p2 a sn2) \<or> program_counter s' p2 = ''D4'' \<and> x_var s' p2 = a))"
         using hI15_Deq_Result_Exclusivity_s \<open>a \<in> Val\<close> \<open>p1 \<noteq> p2\<close>
@@ -2192,7 +2316,7 @@ proof -
     qed
 
     (* ================================================================= *)
-    (* Case 2: a pending dequeue excludes the same value from Q_arr. *)
+    (* Branch 2 of the proof. Related symbols: Q_arr. *)
     (* ================================================================= *)
     show "\<forall>q a k. a \<in> Val \<longrightarrow> HasPendingDeq s' q \<longrightarrow> \<not> (x_var s' q = a \<and> Q_arr s' k = a)"
     proof (intro allI impI)
@@ -2207,7 +2331,7 @@ proof -
     qed
 
     (* ================================================================= *)
-    (* Case 3: a returned dequeue value cannot still remain in Q_arr. *)
+    (* Branch 3 of the proof. Related symbols: Q_arr. *)
     (* ================================================================= *)
     show "\<forall>q a. a \<in> Val \<longrightarrow> (\<exists>sn. Model.DeqRetInHis s' q a sn) \<longrightarrow> (\<forall>k. Q_arr s' k \<noteq> a)"
       using hI15_Deq_Result_Exclusivity_s deq_ret_eq qarr_eq_E1
@@ -2216,9 +2340,9 @@ proof -
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI25_Enq_Call_Ret_Balanced_s' *)
-(* Location: around lines 1356-1512 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI25_Enq_Call_Ret_Balanced_s'. *)
+(* Original locationoriginal file 1356-1512 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_enq_call_ret_balanced:
   fixes s s' :: SysState and p :: nat
   assumes hI25_Enq_Call_Ret_Balanced_s: "hI25_Enq_Call_Ret_Balanced s"
@@ -2384,9 +2508,9 @@ lemma L0_E1_enq_call_ret_balanced:
       qed
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI28_Fresh_Enq_Immunity_s' *)
-(* Location: around lines 1599-1718 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI28_Fresh_Enq_Immunity_s'. *)
+(* Original locationoriginal file 1599-1718 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_fresh_enq_immune:
   fixes s s' :: SysState and p :: nat
   assumes INV: "system_invariant s"
@@ -2406,7 +2530,7 @@ lemma L0_E1_fresh_enq_immune:
       assume deq': "Model.DeqRetInHis s' q a sn"
 
       (* ========================================================================= *)
-      (* Introduce local step facts to isolate the concrete-state update details. *)
+      (* State-transition reasoning. Related symbols: step_facts. *)
       (* ========================================================================= *)
       have step_facts:
         "his_seq s' = his_seq s @ [mk_act enq (V_var s) p (s_var s p) call]"
@@ -2418,22 +2542,22 @@ lemma L0_E1_fresh_enq_immune:
       proof (cases "u = p")
         case False
         (* ------------------------------------------------------------------------- *)
-        (* Case 1: the observed process is not p, so its local state is unchanged. *)
+        (* State-transition reasoning. *)
         (* ------------------------------------------------------------------------- *)
         have pc_old: "program_counter s u \<in> {''E1'', ''E2''}"
           using prem' False pc_eq_E1[of u] by auto
         have v_old: "v_var s u = a"
           using prem' False v_eq_E1[of u] by auto
 
-        (* History rewrite: the appended event is an enqueue call and cannot affect old dequeue-return predicates. *)
+        (* Reasoning about appending one history or sequence element. *)
         have deq_old: "Model.DeqRetInHis s q a sn"
         proof -
           from deq' obtain e where "e \<in> set (his_seq s')"
-            (* Make the SSN equality explicit: act_ssn e = sn. *)
+            (* Key proof fix. Related symbols: act_ssn. *)
             and e_props: "act_pid e = q" "act_ssn e = sn" "act_name e = deq" "act_cr e = ret" "act_val e = a"
             unfolding Model.DeqRetInHis_def by blast
 
-          (* At the set level, e is a dequeue operation and therefore cannot be the newly appended enqueue action. *)
+          (* Set, cardinality, and uniqueness reasoning. *)
           have "e \<in> set (his_seq s)"
             using \<open>e \<in> set (his_seq s')\<close> step_facts e_props
             by (auto simp: mk_act_def act_name_def)
@@ -2448,7 +2572,7 @@ lemma L0_E1_fresh_enq_immune:
       next
         case True
         (* ------------------------------------------------------------------------- *)
-        (* Case 2: the observed process is p itself, so a is the freshly generated value V_var s. *)
+        (* Ticket-counter freshness and ordering reasoning. Related symbols: V_var. *)
         (* ------------------------------------------------------------------------- *)
         have a_eq: "a = V_var s"
           using prem' True step_facts by auto
@@ -2456,7 +2580,7 @@ lemma L0_E1_fresh_enq_immune:
         have deq_old: "Model.DeqRetInHis s q (V_var s) sn"
         proof -
           from deq' obtain e where "e \<in> set (his_seq s')"
-            (* Again make the SSN equality explicit: act_ssn e = sn. *)
+            (* Key proof fix. Related symbols: act_ssn. *)
             and e_props: "act_pid e = q" "act_ssn e = sn" "act_name e = deq" "act_cr e = ret" "act_val e = V_var s"
             unfolding Model.DeqRetInHis_def a_eq by blast
 
@@ -2468,11 +2592,11 @@ lemma L0_E1_fresh_enq_immune:
         qed
 
         (* ========================================================================= *)
-        (* The key step is to derive a contradiction directly from the old invariant. *)
+        (* Use the relevant invariant, lemma, or hypothesis. *)
         (* ========================================================================= *)
         have False
         proof -
-          (* Step 1: use lI3_HB_Ret_Lin_Sync to obtain the matching dequeue operation in the linearization. *)
+          (* Happens-before reasoning. Related symbols: deq_old, lI3_HB_Ret_Lin_Sync. *)
           from deq_old obtain e_ret_deq where e_ret_deq: "e_ret_deq \<in> set (his_seq s)"
             "act_name e_ret_deq = deq" "act_cr e_ret_deq = ret" "act_val e_ret_deq = V_var s"
             unfolding DeqRetInHis_def by blast
@@ -2481,38 +2605,38 @@ lemma L0_E1_fresh_enq_immune:
             using lI3_HB_Ret_Lin_Sync_s unfolding lI3_HB_Ret_Lin_Sync_def
             using DeqRetInHis_def by blast
 
-          (* Step 2: use lI4_FIFO_Semantics to recover the corresponding enqueue operation. *)
-          (* Unfold the constructors explicitly before invoking automation. *)
+          (* Step 2: use the available invariant or hypothesis. Related symbols: lI4_FIFO_Semantics. *)
+          (* Proof-automation note. *)
           have op_deq: "op_name (lin_seq s ! k_deq) = deq"
             using k_deq(2) by (simp add: mk_op_def op_name_def)
           have val_deq: "op_val (lin_seq s ! k_deq) = V_var s"
             using k_deq(2) by (simp add: mk_op_def op_val_def)
 
-          (* With an explicit op_deq in hand, invoke the invariant directly instead of relying on blind quantifier search. *)
+          (* Dequeue-side reasoning. Related symbols: op_deq. *)
           from lI4_FIFO_Semantics_s k_deq(1) op_deq obtain k_enq where k_enq: "k_enq < k_deq"
             and enq: "op_name (lin_seq s ! k_enq) = enq"
             and val_enq_eq: "op_val (lin_seq s ! k_enq) = op_val (lin_seq s ! k_deq)"
             unfolding lI4_FIFO_Semantics_def lI4_FIFO_Semantics_list_def Let_def by blast
 
-          (* Substitute the extracted target value back to V_var s. *)
+          (* Ticket-counter freshness and ordering reasoning. Related symbols: V_var. *)
           have val_enq: "op_val (lin_seq s ! k_enq) = V_var s"
             using val_enq_eq val_deq by simp
 
           have k_enq_len: "k_enq < length (lin_seq s)" using k_enq k_deq(1) by simp
 
-          (* Step 3: finish by a set-exclusion contradiction. *)
-          (* Since the enqueue operation appears in the linearization, its value must belong to SetA or SetB. *)
+          (* Step 3: use the available invariant or hypothesis. *)
+          (* Enqueue-side reasoning. Related symbols: SetA, SetB. *)
           have "lin_seq s ! k_enq \<in> set (lin_seq s)"
             using k_enq_len by (rule nth_mem)
           then have "op_val (lin_seq s ! k_enq) \<in> SetA s \<union> SetB s"
             using enq lin_seq_enq_in_sets
             by (simp add: INV)
 
-          (* Instantiate the value with the fresh element V_var s. *)
+          (* Ticket-counter freshness and ordering reasoning. Related symbols: V_var. *)
           then have "V_var s \<in> SetA s \<union> SetB s"
             using val_enq by simp
 
-          (* This contradicts the freshness isolation property of V_var s. *)
+          (* Proof note. *)
           with fresh_not_SetA fresh_not_SetB show False
             by blast
         qed
@@ -2520,9 +2644,9 @@ lemma L0_E1_fresh_enq_immune:
       qed
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI29_E2_Scanner_Immunity_s' *)
-(* Location: around lines 1721-1827 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI29_E2_Scanner_Immunity_s'. *)
+(* Original locationoriginal file 1721-1827 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_e2_scanner_immune:
   fixes s s' :: SysState and p :: nat
   assumes hI29_E2_Scanner_Immunity_s: "hI29_E2_Scanner_Immunity s"
@@ -2649,11 +2773,9 @@ lemma L0_E1_e2_scanner_immune:
         by blast
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / D3Witness_eq_D1 *)
-(* Location: around lines 1670-1751 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
-(* ========== D1-branch preservation lemmas ========== *)
-
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / D3Witness_eq_D1. *)
+(* Original locationoriginal file 1670-1751 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_d3_witness_eq:
   fixes s s' :: SysState and a :: nat
   assumes pc_D3_eq_D1: "\<And>q. (program_counter s' q = ''D3'') \<longleftrightarrow> (program_counter s q = ''D3'')"
@@ -2746,9 +2868,9 @@ next
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / TypeBT_eq_D1 *)
-(* Location: around lines 1792-1883 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / TypeBT_eq_D1. *)
+(* Original locationoriginal file 1792-1883 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_typebt_eq:
   fixes s s' :: SysState and a :: nat
   assumes TypeB_eq_D1: "\<And>a. TypeB s' a \<longleftrightarrow> TypeB s a"
@@ -2854,9 +2976,9 @@ next
     using tb' inq' rest' unfolding TypeBT_def by blast
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI5_SSN_Unique_s' *)
-(* Location: around lines 2097-2188 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI5_SSN_Unique_s'. *)
+(* Original locationoriginal file 2097-2188 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_ssn_unique:
   fixes s s' :: SysState and p :: nat
   assumes hI5_SSN_Unique_s: "hI5_SSN_Unique s"
@@ -2960,9 +3082,9 @@ proof (unfold hI5_SSN_Unique_def, intro allI impI)
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI27_Pending_PC_Sync_s' *)
-(* Location: around lines 2741-2817 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI27_Pending_PC_Sync_s'. *)
+(* Original locationoriginal file 2741-2817 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_pending_pc_sync:
   fixes s s' :: SysState and p :: nat
   assumes hI27_Pending_PC_Sync_s: "hI27_Pending_PC_Sync s"
@@ -3032,9 +3154,9 @@ next
   qed
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI28_Fresh_Enq_Immunity_s' *)
-(* Location: around lines 2819-2893 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI28_Fresh_Enq_Immunity_s'. *)
+(* Original locationoriginal file 2819-2893 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_fresh_enq_immune:
   fixes s s' :: SysState and p :: nat
   assumes hI28_Fresh_Enq_Immunity_s: "hI28_Fresh_Enq_Immunity s"
@@ -3117,9 +3239,9 @@ proof (unfold hI28_Fresh_Enq_Immunity_def, intro allI impI notI)
   then show False .
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / lI3_HB_Ret_Lin_Sync_s' *)
-(* Location: around lines 3028-3119 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / lI3_HB_Ret_Lin_Sync_s'. *)
+(* Original locationoriginal file 3028-3119 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_hb_ret_lin_sync:
   fixes s s' :: SysState and p :: nat
   assumes lI3_HB_Ret_Lin_Sync_s: "lI3_HB_Ret_Lin_Sync s"
@@ -3221,9 +3343,9 @@ proof -
     using part1 part2 part3 by blast
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI15_Deq_Result_Exclusivity_s' *)
-(* Location: around lines 3329-3513 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI15_Deq_Result_Exclusivity_s'. *)
+(* Original locationoriginal file 3329-3513 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_deq_result_exclusive:
   fixes s s' :: SysState and p :: nat
   assumes hI15_Deq_Result_Exclusivity_s: "hI15_Deq_Result_Exclusivity s"
@@ -3361,7 +3483,7 @@ lemma L0_D1_deq_result_exclusive:
         show "\<not> (x_var s' q = a \<and> Q_arr s' k = a)"
         proof (cases "q = p")
           case True
-          (* Use sI11_x_var_Scope to show that the old L0 state must have x_var = BOT. *)
+          (* Use the relevant invariant, lemma, or hypothesis. Related symbols: sI11_x_var_Scope, L0, x_var, BOT. *)
           have "program_counter s p = ''L0''" using pc_L0 by simp
           hence "program_counter s p \<noteq> ''D4''" by simp
           hence "x_var s p = BOT" using sI11_x_var_Scope_s unfolding sI11_x_var_Scope_def by blast
@@ -3421,9 +3543,9 @@ lemma L0_D1_deq_result_exclusive:
         by blast
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI25_Enq_Call_Ret_Balanced_s' *)
-(* Location: around lines 3733-3896 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI25_Enq_Call_Ret_Balanced_s'. *)
+(* Original locationoriginal file 3733-3896 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_enq_call_ret_balanced:
   fixes s s' :: SysState and p :: nat
   assumes hI25_Enq_Call_Ret_Balanced_s: "hI25_Enq_Call_Ret_Balanced s"
@@ -3596,9 +3718,9 @@ lemma L0_D1_enq_call_ret_balanced:
       qed
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / lI1_Op_Sets_Equivalence_s' *)
-(* Location: around lines 4204-4391 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / lI1_Op_Sets_Equivalence_s'. *)
+(* Original locationoriginal file 4204-4391 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_op_sets_equiv:
   fixes s s' :: SysState and p :: nat
   assumes lI1_Op_Sets_Equivalence_s: "lI1_Op_Sets_Equivalence s"
@@ -3796,9 +3918,9 @@ lemma L0_D1_op_sets_equiv:
         unfolding lI1_Op_Sets_Equivalence_def OPLin_def by simp
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / lI9_D1_D2_Deq_Returned_s' *)
-(* Location: around lines 4605-4792 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / lI9_D1_D2_Deq_Returned_s'. *)
+(* Original locationoriginal file 4605-4792 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_d12_deq_returned:
   fixes s s' :: SysState and p :: nat
   assumes lI9_D1_D2_Deq_Returned_s: "lI9_D1_D2_Deq_Returned s"
@@ -4002,9 +4124,9 @@ lemma L0_D1_d12_deq_returned:
       qed
     qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / hI22_Deq_Local_Pattern_s' *)
-(* Location: around lines 925-990 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / hI22_Deq_Local_Pattern_s'. *)
+(* Original locationoriginal file 925-990 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_deq_local_pattern:
   fixes s s' :: SysState and p :: nat
   assumes hI22_Deq_Local_Pattern_s: "hI22_Deq_Local_Pattern s"
@@ -4080,9 +4202,9 @@ proof (unfold hI22_Deq_Local_Pattern_def, intro allI impI)
     qed
   qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / E1 / lI3_HB_Ret_Lin_Sync_s' *)
-(* Location: around lines 1176-1244 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / E1 / lI3_HB_Ret_Lin_Sync_s'. *)
+(* Original locationoriginal file 1176-1244 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_hb_ret_lin_sync:
   fixes s s' :: SysState and p :: nat
   assumes lI3_HB_Ret_Lin_Sync_s: "lI3_HB_Ret_Lin_Sync s"
@@ -4171,16 +4293,16 @@ lemma L0_D1_qback_deq_sync:
     and his_eq: "his_seq s' = his_seq s @ [mk_act deq BOT p (s_var s p) call]"
   shows "hI13_Qback_Deq_Sync s'"
 proof -
-  (* Fact 1: the appended action is a call, so all DeqRet-based history facts are preserved. *)
+  (* Reasoning about appending one history or sequence element. *)
   have deq_ret_eq: "\<And>pa a sn. Model.DeqRetInHis s' pa a sn \<longleftrightarrow> Model.DeqRetInHis s pa a sn"
     using DeqRetInHis_append_call_iff[of s' s "mk_act deq BOT p (s_var s p) call"]
     using his_eq by (simp add: mk_act_def act_cr_def)
 
-  (* Fact 2: process p moves from L0 to D1 and does not affect any D4-specific condition. *)
+  (* State-transition reasoning. Related symbols: L0, D1, D4. *)
   have d4_eq: "\<And>pa. (program_counter s' pa = ''D4'') \<longleftrightarrow> (program_counter s pa = ''D4'')"
     using pc_eq_D1 pc_L0 by auto
 
-  (* Reduce the new-state goal directly to the corresponding old-state invariant. *)
+  (* Use the relevant invariant, lemma, or hypothesis. *)
   show ?thesis
     using hI13_Qback_Deq_Sync_s
     unfolding hI13_Qback_Deq_Sync_def
@@ -4197,20 +4319,20 @@ lemma L0_D1_deq_local_pattern:
     and x_eq_D1: "\<And>q. x_var s' q = x_var s q"
   shows "hI22_Deq_Local_Pattern s'"
 proof (unfold hI22_Deq_Local_Pattern_def, intro allI impI)
-  (* Use an explicit nat type annotation to avoid polymorphic type warnings. *)
+  (* Proof note. *)
   fix q a sn :: nat
   assume prem':
     "(\<exists>k. Q_arr s' k = BOT \<and> Qback_arr s' k = a \<and> (\<forall>r. x_var s' r \<noteq> a)) \<and>
      Model.DeqRetInHis s' q a sn"
 
-  (* Step 1: rewrite the query on s' back to the corresponding query on s. *)
+  (* Step 1 of the proof. *)
   have prem_s: "(\<exists>k. Q_arr s k = BOT \<and> Qback_arr s k = a \<and> (\<forall>r. x_var s r \<noteq> a)) \<and>
                 Model.DeqRetInHis s q a sn"
     using prem' qarr_eq_D1 qback_eq_D1 x_eq_D1
     using DeqRetInHis_append_call_iff[of s' s "mk_act deq BOT p (s_var s p) call"] his_eq
     by (auto simp: mk_act_def act_cr_def)
 
-  (* Step 2: use the old-state invariant to obtain the witness index i. *)
+  (* Step 2: use the available invariant or hypothesis. *)
   let ?old_his = "filter (\<lambda>e. act_pid e = q) (his_seq s)"
   let ?new_his = "filter (\<lambda>e. act_pid e = q) (his_seq s')"
 
@@ -4224,21 +4346,21 @@ proof (unfold hI22_Deq_Local_Pattern_def, intro allI impI)
     and i_call: "i > 0 \<and> ?old_his ! (i - 1) = mk_act deq BOT q sn call"
     by blast
 
-  (* Step 3: show that appending one call preserves the relevant filtered-history structure. *)
+  (* Step 3: prove the required intermediate property. *)
   have his_filt: "?new_his = ?old_his @ (if q = p then [mk_act deq BOT p (s_var s p) call] else [])"
     using his_eq by (simp add: act_pid_def mk_act_def)
 
   have new_len: "i < length ?new_his"
     using i_len his_filt by simp
-  
+
   have new_ret: "?new_his ! i = mk_act deq a q sn ret"
     using i_len i_ret his_filt by (simp add: nth_append)
-    
+
   have new_call: "i > 0 \<and> ?new_his ! (i - 1) = mk_act deq BOT q sn call"
     using i_len i_call his_filt
-    by (simp add: nth_append_cases(1)) 
+    by (simp add: nth_append_cases(1))
 
-  (* Step 4: assemble the final conclusion for the new state. *)
+  (* Step 4 of the proof. *)
   show "let p_his = ?new_his in
           \<exists>i<length p_his. p_his ! i = mk_act deq a q sn ret \<and>
             (i > 0 \<and> p_his ! (i - 1) = mk_act deq BOT q sn call)"
@@ -4246,9 +4368,9 @@ proof (unfold hI22_Deq_Local_Pattern_def, intro allI impI)
     using new_len new_ret new_call by blast
 qed
 
-(* Source: L0Proof.thy / L0_preserves_invariant / D1 / hI29_E2_Scanner_Immunity_s' *)
-(* Location: around lines 2514-2582 in the original file. *)
-(* Note: the proof script below is moved verbatim from the original file into L0Lemmas.thy. *)
+(* SourceL0Proof.thy / L0_preserves_invariant / D1 / hI29_E2_Scanner_Immunity_s'. *)
+(* Original locationoriginal file 2514-2582 approximate line range. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_e2_scanner_immune:
   fixes s s' :: SysState and p :: nat
   assumes hI29_E2_Scanner_Immunity_s: "hI29_E2_Scanner_Immunity s"
@@ -4335,15 +4457,122 @@ proof (unfold hI29_E2_Scanner_Immunity_def, intro allI impI notI)
     by blast
 qed
 
-(* ========== Main preservation proof for the E1 branch ========== *)
+(* ================================================================== *)
+(* USpec helper lemmas for L0 history-call append                       *)
+(* ================================================================== *)
 
-(* Source: L0Proof.thy / the remaining main proof for the E1 branch of L0_preserves_invariant *)
-(* Location: the common E1-branch context, from unpacking assumptions to the final system_invariant assembly. *)
-(* Note: the proof script below is moved verbatim from the original file; only comments are revised. *)
-(* ========================================================== *)
-(* Assembly lemmas for the full invariant package: E1 branch   *)
-(* ========================================================== *)
+lemma L0_OpCalledInHis_append_call_old:
+  assumes OLD: "OpCalledInHis H a"
+  shows "OpCalledInHis (H @ [e]) a"
+proof -
+  from OLD obtain k where mc: "match_call H k a"
+    unfolding OpCalledInHis_def by blast
+  have "match_call (H @ [e]) k a"
+    using mc unfolding match_call_def Let_def
+    by (simp add: nth_append)
+  thus ?thesis
+    unfolding OpCalledInHis_def by blast
+qed
 
+lemma L0_HB_append_call_no_new_match:
+  assumes CALL: "act_cr e = call"
+  assumes NOMATCH: "\<not> match_call (H @ [e]) (length H) b"
+  shows "HB (H @ [e]) a b = HB H a b"
+proof
+  assume hb: "HB (H @ [e]) a b"
+  then obtain k1 k2 where
+    k12: "k1 < k2" and mr: "match_ret (H @ [e]) k1 a" and mc: "match_call (H @ [e]) k2 b"
+    unfolding HB_def by blast
+  have k1_old: "k1 < length H"
+  proof (rule ccontr)
+    assume "\<not> k1 < length H"
+    hence k1_last: "k1 = length H"
+      using mr unfolding match_ret_def by simp
+    hence "act_cr ((H @ [e]) ! k1) = call"
+      using CALL by (simp add: nth_append)
+    moreover have "act_cr ((H @ [e]) ! k1) = ret"
+      using mr unfolding match_ret_def Let_def by auto
+    ultimately show False by simp
+  qed
+  have k2_old: "k2 < length H"
+  proof (rule ccontr)
+    assume "\<not> k2 < length H"
+    hence k2_last: "k2 = length H"
+      using mc unfolding match_call_def by simp
+    hence "match_call (H @ [e]) (length H) b"
+      using mc by simp
+    with NOMATCH show False by contradiction
+  qed
+  have mr_old: "match_ret H k1 a"
+    using mr k1_old unfolding match_ret_def Let_def by (simp add: nth_append)
+  have mc_old: "match_call H k2 b"
+    using mc k2_old unfolding match_call_def Let_def by (simp add: nth_append)
+  show "HB H a b"
+    unfolding HB_def using k12 mr_old mc_old by blast
+next
+  assume hb: "HB H a b"
+  then obtain k1 k2 where
+    k12: "k1 < k2" and mr: "match_ret H k1 a" and mc: "match_call H k2 b"
+    unfolding HB_def by blast
+  have mr_new: "match_ret (H @ [e]) k1 a"
+    using mr unfolding match_ret_def Let_def by (simp add: nth_append)
+  have mc_new: "match_call (H @ [e]) k2 b"
+    using mc unfolding match_call_def Let_def by (simp add: nth_append)
+  show "HB (H @ [e]) a b"
+    unfolding HB_def using k12 mr_new mc_new by blast
+qed
+
+lemma L0_USpec_GenLin_append_call_no_new_match:
+  assumes CALL: "act_cr e = call"
+  assumes GEN: "USpec_GenLin H S oid L"
+  assumes NOMATCH: "\<forall>b\<in>set L. \<not> match_call (H @ [e]) (length H) b"
+  shows "USpec_GenLin (H @ [e]) S oid L"
+proof -
+  have calls: "\<forall>a\<in>set L. OpCalledInHis (H @ [e]) a"
+    using GEN L0_OpCalledInHis_append_call_old unfolding USpec_GenLin_def by blast
+  have hb: "HB_consistent L (H @ [e])"
+  proof (unfold HB_consistent_def, intro allI impI)
+    fix k1 k2
+    assume pre: "k1 < length L \<and> k2 < length L \<and> HB (H @ [e]) (L ! k1) (L ! k2)"
+    hence k2_lt: "k2 < length L" and hb_new: "HB (H @ [e]) (L ! k1) (L ! k2)"
+      by simp_all
+    have no_last: "\<not> match_call (H @ [e]) (length H) (L ! k2)"
+      using NOMATCH k2_lt by simp
+    have hb_old: "HB H (L ! k1) (L ! k2)"
+      using hb_new L0_HB_append_call_no_new_match[OF CALL no_last, of "L ! k1"] by simp
+    show "k1 < k2"
+      using GEN pre hb_old unfolding USpec_GenLin_def HB_consistent_def by blast
+  qed
+  show ?thesis
+    using GEN calls hb unfolding USpec_GenLin_def by blast
+qed
+
+lemma L0_match_call_last_enq_call:
+  "match_call (H @ [mk_act enq v p sn call]) (length H) (mk_op enq v p sn)"
+  unfolding match_call_def Let_def
+  by (simp add: nth_append mk_act_def mk_op_def act_name_def act_pid_def act_ssn_def act_val_def act_cr_def op_name_def op_pid_def op_ssn_def op_val_def)
+
+lemma L0_match_call_last_deq_call:
+  "match_call (H @ [mk_act deq BOT p sn call]) (length H) (mk_op deq v p sn)"
+  unfolding match_call_def Let_def
+  by (simp add: nth_append mk_act_def mk_op_def act_name_def act_pid_def act_ssn_def act_val_def act_cr_def op_name_def op_pid_def op_ssn_def op_val_def)
+
+lemma L0_OpCalledInHis_last_enq_call:
+  "OpCalledInHis (H @ [mk_act enq v p sn call]) (mk_op enq v p sn)"
+  using L0_match_call_last_enq_call[of H v p sn]
+  unfolding OpCalledInHis_def by blast
+
+lemma L0_OpCalledInHis_last_deq_call:
+  "OpCalledInHis (H @ [mk_act deq BOT p sn call]) (mk_op deq v p sn)"
+  using L0_match_call_last_deq_call[of H p sn v]
+  unfolding OpCalledInHis_def by blast
+
+
+
+
+(* Source of the lifted proof block: L0Proof.thy, L0_preserves_invariant, E1. *)
+(* Original source location: approximately lines 1, 1. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_E1_preserves_invariant_branch:
   fixes s s' :: SysState and p :: nat
   assumes INV: "system_invariant s"
@@ -4356,7 +4585,7 @@ proof -
     i_var_def j_var_def l_var_def x_var_def v_var_def
     s_var_def lin_seq_def his_seq_def
 
-  (* Step 1: unpack the old system invariant once so the branch proof can reuse all components. *)
+  (* Prove the required intermediate property. Related symbols: system_invariant. *)
   have Simulate_PC_s: "Simulate_PC s"
     and TypeOK_s: "TypeOK s"
     and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s"
@@ -4382,6 +4611,9 @@ proof -
     and lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics s" and lI5_SA_Prefix_s: "lI5_SA_Prefix s"
     and lI6_D4_Deq_Linearized_s: "lI6_D4_Deq_Linearized s" and lI7_D4_Deq_Deq_HB_s: "lI7_D4_Deq_Deq_HB s" and lI8_D3_Deq_Returned_s: "lI8_D3_Deq_Returned s"
     and lI9_D1_D2_Deq_Returned_s: "lI9_D1_D2_Deq_Returned s" and lI10_D4_Enq_Deq_HB_s: "lI10_D4_Enq_Deq_HB s" and lI11_D4_Deq_Unique_s: "lI11_D4_Deq_Unique s"
+    and uI1_USpec_EffOps_Lin_s: "uI1_USpec_EffOps_Lin s"
+    and uI2_USpec_E1UE2_s: "uI2_USpec_E1UE2 s"
+    and uI3_USpec_D3UD2_s: "uI3_USpec_D3UD2 s"
     and di_s: "data_independent (lin_seq s)"
     using INV unfolding system_invariant_def by auto
 
@@ -4751,21 +4983,21 @@ qed
       show "x_var s' q = BOT"
       proof (cases "q = p")
         case True
-        (* For the current process p, the old state is L0 rather than D4, so its old x_var must be BOT. *)
+        (* State-transition reasoning. Related symbols: L0, D4, x_var, BOT. *)
         have qL0: "program_counter s q = ''L0''"
           using pc_L0 True by simp
         hence "program_counter s q \<noteq> ''D4''"
           by simp
         hence "x_var s q = BOT"
           using sI11_x_var_Scope_s unfolding sI11_x_var_Scope_def by blast
-        (* The E1 step does not modify x_var, so the new state inherits BOT unchanged. *)
+        (* State-transition reasoning. Related symbols: E1, x_var, BOT. *)
         then show ?thesis
           using True s'_def
           unfolding L0_E1_update_state_def bridge_defs
           by (auto simp: Let_def)
       next
         case False
-        (* For all other processes, both the program counter and x_var remain unchanged. *)
+        (* Proof note. Related symbols: x_var. *)
         have pc_eq: "program_counter s q = program_counter s' q"
           using False s'_def
           unfolding L0_E1_update_state_def bridge_defs
@@ -4850,20 +5082,26 @@ qed
         by simp
     qed
 
-      have hI4_X_var_Lin_Sync_s': "hI4_X_var_Lin_Sync s'"
+    have hI4_X_var_Lin_Sync_s': "hI4_X_var_Lin_Sync s'"
     proof -
       have x_eq: "X_var s' = X_var s"
         using s'_def
         unfolding L0_E1_update_state_def X_var_def
         by (auto simp: Let_def bridge_defs)
-      have lin_len_eq: "length (lin_seq s') = length (lin_seq s)"
-        using lin_seq_eq by simp
       have cnt_eq: "LinEnqCount s' (length (lin_seq s')) = LinEnqCount s (length (lin_seq s))"
         using lin_seq_eq
         unfolding LinEnqCount_def lin_seq_def
         by (simp add: bridge_defs)
+      have pc_E2_eq: "\<And>q. program_counter s' q = ''E2'' \<longleftrightarrow> program_counter s q = ''E2''"
+        using pc_eq_E1 pc_L0 by auto
+      have slots_eq: "E2SlotCount s' = E2SlotCount s"
+        apply (rule E2SlotCount_cong)
+        using x_eq apply simp
+        using pc_E2_eq apply simp
+        using i_eq_E1 apply simp
+        done
       show ?thesis
-        using hI4_X_var_Lin_Sync_s x_eq cnt_eq
+        using hI4_X_var_Lin_Sync_s x_eq cnt_eq slots_eq
         unfolding hI4_X_var_Lin_Sync_def
         by simp
     qed
@@ -4888,8 +5126,8 @@ qed
       unfolding hI2_SSN_Bounds_def
       by blast
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_ssn_unique here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_ssn_unique. *)
     have hI5_SSN_Unique_s': "hI5_SSN_Unique s'"
       using L0_E1_ssn_unique[
         OF hI5_SSN_Unique_s his_eq ai11_p pc_L0
@@ -4976,15 +5214,18 @@ proof (unfold hI10_Enq_Call_Existence_def, intro conjI)
       unfolding HasPendingEnq_def Let_def
       by blast
   qed
-  show "\<forall>a. (\<exists>k. Qback_arr s' k = a) \<longrightarrow> (\<exists>q sn. Model.EnqCallInHis s' q a sn)"
+  show "\<forall>a. a \<in> Val \<and> (\<exists>k. Qback_arr s' k = a) \<longrightarrow>
+            (\<exists>q sn. Model.EnqCallInHis s' q a sn)"
   proof (intro allI impI)
     fix a
-    assume qb': "\<exists>k. Qback_arr s' k = a"
+    assume PRE: "a \<in> Val \<and> (\<exists>k. Qback_arr s' k = a)"
+    then have A_VAL: "a \<in> Val" and qb': "\<exists>k. Qback_arr s' k = a"
+      by blast+
     have qb_old: "\<exists>k. Qback_arr s k = a"
       using qb' qback_eq_E1
       by auto
     then obtain q sn where old_enq: "Model.EnqCallInHis s q a sn"
-      using hI10_Enq_Call_Existence_s
+      using hI10_Enq_Call_Existence_s A_VAL
       unfolding hI10_Enq_Call_Existence_def
       by blast
     have new_enq: "Model.EnqCallInHis s' q a sn"
@@ -5066,16 +5307,16 @@ qed
 
     have hI13_Qback_Deq_Sync_s': "hI13_Qback_Deq_Sync s'"
   proof -
-    (* Fact 1: the appended action is a call, so all DeqRet-based history facts are preserved. *)
+    (* Reasoning about appending one history or sequence element. *)
     have deq_ret_eq: "\<And>q a sn. Model.DeqRetInHis s' q a sn \<longleftrightarrow> Model.DeqRetInHis s q a sn"
       using DeqRetInHis_append_call_iff[of s' s "mk_act enq (V_var s) p (s_var s p) call"]
       using his_eq by (simp add: mk_act_def act_cr_def)
 
-    (* Fact 2: process p moves from L0 to E1 and does not affect any D4-specific condition. *)
+    (* State-transition reasoning. Related symbols: L0, E1, D4. *)
     have d4_eq: "\<And>q. (program_counter s' q = ''D4'') \<longleftrightarrow> (program_counter s q = ''D4'')"
       using pc_eq_E1 pc_L0 by auto
 
-    (* Reduce the new-state goal directly to the corresponding old-state invariant. *)
+    (* Use the relevant invariant, lemma, or hypothesis. *)
     show ?thesis
       using hI13_Qback_Deq_Sync_s
       unfolding hI13_Qback_Deq_Sync_def
@@ -5083,16 +5324,16 @@ qed
       by auto
   qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_pending_enq_qback_exclusive here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_pending_enq_qback_exclusive. *)
     have hI14_Pending_Enq_Qback_Exclusivity_s': "hI14_Pending_Enq_Qback_Exclusivity s'"
       using L0_E1_pending_enq_qback_exclusive[
         OF hI14_Pending_Enq_Qback_Exclusivity_s his_eq ssn_eq_E1 pc_eq_E1 qback_eq_E1 i_eq_E1
            hI3_L0_E_Phase_Bounds_s pc_L0 TypeOK_s
       ] .
 
-(* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-(* We only invoke the helper lemma L0_E1_deq_result_exclusive here, without changing the original proof logic. *)
+(* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+(* Prove the required intermediate property. Related symbols: L0_E1_deq_result_exclusive. *)
 have hI15_Deq_Result_Exclusivity_s': "hI15_Deq_Result_Exclusivity s'"
   using L0_E1_deq_result_exclusive[
     OF hI15_Deq_Result_Exclusivity_s his_eq pc_eq_E1 x_eq_E1 qarr_eq_E1 ssn_eq_E1 pc_L0
@@ -5215,8 +5456,8 @@ qed
       using hI21_Ret_Implies_Call_append_call[OF hI21_Ret_Implies_Call_s his_eq]
       by (simp add: mk_act_def act_cr_def)
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_deq_local_pattern here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_deq_local_pattern. *)
     have hI22_Deq_Local_Pattern_s': "hI22_Deq_Local_Pattern s'"
       using L0_E1_deq_local_pattern[
         OF hI22_Deq_Local_Pattern_s his_eq qarr_eq_E1 qback_eq_E1 x_eq_E1
@@ -5274,8 +5515,8 @@ qed
         by blast
     qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_enq_call_ret_balanced here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_enq_call_ret_balanced. *)
     have hI25_Enq_Call_Ret_Balanced_s': "hI25_Enq_Call_Ret_Balanced s'"
       using L0_E1_enq_call_ret_balanced[
         OF hI25_Enq_Call_Ret_Balanced_s his_eq pc_eq_E1 pc_L0
@@ -5365,16 +5606,16 @@ qed
       qed
     qed
 
-(* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-(* We only invoke the helper lemma L0_E1_fresh_enq_immune here, without changing the original proof logic. *)
+(* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+(* Prove the required intermediate property. Related symbols: L0_E1_fresh_enq_immune. *)
 have hI28_Fresh_Enq_Immunity_s': "hI28_Fresh_Enq_Immunity s'"
   using L0_E1_fresh_enq_immune[
     OF INV his_eq v_eq_E1 hI28_Fresh_Enq_Immunity_s pc_eq_E1
        lI3_HB_Ret_Lin_Sync_s lI4_FIFO_Semantics_s fresh_not_SetA fresh_not_SetB
   ] .
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_e2_scanner_immune here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_e2_scanner_immune. *)
     have hI29_E2_Scanner_Immunity_s': "hI29_E2_Scanner_Immunity s'"
       using L0_E1_e2_scanner_immune[
         OF hI29_E2_Scanner_Immunity_s his_eq ssn_eq_E1 pc_eq_E1 InQBack_eq_E1 TypeB_eq_E1
@@ -5382,8 +5623,8 @@ have hI28_Fresh_Enq_Immunity_s': "hI28_Fresh_Enq_Immunity s'"
            hI3_L0_E_Phase_Bounds_s pc_L0 pc_D3_eq_E1
       ] .
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_ticket_hb_immune here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_ticket_hb_immune. *)
     have hI30_Ticket_HB_Immunity_s': "hI30_Ticket_HB_Immunity s'"
       using L0_E1_ticket_hb_immune[
         OF hI30_Ticket_HB_Immunity_s pc_eq_E1 InQBack_eq_E1 v_eq_E1 hI1_E_Phase_Pending_Enq_s
@@ -5391,8 +5632,8 @@ have hI28_Fresh_Enq_Immunity_s': "hI28_Fresh_Enq_Immunity s'"
       ] .
 
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_op_sets_equiv here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_op_sets_equiv. *)
     have lI1_Op_Sets_Equivalence_s': "lI1_Op_Sets_Equivalence s'"
       using L0_E1_op_sets_equiv[
         OF lI1_Op_Sets_Equivalence_s SetA_eq_E1 his_eq fresh_not_SetA SetB_eq_E1 fresh_not_TypeB
@@ -5405,8 +5646,8 @@ have hI28_Fresh_Enq_Immunity_s': "hI28_Fresh_Enq_Immunity s'"
                 QHas_def InQBack_def L0_E1_update_state_def
       by (auto simp: Let_def bridge_defs split: if_splits)
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_E1_hb_ret_lin_sync here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_E1_hb_ret_lin_sync. *)
     have lI3_HB_Ret_Lin_Sync_s': "lI3_HB_Ret_Lin_Sync s'"
       using L0_E1_hb_ret_lin_sync[
         OF lI3_HB_Ret_Lin_Sync_s lin_seq_eq his_eq fresh_not_OPLin
@@ -5657,6 +5898,959 @@ qed
       using di_s lin_seq_eq
       unfolding data_independent_def by simp
 
+
+    (* USpec invariants uI1-uI3. *)
+    have uspec_effOps_eq_E1 [simp]: "uspec_effOps s' = uspec_effOps s"
+      using s'_def
+      unfolding L0_E1_update_state_def uspec_effOps_def
+      by (simp add: Let_def)
+
+    have uI1_USpec_EffOps_Lin_s': "uI1_USpec_EffOps_Lin s'"
+      using uI1_USpec_EffOps_Lin_s lin_seq_eq uspec_effOps_eq_E1
+      unfolding uI1_USpec_EffOps_Lin_def
+      by simp
+
+    have upc_eq_E1:
+      "\<And>q. u_program_counter (snd s') q =
+            (if q = p then ''UE2'' else u_program_counter (snd s) q)"
+      using s'_def
+      unfolding L0_E1_update_state_def
+      by (simp add: Let_def)
+
+    have uI2_USpec_E1UE2_s': "uI2_USpec_E1UE2 s'"
+    proof (unfold uI2_USpec_E1UE2_def, intro allI impI)
+      fix q
+      assume pc_q': "program_counter s' q \<in> {''E1'', ''E2''}"
+      assume upc_q': "u_program_counter (snd s') q = ''UE2''"
+
+      let ?fresh_op = "mk_op enq (V_var s) p (s_var s p)"
+      let ?fresh_call = "mk_act enq (V_var s) p (s_var s p) call"
+      let ?op_q' = "mk_op enq (v_var s' q) q (s_var s' q)"
+
+      show "USpec_GenLin
+              (u_his_seq (snd s'))
+              (u_eff_ops (snd s'))
+              ?op_q'
+              (u_lin_seq (snd s') @ [?op_q'])"
+      proof (cases "q = p")
+        case True
+
+        have op_q_eq:
+          "?op_q' = ?fresh_op"
+          using True v_eq_E1[of q] ssn_eq_E1[of q]
+          by simp
+
+        have H_eq:
+          "his_seq s' = his_seq s @ [?fresh_call]"
+          using his_eq by simp
+
+        have L_eq:
+          "lin_seq s' = lin_seq s"
+          using lin_seq_eq .
+
+        have S_eq:
+          "uspec_effOps s' = set (lin_seq s)"
+          using uI1_USpec_EffOps_Lin_s uspec_effOps_eq_E1
+          unfolding uI1_USpec_EffOps_Lin_def
+          by simp
+
+        have finite_S:
+          "finite (uspec_effOps s')"
+          using S_eq by simp
+
+        have subset_S:
+          "uspec_effOps s' \<subseteq> set (lin_seq s' @ [?op_q'])"
+          using S_eq L_eq op_q_eq
+          by auto
+
+        have op_in:
+          "?op_q' \<in> set (lin_seq s' @ [?op_q'])"
+          by simp
+
+        have old_called:
+          "\<forall>a\<in>set (lin_seq s). OpCalledInHis (his_seq s @ [?fresh_call]) a"
+        proof
+          fix a
+          assume a_in: "a \<in> set (lin_seq s)"
+
+          have called_old:
+            "OpCalledInHis (his_seq s) a"
+            using L0_all_lin_called_from_lI1[OF lI1_Op_Sets_Equivalence_s] a_in
+            by blast
+
+          show "OpCalledInHis (his_seq s @ [?fresh_call]) a"
+            using called_old L0_OpCalledInHis_append_call_old
+            by blast
+        qed
+
+        have fresh_called:
+          "OpCalledInHis (his_seq s @ [?fresh_call]) ?fresh_op"
+          using L0_OpCalledInHis_last_enq_call[of "his_seq s" "V_var s" p "s_var s p"] .
+
+        have all_called:
+          "\<forall>a\<in>set (lin_seq s' @ [?op_q']). OpCalledInHis (his_seq s') a"
+          using old_called fresh_called L_eq H_eq op_q_eq
+          by auto
+
+        have hb_lin_s':
+          "HB_consistent (lin_seq s') (his_seq s')"
+          using lI3_HB_Ret_Lin_Sync_s'
+          unfolding lI3_HB_Ret_Lin_Sync_def HB_Act_def HB_consistent_def
+          by simp
+
+        have no_ret_fresh:
+          "\<forall>k<length (his_seq s'). \<not> match_ret (his_seq s') k ?fresh_op"
+        proof (intro allI impI notI)
+          fix k
+          assume k_lt: "k < length (his_seq s')"
+          assume mr: "match_ret (his_seq s') k ?fresh_op"
+
+          have H_app:
+            "his_seq s' = his_seq s @ [?fresh_call]"
+            using H_eq .
+
+          show False
+          proof (cases "k < length (his_seq s)")
+            case False
+            hence k_last: "k = length (his_seq s)"
+              using k_lt H_app by simp
+
+            have last_cr_call:
+              "act_cr ((his_seq s @ [?fresh_call]) ! k) = call"
+              using k_last
+              by (simp add: mk_act_def act_cr_def)
+
+            moreover have "act_cr ((his_seq s @ [?fresh_call]) ! k) = ret"
+              using mr H_app
+              unfolding match_ret_def Let_def
+              by simp
+            ultimately show False
+              by simp
+          next
+            case True
+            hence mr_old:
+              "match_ret (his_seq s) k ?fresh_op"
+              using mr H_app
+              unfolding match_ret_def Let_def
+              by (simp add: nth_append)
+
+            have ret_props:
+              "act_name (his_seq s ! k) = enq \<and>
+               act_cr (his_seq s ! k) = ret \<and>
+               act_val (his_seq s ! k) = V_var s"
+              using mr_old
+              unfolding match_ret_def Let_def
+              by (simp add: mk_op_def op_name_def op_val_def)
+
+            have ret_name_enq:
+              "act_name (his_seq s ! k) = enq"
+              using ret_props
+              by simp
+
+            have ret_cr:
+              "act_cr (his_seq s ! k) = ret"
+              using ret_props
+              by simp
+
+            obtain tm where
+              tm_lt: "tm < k"
+              and call_pid:
+                "act_pid (his_seq s ! tm) = act_pid (his_seq s ! k)"
+              and call_name:
+                "act_name (his_seq s ! tm) = act_name (his_seq s ! k)"
+              and call_cr:
+                "act_cr (his_seq s ! tm) = call"
+              and call_val:
+                "act_val (his_seq s ! tm) = act_val (his_seq s ! k)"
+              using hI21_enq_ret_obtain_call[
+                OF hI21_Ret_Implies_Call_s True ret_name_enq ret_cr
+              ]
+              by blast
+
+            have call_props:
+              "act_pid (his_seq s ! tm) = act_pid (his_seq s ! k) \<and>
+               act_name (his_seq s ! tm) = act_name (his_seq s ! k) \<and>
+               act_cr (his_seq s ! tm) = call \<and>
+               act_val (his_seq s ! tm) = act_val (his_seq s ! k)"
+              using call_pid call_name call_cr call_val
+              by simp
+
+            have tm_lt_len:
+              "tm < length (his_seq s)"
+              using tm_lt True by simp
+
+            have call_tm_name_enq:
+              "act_name (his_seq s ! tm) = enq"
+              using call_name ret_name_enq
+              by simp
+
+            have call_tm_cr_call:
+              "act_cr (his_seq s ! tm) = call"
+              using call_cr .
+
+            have hI3_call_bound:
+              "\<forall>k<length (his_seq s).
+                  act_name (his_seq s ! k) = enq \<and>
+                  act_cr (his_seq s ! k) = call \<longrightarrow>
+                  act_val (his_seq s ! k) < V_var s"
+              using hI3_L0_E_Phase_Bounds_s
+              unfolding hI3_L0_E_Phase_Bounds_def
+              by blast
+
+            have call_lt:
+              "act_val (his_seq s ! tm) < V_var s"
+              using hI3_call_bound tm_lt_len call_tm_name_enq call_tm_cr_call
+              by simp
+
+            moreover have "act_val (his_seq s ! tm) = V_var s"
+              using call_props ret_props
+              by simp
+
+            ultimately show False
+              by simp
+          qed
+        qed
+
+        have hb_final:
+          "HB_consistent (lin_seq s' @ [?op_q']) (his_seq s')"
+          using L0_HB_consistent_append_no_ret[
+            OF hb_lin_s',
+            of ?op_q'
+          ] no_ret_fresh op_q_eq
+          by simp
+
+        have qs_lin:
+          "QueueSpecLin (lin_seq s')"
+          using lI4_FIFO_Semantics_s'
+          unfolding QueueSpecLin_def lI4_FIFO_Semantics_def
+          by simp
+
+        have qs_final:
+          "QueueSpecLin (lin_seq s' @ [?op_q'])"
+          using E1_QueueSpecLin_append_enq[OF qs_lin, of "V_var s" p "s_var s p"]
+                op_q_eq
+          by simp
+
+        have fresh_enq_val:
+          "\<forall>a\<in>set (lin_seq s). op_name a = enq \<longrightarrow> op_val a \<noteq> V_var s"
+        proof (intro ballI impI)
+          fix a
+          assume a_in: "a \<in> set (lin_seq s)"
+          assume a_enq: "op_name a = enq"
+
+          have a_oplin:
+            "a \<in> OPLin s"
+            using a_in unfolding OPLin_def by simp
+
+          have a_cases:
+            "a \<in> OP_A_enq s \<or> a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+            using lI1_Op_Sets_Equivalence_s a_oplin
+            unfolding lI1_Op_Sets_Equivalence_def
+            by blast
+
+          show "op_val a \<noteq> V_var s"
+          proof
+            assume val_eq: "op_val a = V_var s"
+
+            from a_cases show False
+            proof
+              assume "a \<in> OP_A_enq s"
+              then obtain qq vv sn where
+                a_eq: "a = mk_op enq vv qq sn"
+                and vv_set: "vv \<in> SetA s"
+                unfolding OP_A_enq_def by blast
+
+              have "vv = V_var s"
+                using a_eq val_eq
+                by (simp add: mk_op_def op_val_def)
+
+              thus False
+                using vv_set fresh_not_SetA
+                by simp
+            next
+              assume rest: "a \<in> OP_A_deq s \<or> a \<in> OP_B_enq s"
+              thus False
+              proof
+                assume "a \<in> OP_A_deq s"
+                hence "op_name a = deq"
+                  unfolding OP_A_deq_def by auto
+                with a_enq show False
+                  by simp
+              next
+                assume "a \<in> OP_B_enq s"
+                then obtain qq vv sn where
+                  a_eq: "a = mk_op enq vv qq sn"
+                  and vv_set: "vv \<in> SetB s"
+                  unfolding OP_B_enq_def by blast
+
+                have "vv = V_var s"
+                  using a_eq val_eq
+                  by (simp add: mk_op_def op_val_def)
+
+                thus False
+                  using vv_set fresh_not_SetB
+                  by simp
+              qed
+            qed
+          qed
+        qed
+
+        have fresh_enq_val_idx:
+          "\<forall>i<length (lin_seq s).
+              op_name (lin_seq s ! i) = enq \<longrightarrow>
+              op_val (lin_seq s ! i) \<noteq> V_var s"
+        proof (intro allI impI)
+          fix i
+          assume i_lt: "i < length (lin_seq s)"
+          assume name_enq: "op_name (lin_seq s ! i) = enq"
+
+          have mem_i:
+            "lin_seq s ! i \<in> set (lin_seq s)"
+            using i_lt
+            by simp
+
+          show "op_val (lin_seq s ! i) \<noteq> V_var s"
+            using fresh_enq_val mem_i name_enq
+            by blast
+        qed
+
+        have di_old_append:
+          "data_independent
+             (lin_seq s @ [mk_op enq (V_var s) p (s_var s p)])"
+          by (rule data_independent_append_enq_fresh[
+                OF di_s fresh_enq_val_idx
+              ])
+
+        have di_final:
+          "data_independent (lin_seq s' @ [?op_q'])"
+          using di_old_append L_eq op_q_eq
+          by simp
+
+        have gen:
+          "USpec_GenLin (his_seq s') (uspec_effOps s') ?op_q'
+             (lin_seq s' @ [?op_q'])"
+          unfolding USpec_GenLin_def
+          using finite_S subset_S op_in all_called hb_final qs_final di_final
+          by blast
+
+        show ?thesis
+          using gen
+          unfolding his_seq_def lin_seq_def uspec_effOps_def
+          by simp
+      next
+        case False
+
+        have pc_q_old:
+          "program_counter s q \<in> {''E1'', ''E2''}"
+          using pc_q' pc_eq_E1[of q] False
+          by simp
+
+        have upc_q_old:
+          "u_program_counter (snd s) q = ''UE2''"
+          using upc_q' upc_eq_E1[of q] False
+          by simp
+
+        let ?old_op = "mk_op enq (v_var s q) q (s_var s q)"
+        let ?old_L = "lin_seq s @ [?old_op]"
+
+        have old_gen:
+          "USpec_GenLin (his_seq s) (uspec_effOps s) ?old_op ?old_L"
+          using uI2_USpec_E1UE2_s pc_q_old upc_q_old
+          unfolding uI2_USpec_E1UE2_def his_seq_def lin_seq_def uspec_effOps_def
+          by blast
+
+        have q_ne_p:
+          "q \<noteq> p"
+          using False
+          by simp
+
+        have no_last_match:
+          "\<forall>b\<in>set ?old_L.
+              \<not> match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+        proof
+          fix b
+          assume b_in: "b \<in> set ?old_L"
+
+          show "\<not> match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+          proof
+            assume mc:
+              "match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+
+            have b_fresh:
+              "b = ?fresh_op"
+              using mc
+              unfolding match_call_def Let_def
+              by (cases b)
+                 (auto simp add:
+                    nth_append
+                    mk_act_def mk_op_def
+                    act_name_def act_pid_def act_ssn_def act_val_def act_cr_def
+                    op_name_def op_pid_def op_ssn_def op_val_def)
+
+            have b_cases:
+              "b = ?old_op \<or> b \<in> set (lin_seq s)"
+              using b_in
+              by simp
+
+            from b_cases show False
+            proof
+              assume b_old_op:
+                "b = ?old_op"
+
+              have pid_q:
+                "op_pid b = q"
+                using b_old_op
+                by (simp add: mk_op_def op_pid_def)
+
+              have pid_p:
+                "op_pid b = p"
+                using b_fresh
+                by (simp add: mk_op_def op_pid_def)
+
+              have q_eq_p:
+                "q = p"
+                using pid_q pid_p
+                by simp
+
+              show False
+                using q_eq_p q_ne_p
+                by simp
+            next
+              assume b_old:
+                "b \<in> set (lin_seq s)"
+
+              have b_oplin:
+                "b \<in> OPLin s"
+                using b_old
+                unfolding OPLin_def
+                by simp
+
+              show False
+                using b_fresh b_oplin fresh_not_OPLin
+                by simp
+            qed
+          qed
+        qed
+
+
+        have gen_append:
+          "USpec_GenLin
+             (his_seq s @ [?fresh_call])
+             (uspec_effOps s)
+             ?old_op
+             ?old_L"
+          by (rule L0_USpec_GenLin_append_call_no_new_match[
+                OF _ old_gen no_last_match
+              ])
+             (simp add: mk_act_def act_cr_def)
+
+        have op_eq:
+          "?op_q' = ?old_op"
+          using False v_eq_E1[of q] ssn_eq_E1[of q]
+          by simp
+
+        show ?thesis
+          using gen_append op_eq lin_seq_eq his_eq uspec_effOps_eq_E1
+          unfolding his_seq_def lin_seq_def uspec_effOps_def
+          by simp
+      qed
+    qed
+
+    have uI3_USpec_D3UD2_s': "uI3_USpec_D3UD2 s'"
+    proof (unfold uI3_USpec_D3UD2_def, intro allI impI)
+      fix q
+      assume pc_q': "program_counter s' q = ''D3''"
+      assume qj_q': "Q_arr s' (j_var s' q) \<noteq> BOT"
+      assume upc_q': "u_program_counter (snd s') q = ''UD2''"
+
+      let ?x = "Q_arr s' (j_var s' q)"
+      let ?op = "mk_op deq ?x q (s_var s' q)"
+      let ?base =
+        "(if should_modify (lin_seq s') (his_seq s') ?x
+          then modify_lin (lin_seq s') (his_seq s') ?x
+          else lin_seq s')"
+      let ?L = "?base @ [?op]"
+      let ?H = "his_seq s'"
+
+      have pending_q:
+        "HasPendingDeq s' q"
+        using hI12_D_Phase_Pending_Deq_s' pc_q'
+        unfolding hI12_D_Phase_Pending_Deq_def
+        by auto
+
+      have deq_call_q:
+        "DeqCallInHis s' q (s_var s' q)"
+        using pending_q
+        unfolding HasPendingDeq_def Let_def
+        by blast
+
+      have op_called:
+        "OpCalledInHis ?H ?op"
+        using DeqCallInHis_imp_OpCalledInHis[OF deq_call_q, of ?x]
+        by simp
+
+      have no_HB_from_op:
+        "\<forall>x. \<not> HB ?H ?op x"
+      proof
+        fix x
+        show "\<not> HB ?H ?op x"
+        proof
+          assume hb: "HB ?H ?op x"
+
+          then obtain k1 where
+            mr: "match_ret ?H k1 ?op"
+            unfolding HB_def
+            by blast
+
+          have k1_lt:
+            "k1 < length ?H"
+            using mr
+            unfolding match_ret_def Let_def
+            by simp
+
+          have pid_eq:
+            "act_pid (?H ! k1) = q"
+            using mr
+            unfolding match_ret_def Let_def
+            by (simp add: mk_op_def op_pid_def)
+
+          have ssn_eq:
+            "act_ssn (?H ! k1) = s_var s' q"
+            using mr
+            unfolding match_ret_def Let_def
+            by (simp add: mk_op_def op_ssn_def)
+
+          have cr_eq:
+            "act_cr (?H ! k1) = ret"
+            using mr
+            unfolding match_ret_def Let_def
+            by simp
+
+          have in_his:
+            "?H ! k1 \<in> set ?H"
+            using k1_lt
+            by simp
+
+          have no_ret:
+            "\<forall>e\<in>set ?H.
+               \<not> (act_pid e = q \<and>
+                    act_ssn e = s_var s' q \<and>
+                    act_cr e = ret)"
+            using pending_q
+            unfolding HasPendingDeq_def Let_def
+            by blast
+
+          show False
+            using no_ret in_his pid_eq ssn_eq cr_eq
+            by blast
+        qed
+      qed
+
+      have hb_lin:
+        "HB_consistent (lin_seq s') ?H"
+        using lI3_HB_Ret_Lin_Sync_s'
+        unfolding lI3_HB_Ret_Lin_Sync_def HB_Act_def HB_consistent_def
+        by simp
+
+      have lI4_list_s':
+        "lI4_FIFO_Semantics_list (lin_seq s')"
+        using lI4_FIFO_Semantics_s'
+        unfolding lI4_FIFO_Semantics_def
+        by simp
+
+      have lI5_list_s':
+        "lI5_SA_Prefix_list (lin_seq s')"
+        using lI5_SA_Prefix_s'
+        unfolding lI5_SA_Prefix_def
+        by simp
+
+      have x_val:
+        "?x \<in> Val"
+        using TypeOK_s' qj_q'
+        unfolding TypeOK_def
+        by auto
+
+      have typeBT_x:
+        "TypeBT s' ?x"
+        using D3_j_nonBOT_TypeBT_from_local[
+          OF sI6_D3_Scan_Pointers_s'
+             sI8_Q_Qback_Sync_s'
+             sI10_Qback_Unique_Vals_s'
+             pc_q' qj_q'
+        ] .
+
+      have x_SetB:
+        "?x \<in> SetB s'"
+        using x_val typeBT_x
+        unfolding SetB_def TypeBT_def
+        by blast
+
+      have pending_x_lin:
+        "\<forall>i < length (lin_seq s').
+           op_val (lin_seq s' ! i) = ?x \<longrightarrow>
+           op_name (lin_seq s' ! i) \<noteq> deq"
+        by (rule SetB_implies_no_deq_in_lin_from_LI2[
+              OF lI2_Op_Cardinality_s' x_SetB
+            ])
+
+      have enq_exists_x_lin:
+        "\<exists>k < length (lin_seq s').
+           op_name (lin_seq s' ! k) = enq \<and>
+           op_val (lin_seq s' ! k) = ?x"
+        by (rule SetB_implies_enq_in_lin_from_LI2[
+              OF lI2_Op_Cardinality_s' x_SetB
+            ])
+
+      have base_def':
+        "?base =
+          (if should_modify (lin_seq s') (his_seq s') ?x
+           then modify_lin (lin_seq s') (his_seq s') ?x
+           else lin_seq s')"
+        by simp
+
+      have mset_base_eq:
+        "mset ?base = mset (lin_seq s')"
+        using D3_base_mset_eq_from_local_invs[OF base_def'] .
+
+      have set_base_eq:
+        "set ?base = set (lin_seq s')"
+        using mset_base_eq
+        by (metis set_mset_mset)
+
+      have all_called_lin:
+        "\<forall>a\<in>set (lin_seq s'). OpCalledInHis ?H a"
+      proof
+        fix a
+        assume a_in: "a \<in> set (lin_seq s')"
+
+        have a_oplin:
+          "a \<in> OPLin s'"
+          using a_in
+          unfolding OPLin_def
+          by simp
+
+        have cases:
+          "a \<in> OP_A_enq s' \<or> a \<in> OP_A_deq s' \<or> a \<in> OP_B_enq s'"
+          using lI1_Op_Sets_Equivalence_s' a_oplin
+          unfolding lI1_Op_Sets_Equivalence_def
+          by blast
+
+        thus "OpCalledInHis ?H a"
+        proof
+          assume "a \<in> OP_A_enq s'"
+          then obtain qq vv sn where
+            a_eq: "a = mk_op enq vv qq sn"
+            and call: "EnqCallInHis s' qq vv sn"
+            unfolding OP_A_enq_def
+            by blast
+
+          show ?thesis
+            using EnqCallInHis_imp_OpCalledInHis[OF call]
+            unfolding a_eq
+            by simp
+        next
+          assume rest: "a \<in> OP_A_deq s' \<or> a \<in> OP_B_enq s'"
+          thus ?thesis
+          proof
+            assume "a \<in> OP_A_deq s'"
+
+            hence name_deq: "op_name a = deq"
+              and call: "DeqCallInHis s' (op_pid a) (op_ssn a)"
+              unfolding OP_A_deq_def
+              by auto
+
+            have a_mk:
+              "mk_op deq (op_val a) (op_pid a) (op_ssn a) = a"
+              using name_deq
+              by (cases a)
+                 (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+            have called_mk:
+              "OpCalledInHis ?H
+                 (mk_op deq (op_val a) (op_pid a) (op_ssn a))"
+              using DeqCallInHis_imp_OpCalledInHis[OF call, of "op_val a"] .
+
+            show ?thesis
+              using called_mk a_mk
+              by simp
+          next
+            assume "a \<in> OP_B_enq s'"
+            then obtain qq vv sn where
+              a_eq: "a = mk_op enq vv qq sn"
+              and call: "EnqCallInHis s' qq vv sn"
+              unfolding OP_B_enq_def
+              by blast
+
+            show ?thesis
+              using EnqCallInHis_imp_OpCalledInHis[OF call]
+              unfolding a_eq
+              by simp
+          qed
+        qed
+      qed
+
+      have hb_base:
+        "HB_consistent ?base ?H"
+      proof (cases "should_modify (lin_seq s') (his_seq s') ?x")
+        case False
+
+        have base_eq:
+          "?base = lin_seq s'"
+          using False
+          by (simp only: if_False)
+
+        show ?thesis
+          unfolding base_eq
+          using hb_lin .
+      next
+        case True
+
+        have base_eq:
+          "?base = modify_lin (lin_seq s') (his_seq s') ?x"
+          using True
+          by (simp only: if_True)
+
+        have hb_modify:
+          "HB_consistent
+             (modify_lin (lin_seq s') (his_seq s') ?x)
+             (his_seq s')"
+        proof (rule modify_preserves_HB_consistent_from_local_invs[
+                 where s = s'
+                   and L = "lin_seq s'"
+                   and H = "his_seq s'"
+                   and bt_val = ?x
+               ])
+          show "his_seq s' = his_seq s'"
+            by simp
+        next
+          show "HB_consistent (lin_seq s') (his_seq s')"
+            using hb_lin .
+        next
+          show "data_independent (lin_seq s')"
+            using di_s' .
+        next
+          show "TypeBT s' ?x"
+            using typeBT_x .
+        next
+          show "mset (lin_seq s') = mset (lin_seq s')"
+            by simp
+        next
+          show "\<forall>v. in_SA v (lin_seq s') = in_SA v (lin_seq s')"
+            by simp
+        next
+          show "lI1_Op_Sets_Equivalence s'"
+            using lI1_Op_Sets_Equivalence_s' .
+        next
+          show "lI2_Op_Cardinality s'"
+            using lI2_Op_Cardinality_s' .
+        next
+          show "lI4_FIFO_Semantics s'"
+            using lI4_FIFO_Semantics_s' .
+        next
+          show "hI5_SSN_Unique s'"
+            using hI5_SSN_Unique_s' .
+        next
+          show "hI7_His_WF s'"
+            using hI7_His_WF_s' .
+        next
+          show "hI16_BO_BT_No_HB s'"
+            using hI16_BO_BT_No_HB_s' .
+        next
+          show "hI17_BT_BT_No_HB s'"
+            using hI17_BT_BT_No_HB_s' .
+        next
+          show "hI20_Enq_Val_Valid s'"
+            using hI20_Enq_Val_Valid_s' .
+        qed
+
+        show ?thesis
+          unfolding base_eq
+          using hb_modify .
+      qed
+
+      have hb_final:
+        "HB_consistent ?L ?H"
+      proof (rule HB_consistent_append)
+        show "HB_consistent ?base ?H"
+          using hb_base .
+      next
+        show "\<forall>x\<in>set ?base. \<not> HB ?H ?op x"
+          using no_HB_from_op
+          by blast
+      next
+        show "\<not> HB ?H ?op ?op"
+          using no_HB_from_op
+          by blast
+      qed
+
+      have qs_base:
+        "QueueSpecLin ?base"
+      proof (rule D3_qs_base_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+             ])
+        show "lI4_FIFO_Semantics_list (lin_seq s')"
+          using lI4_list_s' .
+      next
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "lI5_SA_Prefix_list (lin_seq s')"
+          using lI5_list_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      qed
+
+      have qs_final:
+        "QueueSpecLin ?L"
+      proof (rule D3_qs_final_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+                 and deq_act = ?op
+             ])
+        show "lI4_FIFO_Semantics_list (lin_seq s')"
+          using lI4_list_s' .
+      next
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "lI5_SA_Prefix_list (lin_seq s')"
+          using lI5_list_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "\<exists>k<length (lin_seq s').
+                op_name (lin_seq s' ! k) = enq \<and>
+                op_val (lin_seq s' ! k) = ?x"
+          using enq_exists_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      next
+        show "op_name ?op = deq"
+          by (simp add: mk_op_def op_name_def)
+      next
+        show "op_val ?op = ?x"
+          by (simp add: mk_op_def op_val_def)
+      qed
+
+      have di_final:
+        "data_independent ?L"
+      proof (rule D3_di_final_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+                 and p = q
+                 and sn = "s_var s' q"
+             ])
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      qed
+
+      have eff_subset:
+        "uspec_effOps s' \<subseteq> set ?L"
+      proof -
+        have old_eff:
+          "uspec_effOps s' = set (lin_seq s')"
+          using uI1_USpec_EffOps_Lin_s'
+          unfolding uI1_USpec_EffOps_Lin_def
+          by simp
+
+        have "set (lin_seq s') \<subseteq> set ?base"
+          using set_base_eq
+          by simp
+
+        thus ?thesis
+          using old_eff
+          by auto
+      qed
+
+      have op_in:
+        "?op \<in> set ?L"
+        by simp
+
+      have all_called:
+        "\<forall>a\<in>set ?L. OpCalledInHis ?H a"
+        using all_called_lin set_base_eq op_called
+        by auto
+
+      have finite_eff:
+        "finite (uspec_effOps s')"
+        using uI1_USpec_EffOps_Lin_s'
+        unfolding uI1_USpec_EffOps_Lin_def
+        by simp
+
+      have gen:
+        "USpec_GenLin ?H (uspec_effOps s') ?op ?L"
+        unfolding USpec_GenLin_def
+      proof (intro conjI)
+        show "finite (uspec_effOps s')"
+          using finite_eff .
+      next
+        show "uspec_effOps s' \<subseteq> set ?L"
+          using eff_subset .
+      next
+        show "?op \<in> set ?L"
+          using op_in .
+      next
+        show "\<forall>a\<in>set ?L. OpCalledInHis ?H a"
+          using all_called .
+      next
+        show "HB_consistent ?L ?H"
+          using hb_final .
+      next
+        show "QueueSpecLin ?L"
+          using qs_final .
+      next
+        show "data_independent ?L"
+          using di_final .
+      qed
+
+      show "let cur_lin = lin_seq s';
+                cur_his = his_seq s';
+                x_val = Q_arr s' (j_var s' q);
+                op = mk_op deq x_val q (s_var s' q);
+                new_lin =
+                  (if should_modify cur_lin cur_his x_val
+                   then modify_lin cur_lin cur_his x_val
+                   else cur_lin) @ [op]
+            in USpec_GenLin cur_his (uspec_effOps s') op new_lin"
+        using gen
+        by (simp only: Let_def)
+    qed
+
+
      have sys_inv_s': "system_invariant s'"
        unfolding system_invariant_def
        using Simulate_PC_s' TypeOK_s'
@@ -5665,22 +6859,16 @@ qed
          hI9_Deq_Ret_Unique_s' hI10_Enq_Call_Existence_s' hI11_Enq_Ret_Existence_s' hI12_D_Phase_Pending_Deq_s' hI13_Qback_Deq_Sync_s' hI14_Pending_Enq_Qback_Exclusivity_s' hI15_Deq_Result_Exclusivity_s' hI16_BO_BT_No_HB_s' hI17_BT_BT_No_HB_s' hI18_Idx_Order_No_Rev_HB_s' hI19_Scanner_Catches_Later_Enq_s'
          hI20_Enq_Val_Valid_s' hI21_Ret_Implies_Call_s' hI22_Deq_Local_Pattern_s' hI23_Deq_Call_Ret_Balanced_s' hI24_HB_Implies_Idx_Order_s' hI25_Enq_Call_Ret_Balanced_s' hI26_DeqRet_D4_Mutex_s'
          hI27_Pending_PC_Sync_s' hI28_Fresh_Enq_Immunity_s' hI29_E2_Scanner_Immunity_s' hI30_Ticket_HB_Immunity_s'
-         lI1_Op_Sets_Equivalence_s' lI2_Op_Cardinality_s' lI3_HB_Ret_Lin_Sync_s' lI4_FIFO_Semantics_s' lI5_SA_Prefix_s' lI6_D4_Deq_Linearized_s' lI7_D4_Deq_Deq_HB_s' lI8_D3_Deq_Returned_s' lI9_D1_D2_Deq_Returned_s' lI10_D4_Enq_Deq_HB_s' lI11_D4_Deq_Unique_s' di_s'
+         lI1_Op_Sets_Equivalence_s' lI2_Op_Cardinality_s' lI3_HB_Ret_Lin_Sync_s' lI4_FIFO_Semantics_s' lI5_SA_Prefix_s' lI6_D4_Deq_Linearized_s' lI7_D4_Deq_Deq_HB_s' lI8_D3_Deq_Returned_s' lI9_D1_D2_Deq_Returned_s' lI10_D4_Enq_Deq_HB_s' lI11_D4_Deq_Unique_s' uI1_USpec_EffOps_Lin_s' uI2_USpec_E1UE2_s' uI3_USpec_D3UD2_s' di_s'
        by simp
      show ?thesis
        using sys_inv_s'
        by simp
 qed
 
-(* ========== Main preservation proof for the D1 branch ========== *)
-
-(* Source: L0Proof.thy / the remaining main proof for the D1 branch of L0_preserves_invariant *)
-(* Location: the common D1-branch context, from unpacking assumptions to the final system_invariant assembly. *)
-(* Note: the proof script below is moved verbatim from the original file; only comments are revised. *)
-(* ========================================================== *)
-(* Assembly lemmas for the full invariant package: D1 branch   *)
-(* ========================================================== *)
-
+(* Source of the lifted proof block: L0Proof.thy, L0_preserves_invariant, D1. *)
+(* Original source location: approximately lines 1, 1. *)
+(* Note: the following proof script was moved here from the original file without proof-level changes. *)
 lemma L0_D1_preserves_invariant_branch:
   fixes s s' :: SysState and p :: nat
   assumes INV: "system_invariant s"
@@ -5693,7 +6881,7 @@ proof -
     i_var_def j_var_def l_var_def x_var_def v_var_def
     s_var_def lin_seq_def his_seq_def
 
-  (* Step 1: unpack the old system invariant once so the branch proof can reuse all components. *)
+  (* Prove the required intermediate property. Related symbols: system_invariant. *)
   have Simulate_PC_s: "Simulate_PC s"
     and TypeOK_s: "TypeOK s"
     and sI1_Zero_Index_BOT_s: "sI1_Zero_Index_BOT s"
@@ -5719,6 +6907,9 @@ proof -
     and lI4_FIFO_Semantics_s: "lI4_FIFO_Semantics s" and lI5_SA_Prefix_s: "lI5_SA_Prefix s"
     and lI6_D4_Deq_Linearized_s: "lI6_D4_Deq_Linearized s" and lI7_D4_Deq_Deq_HB_s: "lI7_D4_Deq_Deq_HB s" and lI8_D3_Deq_Returned_s: "lI8_D3_Deq_Returned s"
     and lI9_D1_D2_Deq_Returned_s: "lI9_D1_D2_Deq_Returned s" and lI10_D4_Enq_Deq_HB_s: "lI10_D4_Enq_Deq_HB s" and lI11_D4_Deq_Unique_s: "lI11_D4_Deq_Unique s"
+    and uI1_USpec_EffOps_Lin_s: "uI1_USpec_EffOps_Lin s"
+    and uI2_USpec_E1UE2_s: "uI2_USpec_E1UE2 s"
+    and uI3_USpec_D3UD2_s: "uI3_USpec_D3UD2 s"
     and di_s: "data_independent (lin_seq s)"
     using INV unfolding system_invariant_def by auto
 
@@ -5778,51 +6969,7 @@ proof -
     have TypeA_eq_D1: "TypeA s' a \<longleftrightarrow> TypeA s a" for a
       unfolding TypeA_def using InQBack_eq_D1[of a] QHas_eq_D1[of a] by simp
     have TypeB_eq_D1: "TypeB s' a \<longleftrightarrow> TypeB s a" for a
-    proof
-      assume typeB': "TypeB s' a"
-      then show "TypeB s a"
-      proof (unfold TypeB_def, elim disjE exE conjE)
-        assume "QHas s' a"
-        then show "QHas s a \<or> (\<exists>pb. program_counter s pb = ''E2'' \<and> v_var s pb = a)"
-          using QHas_eq_D1[of a] by simp
-      next
-        fix pb
-        assume pbE2': "program_counter s' pb = ''E2''"
-        assume pbv': "v_var s' pb = a"
-        have pb_ne_p: "pb \<noteq> p"
-          using pbE2' pc_eq_D1[of pb] by auto
-        hence pbE2: "program_counter s pb = ''E2''"
-          using pbE2' pc_eq_D1[of pb] by simp
-        have pbv: "v_var s pb = a"
-          using pbv' v_eq_D1[of pb] by simp
-        show "QHas s a \<or> (\<exists>pb. program_counter s pb = ''E2'' \<and> v_var s pb = a)"
-          using pbE2 pbv by blast
-      qed
-    next
-      assume typeB: "TypeB s a"
-      then show "TypeB s' a"
-      proof (unfold TypeB_def, elim disjE exE conjE)
-        assume "QHas s a"
-        then show "QHas s' a \<or> (\<exists>pb. program_counter s' pb = ''E2'' \<and> v_var s' pb = a)"
-          using QHas_eq_D1[of a] by simp
-      next
-        fix pb
-        assume pbE2: "program_counter s pb = ''E2''"
-        assume pbv: "v_var s pb = a"
-        have pb_ne_p: "pb \<noteq> p"
-        proof
-          assume pb_eq: "pb = p"
-          with pbE2 pc_L0 show False
-            by simp
-        qed
-        hence pbE2': "program_counter s' pb = ''E2''"
-          using pc_eq_D1[of pb] pbE2 by simp
-        have pbv': "v_var s' pb = a"
-          using pbv v_eq_D1[of pb] by simp
-        show "QHas s' a \<or> (\<exists>pb. program_counter s' pb = ''E2'' \<and> v_var s' pb = a)"
-          using pbE2' pbv' by blast
-      qed
-    qed
+      unfolding TypeB_def using QHas_eq_D1[of a] by simp
     have SetA_eq_D1: "SetA s' = SetA s"
       unfolding SetA_def using TypeA_eq_D1 by auto
     have SetB_eq_D1: "SetB s' = SetB s"
@@ -5887,8 +7034,8 @@ proof -
           using qarr_eq_D1[of k] by simp
       qed
     qed
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_d3_witness_eq here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_d3_witness_eq. *)
     have D3Witness_eq_D1:
       "(\<exists>pa. program_counter s' pa = ''D3'' \<and>
             j_var s' pa \<le> Idx s' a \<and> Idx s' a < l_var s' pa \<and>
@@ -5939,8 +7086,8 @@ proof -
           using qarr_eq_D1[of k] by simp
       qed
     qed
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_typebt_eq here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_typebt_eq. *)
     have TypeBT_eq_D1: "TypeBT s' a \<longleftrightarrow> TypeBT s a" for a
       using L0_D1_typebt_eq[
         OF TypeB_eq_D1 InQBack_eq_D1 PrefixBOT_eq_D1 D3Witness_eq_D1, of a
@@ -6122,20 +7269,26 @@ proof -
         by simp
     qed
 
-        have hI4_X_var_Lin_Sync_s': "hI4_X_var_Lin_Sync s'"
+    have hI4_X_var_Lin_Sync_s': "hI4_X_var_Lin_Sync s'"
     proof -
       have x_eq: "X_var s' = X_var s"
         using s'_def
         unfolding L0_D1_update_state_def X_var_def
         by (auto simp: Let_def bridge_defs)
-      have lin_len_eq: "length (lin_seq s') = length (lin_seq s)"
-        using lin_seq_eq by simp
       have cnt_eq: "LinEnqCount s' (length (lin_seq s')) = LinEnqCount s (length (lin_seq s))"
         using lin_seq_eq
         unfolding LinEnqCount_def lin_seq_def
         by (simp add: bridge_defs)
+      have pc_E2_eq: "\<And>q. program_counter s' q = ''E2'' \<longleftrightarrow> program_counter s q = ''E2''"
+        using pc_eq_D1 pc_L0 by auto
+      have slots_eq: "E2SlotCount s' = E2SlotCount s"
+        apply (rule E2SlotCount_cong)
+        using x_eq apply simp
+        using pc_E2_eq apply simp
+        using i_eq_D1 apply simp
+        done
       show ?thesis
-        using hI4_X_var_Lin_Sync_s x_eq cnt_eq
+        using hI4_X_var_Lin_Sync_s x_eq cnt_eq slots_eq
         unfolding hI4_X_var_Lin_Sync_def
         by simp
     qed
@@ -6158,8 +7311,8 @@ proof -
       unfolding hI2_SSN_Bounds_def
       by blast
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_ssn_unique here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_ssn_unique. *)
     have hI5_SSN_Unique_s': "hI5_SSN_Unique s'"
       using L0_D1_ssn_unique[
         OF hI5_SSN_Unique_s his_eq ai11_p pc_L0
@@ -6246,15 +7399,18 @@ proof (unfold hI10_Enq_Call_Existence_def, intro conjI)
       unfolding HasPendingEnq_def Let_def
       by blast
   qed
-  show "\<forall>a. (\<exists>k. Qback_arr s' k = a) \<longrightarrow> (\<exists>q sn. Model.EnqCallInHis s' q a sn)"
+  show "\<forall>a. a \<in> Val \<and> (\<exists>k. Qback_arr s' k = a) \<longrightarrow>
+            (\<exists>q sn. Model.EnqCallInHis s' q a sn)"
   proof (intro allI impI)
     fix a
-    assume qb': "\<exists>k. Qback_arr s' k = a"
+    assume PRE: "a \<in> Val \<and> (\<exists>k. Qback_arr s' k = a)"
+    then have A_VAL: "a \<in> Val" and qb': "\<exists>k. Qback_arr s' k = a"
+      by blast+
     have qb_old: "\<exists>k. Qback_arr s k = a"
       using qb' qback_eq_D1
       by auto
     then obtain q sn where old_enq: "Model.EnqCallInHis s q a sn"
-      using hI10_Enq_Call_Existence_s
+      using hI10_Enq_Call_Existence_s A_VAL
       unfolding hI10_Enq_Call_Existence_def
       by blast
     have new_enq: "Model.EnqCallInHis s' q a sn"
@@ -6342,8 +7498,8 @@ proof (unfold hI12_D_Phase_Pending_Deq_def, intro allI impI)
   qed
 qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_qback_deq_sync here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_qback_deq_sync. *)
     have hI13_Qback_Deq_Sync_s': "hI13_Qback_Deq_Sync s'"
       using L0_D1_qback_deq_sync[
         OF hI13_Qback_Deq_Sync_s qarr_eq_D1 qback_eq_D1 pc_L0 pc_eq_D1 x_eq_D1 his_eq
@@ -6398,8 +7554,8 @@ qed
         using old_no_qback qback_eq_D1 by auto
     qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_deq_result_exclusive here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_deq_result_exclusive. *)
     have hI15_Deq_Result_Exclusivity_s': "hI15_Deq_Result_Exclusivity s'"
       using L0_D1_deq_result_exclusive[
         OF hI15_Deq_Result_Exclusivity_s his_eq pc_eq_D1 x_eq_D1 qarr_eq_D1 ssn_eq_D1 pc_L0 sI11_x_var_Scope_s
@@ -6512,8 +7668,8 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
   using hI21_Ret_Implies_Call_append_call[OF hI21_Ret_Implies_Call_s his_eq]
   by (simp add: mk_act_def act_cr_def)
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_deq_local_pattern here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_deq_local_pattern. *)
     have hI22_Deq_Local_Pattern_s': "hI22_Deq_Local_Pattern s'"
       using L0_D1_deq_local_pattern[
         OF hI22_Deq_Local_Pattern_s his_eq qarr_eq_D1 qback_eq_D1 x_eq_D1
@@ -6561,8 +7717,8 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
         by blast
     qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_enq_call_ret_balanced here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_enq_call_ret_balanced. *)
     have hI25_Enq_Call_Ret_Balanced_s': "hI25_Enq_Call_Ret_Balanced s'"
       using L0_D1_enq_call_ret_balanced[
         OF hI25_Enq_Call_Ret_Balanced_s his_eq pc_eq_D1 pc_L0
@@ -6599,22 +7755,22 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
         by blast
     qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_pending_pc_sync here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_pending_pc_sync. *)
     have hI27_Pending_PC_Sync_s': "hI27_Pending_PC_Sync s'"
       using L0_D1_pending_pc_sync[
         OF hI27_Pending_PC_Sync_s pc_eq_D1 his_eq ssn_eq_D1 hI3_L0_E_Phase_Bounds_s pc_L0 v_eq_D1
       ] .
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_fresh_enq_immune here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_fresh_enq_immune. *)
     have hI28_Fresh_Enq_Immunity_s': "hI28_Fresh_Enq_Immunity s'"
       using L0_D1_fresh_enq_immune[
         OF hI28_Fresh_Enq_Immunity_s pc_eq_D1 v_eq_D1 his_eq
       ] .
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_e2_scanner_immune here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_e2_scanner_immune. *)
     have hI29_E2_Scanner_Immunity_s': "hI29_E2_Scanner_Immunity s'"
       using L0_D1_e2_scanner_immune[
         OF hI29_E2_Scanner_Immunity_s his_eq ssn_eq_D1 pc_eq_D1 InQBack_eq_D1 TypeB_eq_D1
@@ -6670,8 +7826,8 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
     qed
 
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_op_sets_equiv here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_op_sets_equiv. *)
     have lI1_Op_Sets_Equivalence_s': "lI1_Op_Sets_Equivalence s'"
       using L0_D1_op_sets_equiv[
         OF lI1_Op_Sets_Equivalence_s SetA_eq_D1 SetB_eq_D1 his_eq lin_seq_eq
@@ -6683,8 +7839,8 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
                 QHas_def InQBack_def L0_D1_update_state_def
       by (auto simp: Let_def bridge_defs split: if_splits)
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_hb_ret_lin_sync here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_hb_ret_lin_sync. *)
     have lI3_HB_Ret_Lin_Sync_s': "lI3_HB_Ret_Lin_Sync s'"
       using L0_D1_hb_ret_lin_sync[
         OF lI3_HB_Ret_Lin_Sync_s lin_seq_eq his_eq lI1_Op_Sets_Equivalence_s hI2_SSN_Bounds_s pc_L0
@@ -6802,8 +7958,8 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
         by (auto simp: mk_act_def act_pid_def act_ssn_def act_name_def act_cr_def act_val_def)
     qed
 
-    (* This proof block has been moved from L0Proof.thy to L0Lemmas.thy. *)
-    (* We only invoke the helper lemma L0_D1_d12_deq_returned here, without changing the original proof logic. *)
+    (* Prove the required intermediate property. Related symbols: L0Proof.thy, L0Lemmas.thy. *)
+    (* Prove the required intermediate property. Related symbols: L0_D1_d12_deq_returned. *)
     have lI9_D1_D2_Deq_Returned_s': "lI9_D1_D2_Deq_Returned s'"
       using L0_D1_d12_deq_returned[
         OF lI9_D1_D2_Deq_Returned_s pc_eq_D1 lin_seq_eq his_eq lI1_Op_Sets_Equivalence_s
@@ -6932,6 +8088,673 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
       using di_s lin_seq_eq
       unfolding data_independent_def by simp
 
+
+    (* USpec invariants uI1-uI3. *)
+    have uspec_effOps_eq_D1 [simp]: "uspec_effOps s' = uspec_effOps s"
+      using s'_def
+      unfolding L0_D1_update_state_def uspec_effOps_def
+      by (simp add: Let_def)
+
+    have uI1_USpec_EffOps_Lin_s': "uI1_USpec_EffOps_Lin s'"
+      using uI1_USpec_EffOps_Lin_s lin_seq_eq uspec_effOps_eq_D1
+      unfolding uI1_USpec_EffOps_Lin_def
+      by simp
+
+    have upc_eq_D1:
+      "\<And>q. u_program_counter (snd s') q =
+            (if q = p then ''UD2'' else u_program_counter (snd s) q)"
+      using s'_def
+      unfolding L0_D1_update_state_def
+      by (simp add: Let_def)
+
+    have uI2_USpec_E1UE2_s': "uI2_USpec_E1UE2 s'"
+    proof (unfold uI2_USpec_E1UE2_def, intro allI impI)
+      fix q
+      assume pc_q': "program_counter s' q \<in> {''E1'', ''E2''}"
+      assume upc_q': "u_program_counter (snd s') q = ''UE2''"
+
+      let ?fresh_call = "mk_act deq BOT p (s_var s p) call"
+      let ?op_q' = "mk_op enq (v_var s' q) q (s_var s' q)"
+
+      have q_ne_p:
+        "q \<noteq> p"
+        using pc_q' pc_eq_D1[of q]
+        by auto
+
+      have pc_q_old:
+        "program_counter s q \<in> {''E1'', ''E2''}"
+        using pc_q' pc_eq_D1[of q] q_ne_p
+        by simp
+
+      have upc_q_old:
+        "u_program_counter (snd s) q = ''UE2''"
+        using upc_q' upc_eq_D1[of q] q_ne_p
+        by simp
+
+      let ?old_op = "mk_op enq (v_var s q) q (s_var s q)"
+      let ?old_L = "lin_seq s @ [?old_op]"
+
+      have old_gen:
+        "USpec_GenLin (his_seq s) (uspec_effOps s) ?old_op ?old_L"
+        using uI2_USpec_E1UE2_s pc_q_old upc_q_old
+        unfolding uI2_USpec_E1UE2_def his_seq_def lin_seq_def uspec_effOps_def
+        by blast
+
+      have no_last_match:
+        "\<forall>b\<in>set ?old_L.
+            \<not> match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+      proof
+        fix b
+        assume b_in: "b \<in> set ?old_L"
+
+        show "\<not> match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+        proof
+          assume mc:
+            "match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+
+          have b_cases:
+            "b = ?old_op \<or> b \<in> set (lin_seq s)"
+            using b_in
+            by simp
+
+          from b_cases show False
+          proof
+            assume b_old_op:
+              "b = ?old_op"
+
+            show False
+              using mc b_old_op
+              unfolding match_call_def Let_def
+              by (simp add:
+                    nth_append
+                    mk_act_def mk_op_def
+                    act_name_def act_pid_def act_ssn_def act_val_def act_cr_def
+                    op_name_def op_pid_def op_ssn_def op_val_def)
+          next
+            assume b_old_lin:
+              "b \<in> set (lin_seq s)"
+
+            have b_oplin:
+              "b \<in> OPLin s"
+              using b_old_lin
+              unfolding OPLin_def
+              by simp
+
+            have b_deq:
+              "op_name b = deq"
+              using mc
+              unfolding match_call_def Let_def
+              by (cases b)
+                 (auto simp add:
+                    nth_append
+                    mk_act_def mk_op_def
+                    act_name_def act_pid_def act_ssn_def act_val_def act_cr_def
+                    op_name_def op_pid_def op_ssn_def op_val_def)
+
+            have b_pid:
+              "op_pid b = p"
+              using mc
+              unfolding match_call_def Let_def
+              by (cases b)
+                 (auto simp add:
+                    nth_append
+                    mk_act_def mk_op_def
+                    act_name_def act_pid_def act_ssn_def act_val_def act_cr_def
+                    op_name_def op_pid_def op_ssn_def op_val_def)
+
+            have b_ssn:
+              "op_ssn b = s_var s p"
+              using mc
+              unfolding match_call_def Let_def
+              by (cases b)
+                 (auto simp add:
+                    nth_append
+                    mk_act_def mk_op_def
+                    act_name_def act_pid_def act_ssn_def act_val_def act_cr_def
+                    op_name_def op_pid_def op_ssn_def op_val_def)
+
+            have ssn_ne:
+              "op_ssn b \<noteq> s_var s p"
+              using OPLin_deq_not_current_ssn_at_L0[
+                OF lI1_Op_Sets_Equivalence_s hI2_SSN_Bounds_s pc_L0
+                   b_oplin b_deq b_pid
+              ] .
+
+            show False
+              using ssn_ne b_ssn
+              by simp
+          qed
+        qed
+      qed
+
+      have gen_append:
+        "USpec_GenLin
+           (his_seq s @ [?fresh_call])
+           (uspec_effOps s)
+           ?old_op
+           ?old_L"
+      proof (rule L0_USpec_GenLin_append_call_no_new_match)
+        show "act_cr ?fresh_call = call"
+          by (simp add: mk_act_def act_cr_def)
+      next
+        show "USpec_GenLin (his_seq s) (uspec_effOps s) ?old_op ?old_L"
+          using old_gen .
+      next
+        show "\<forall>b\<in>set ?old_L.
+                \<not> match_call (his_seq s @ [?fresh_call]) (length (his_seq s)) b"
+          using no_last_match .
+      qed
+
+      have op_eq:
+        "?op_q' = ?old_op"
+        using q_ne_p v_eq_D1[of q] ssn_eq_D1[of q]
+        by simp
+
+      show "USpec_GenLin
+              (u_his_seq (snd s'))
+              (u_eff_ops (snd s'))
+              ?op_q'
+              (u_lin_seq (snd s') @ [?op_q'])"
+        using gen_append op_eq lin_seq_eq his_eq uspec_effOps_eq_D1
+        unfolding his_seq_def lin_seq_def uspec_effOps_def
+        by simp
+    qed
+
+    have uI3_USpec_D3UD2_s': "uI3_USpec_D3UD2 s'"
+    proof (unfold uI3_USpec_D3UD2_def, intro allI impI)
+      fix q
+      assume pc_q': "program_counter s' q = ''D3''"
+      assume qj_q': "Q_arr s' (j_var s' q) \<noteq> BOT"
+      assume upc_q': "u_program_counter (snd s') q = ''UD2''"
+
+      let ?x = "Q_arr s' (j_var s' q)"
+      let ?op = "mk_op deq ?x q (s_var s' q)"
+      let ?base =
+        "(if should_modify (lin_seq s') (his_seq s') ?x
+          then modify_lin (lin_seq s') (his_seq s') ?x
+          else lin_seq s')"
+      let ?L = "?base @ [?op]"
+      let ?H = "his_seq s'"
+
+      have pending_q:
+        "HasPendingDeq s' q"
+        using hI12_D_Phase_Pending_Deq_s' pc_q'
+        unfolding hI12_D_Phase_Pending_Deq_def
+        by auto
+
+      have deq_call_q:
+        "DeqCallInHis s' q (s_var s' q)"
+        using pending_q
+        unfolding HasPendingDeq_def Let_def
+        by blast
+
+      have op_called:
+        "OpCalledInHis ?H ?op"
+        using DeqCallInHis_imp_OpCalledInHis[OF deq_call_q, of ?x]
+        by simp
+
+      have no_HB_from_op:
+        "\<forall>x. \<not> HB ?H ?op x"
+      proof
+        fix x
+        show "\<not> HB ?H ?op x"
+        proof
+          assume hb: "HB ?H ?op x"
+
+          then obtain k1 where
+            mr: "match_ret ?H k1 ?op"
+            unfolding HB_def
+            by blast
+
+          have k1_lt:
+            "k1 < length ?H"
+            using mr
+            unfolding match_ret_def Let_def
+            by simp
+
+          have pid_eq:
+            "act_pid (?H ! k1) = q"
+            using mr
+            unfolding match_ret_def Let_def
+            by (simp add: mk_op_def op_pid_def)
+
+          have ssn_eq:
+            "act_ssn (?H ! k1) = s_var s' q"
+            using mr
+            unfolding match_ret_def Let_def
+            by (simp add: mk_op_def op_ssn_def)
+
+          have cr_eq:
+            "act_cr (?H ! k1) = ret"
+            using mr
+            unfolding match_ret_def Let_def
+            by simp
+
+          have in_his:
+            "?H ! k1 \<in> set ?H"
+            using k1_lt
+            by simp
+
+          have no_ret:
+            "\<forall>e\<in>set ?H.
+               \<not> (act_pid e = q \<and>
+                    act_ssn e = s_var s' q \<and>
+                    act_cr e = ret)"
+            using pending_q
+            unfolding HasPendingDeq_def Let_def
+            by blast
+
+          show False
+            using no_ret in_his pid_eq ssn_eq cr_eq
+            by blast
+        qed
+      qed
+
+      have hb_lin:
+        "HB_consistent (lin_seq s') ?H"
+        using lI3_HB_Ret_Lin_Sync_s'
+        unfolding lI3_HB_Ret_Lin_Sync_def HB_Act_def HB_consistent_def
+        by simp
+
+      have lI4_list_s':
+        "lI4_FIFO_Semantics_list (lin_seq s')"
+        using lI4_FIFO_Semantics_s'
+        unfolding lI4_FIFO_Semantics_def
+        by simp
+
+      have lI5_list_s':
+        "lI5_SA_Prefix_list (lin_seq s')"
+        using lI5_SA_Prefix_s'
+        unfolding lI5_SA_Prefix_def
+        by simp
+
+      have x_val:
+        "?x \<in> Val"
+        using TypeOK_s' qj_q'
+        unfolding TypeOK_def
+        by auto
+
+      have typeBT_x:
+        "TypeBT s' ?x"
+        using D3_j_nonBOT_TypeBT_from_local[
+          OF sI6_D3_Scan_Pointers_s'
+             sI8_Q_Qback_Sync_s'
+             sI10_Qback_Unique_Vals_s'
+             pc_q' qj_q'
+        ] .
+
+      have x_SetB:
+        "?x \<in> SetB s'"
+        using x_val typeBT_x
+        unfolding SetB_def TypeBT_def
+        by blast
+
+      have pending_x_lin:
+        "\<forall>i < length (lin_seq s').
+           op_val (lin_seq s' ! i) = ?x \<longrightarrow>
+           op_name (lin_seq s' ! i) \<noteq> deq"
+        by (rule SetB_implies_no_deq_in_lin_from_LI2[
+              OF lI2_Op_Cardinality_s' x_SetB
+            ])
+
+      have enq_exists_x_lin:
+        "\<exists>k < length (lin_seq s').
+           op_name (lin_seq s' ! k) = enq \<and>
+           op_val (lin_seq s' ! k) = ?x"
+        by (rule SetB_implies_enq_in_lin_from_LI2[
+              OF lI2_Op_Cardinality_s' x_SetB
+            ])
+
+      have base_def':
+        "?base =
+          (if should_modify (lin_seq s') (his_seq s') ?x
+           then modify_lin (lin_seq s') (his_seq s') ?x
+           else lin_seq s')"
+        by simp
+
+      have mset_base_eq:
+        "mset ?base = mset (lin_seq s')"
+        using D3_base_mset_eq_from_local_invs[OF base_def'] .
+
+      have set_base_eq:
+        "set ?base = set (lin_seq s')"
+        using mset_base_eq
+        by (metis set_mset_mset)
+
+      have all_called_lin:
+        "\<forall>a\<in>set (lin_seq s'). OpCalledInHis ?H a"
+      proof
+        fix a
+        assume a_in: "a \<in> set (lin_seq s')"
+
+        have a_oplin:
+          "a \<in> OPLin s'"
+          using a_in
+          unfolding OPLin_def
+          by simp
+
+        have cases:
+          "a \<in> OP_A_enq s' \<or> a \<in> OP_A_deq s' \<or> a \<in> OP_B_enq s'"
+          using lI1_Op_Sets_Equivalence_s' a_oplin
+          unfolding lI1_Op_Sets_Equivalence_def
+          by blast
+
+        thus "OpCalledInHis ?H a"
+        proof
+          assume "a \<in> OP_A_enq s'"
+          then obtain qq vv sn where
+            a_eq: "a = mk_op enq vv qq sn"
+            and call: "EnqCallInHis s' qq vv sn"
+            unfolding OP_A_enq_def
+            by blast
+
+          show ?thesis
+            using EnqCallInHis_imp_OpCalledInHis[OF call]
+            unfolding a_eq
+            by simp
+        next
+          assume rest: "a \<in> OP_A_deq s' \<or> a \<in> OP_B_enq s'"
+          thus ?thesis
+          proof
+            assume "a \<in> OP_A_deq s'"
+
+            hence name_deq: "op_name a = deq"
+              and call: "DeqCallInHis s' (op_pid a) (op_ssn a)"
+              unfolding OP_A_deq_def
+              by auto
+
+            have a_mk:
+              "mk_op deq (op_val a) (op_pid a) (op_ssn a) = a"
+              using name_deq
+              by (cases a)
+                 (simp add: mk_op_def op_name_def op_val_def op_pid_def op_ssn_def)
+
+            have called_mk:
+              "OpCalledInHis ?H
+                 (mk_op deq (op_val a) (op_pid a) (op_ssn a))"
+              using DeqCallInHis_imp_OpCalledInHis[OF call, of "op_val a"] .
+
+            show ?thesis
+              using called_mk a_mk
+              by simp
+          next
+            assume "a \<in> OP_B_enq s'"
+            then obtain qq vv sn where
+              a_eq: "a = mk_op enq vv qq sn"
+              and call: "EnqCallInHis s' qq vv sn"
+              unfolding OP_B_enq_def
+              by blast
+
+            show ?thesis
+              using EnqCallInHis_imp_OpCalledInHis[OF call]
+              unfolding a_eq
+              by simp
+          qed
+        qed
+      qed
+
+      have hb_base:
+        "HB_consistent ?base ?H"
+      proof (cases "should_modify (lin_seq s') (his_seq s') ?x")
+        case False
+
+        have base_eq:
+          "?base = lin_seq s'"
+          using False
+          by (simp only: if_False)
+
+        show ?thesis
+          unfolding base_eq
+          using hb_lin .
+      next
+        case True
+
+        have base_eq:
+          "?base = modify_lin (lin_seq s') (his_seq s') ?x"
+          using True
+          by (simp only: if_True)
+
+        have hb_modify:
+          "HB_consistent
+             (modify_lin (lin_seq s') (his_seq s') ?x)
+             (his_seq s')"
+        proof (rule modify_preserves_HB_consistent_from_local_invs[
+                 where s = s'
+                   and L = "lin_seq s'"
+                   and H = "his_seq s'"
+                   and bt_val = ?x
+               ])
+          show "his_seq s' = his_seq s'"
+            by simp
+        next
+          show "HB_consistent (lin_seq s') (his_seq s')"
+            using hb_lin .
+        next
+          show "data_independent (lin_seq s')"
+            using di_s' .
+        next
+          show "TypeBT s' ?x"
+            using typeBT_x .
+        next
+          show "mset (lin_seq s') = mset (lin_seq s')"
+            by simp
+        next
+          show "\<forall>v. in_SA v (lin_seq s') = in_SA v (lin_seq s')"
+            by simp
+        next
+          show "lI1_Op_Sets_Equivalence s'"
+            using lI1_Op_Sets_Equivalence_s' .
+        next
+          show "lI2_Op_Cardinality s'"
+            using lI2_Op_Cardinality_s' .
+        next
+          show "lI4_FIFO_Semantics s'"
+            using lI4_FIFO_Semantics_s' .
+        next
+          show "hI5_SSN_Unique s'"
+            using hI5_SSN_Unique_s' .
+        next
+          show "hI7_His_WF s'"
+            using hI7_His_WF_s' .
+        next
+          show "hI16_BO_BT_No_HB s'"
+            using hI16_BO_BT_No_HB_s' .
+        next
+          show "hI17_BT_BT_No_HB s'"
+            using hI17_BT_BT_No_HB_s' .
+        next
+          show "hI20_Enq_Val_Valid s'"
+            using hI20_Enq_Val_Valid_s' .
+        qed
+
+        show ?thesis
+          unfolding base_eq
+          using hb_modify .
+      qed
+
+      have hb_final:
+        "HB_consistent ?L ?H"
+      proof (rule HB_consistent_append)
+        show "HB_consistent ?base ?H"
+          using hb_base .
+      next
+        show "\<forall>x\<in>set ?base. \<not> HB ?H ?op x"
+          using no_HB_from_op
+          by blast
+      next
+        show "\<not> HB ?H ?op ?op"
+          using no_HB_from_op
+          by blast
+      qed
+
+      have qs_base:
+        "QueueSpecLin ?base"
+      proof (rule D3_qs_base_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+             ])
+        show "lI4_FIFO_Semantics_list (lin_seq s')"
+          using lI4_list_s' .
+      next
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "lI5_SA_Prefix_list (lin_seq s')"
+          using lI5_list_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      qed
+
+      have qs_final:
+        "QueueSpecLin ?L"
+      proof (rule D3_qs_final_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+                 and deq_act = ?op
+             ])
+        show "lI4_FIFO_Semantics_list (lin_seq s')"
+          using lI4_list_s' .
+      next
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "lI5_SA_Prefix_list (lin_seq s')"
+          using lI5_list_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "\<exists>k<length (lin_seq s').
+                op_name (lin_seq s' ! k) = enq \<and>
+                op_val (lin_seq s' ! k) = ?x"
+          using enq_exists_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      next
+        show "op_name ?op = deq"
+          by (simp add: mk_op_def op_name_def)
+      next
+        show "op_val ?op = ?x"
+          by (simp add: mk_op_def op_val_def)
+      qed
+
+      have di_final:
+        "data_independent ?L"
+      proof (rule D3_di_final_from_local_invs[
+               where L = "lin_seq s'"
+                 and H = "his_seq s'"
+                 and v = ?x
+                 and base_lin = ?base
+                 and p = q
+                 and sn = "s_var s' q"
+             ])
+        show "data_independent (lin_seq s')"
+          using di_s' .
+      next
+        show "\<forall>k<length (lin_seq s').
+                op_val (lin_seq s' ! k) = ?x \<longrightarrow>
+                op_name (lin_seq s' ! k) \<noteq> deq"
+          using pending_x_lin .
+      next
+        show "?base =
+              (if should_modify (lin_seq s') (his_seq s') ?x
+               then modify_lin (lin_seq s') (his_seq s') ?x
+               else lin_seq s')"
+          using base_def' .
+      qed
+
+      have eff_subset:
+        "uspec_effOps s' \<subseteq> set ?L"
+      proof -
+        have old_eff:
+          "uspec_effOps s' = set (lin_seq s')"
+          using uI1_USpec_EffOps_Lin_s'
+          unfolding uI1_USpec_EffOps_Lin_def
+          by simp
+
+        have "set (lin_seq s') \<subseteq> set ?base"
+          using set_base_eq
+          by simp
+
+        thus ?thesis
+          using old_eff
+          by auto
+      qed
+
+      have op_in:
+        "?op \<in> set ?L"
+        by simp
+
+      have all_called:
+        "\<forall>a\<in>set ?L. OpCalledInHis ?H a"
+        using all_called_lin set_base_eq op_called
+        by auto
+
+      have finite_eff:
+        "finite (uspec_effOps s')"
+        using uI1_USpec_EffOps_Lin_s'
+        unfolding uI1_USpec_EffOps_Lin_def
+        by simp
+
+      have gen:
+        "USpec_GenLin ?H (uspec_effOps s') ?op ?L"
+        unfolding USpec_GenLin_def
+      proof (intro conjI)
+        show "finite (uspec_effOps s')"
+          using finite_eff .
+      next
+        show "uspec_effOps s' \<subseteq> set ?L"
+          using eff_subset .
+      next
+        show "?op \<in> set ?L"
+          using op_in .
+      next
+        show "\<forall>a\<in>set ?L. OpCalledInHis ?H a"
+          using all_called .
+      next
+        show "HB_consistent ?L ?H"
+          using hb_final .
+      next
+        show "QueueSpecLin ?L"
+          using qs_final .
+      next
+        show "data_independent ?L"
+          using di_final .
+      qed
+
+      show "let cur_lin = lin_seq s';
+                cur_his = his_seq s';
+                x_val = Q_arr s' (j_var s' q);
+                op = mk_op deq x_val q (s_var s' q);
+                new_lin =
+                  (if should_modify cur_lin cur_his x_val
+                   then modify_lin cur_lin cur_his x_val
+                   else cur_lin) @ [op]
+            in USpec_GenLin cur_his (uspec_effOps s') op new_lin"
+        using gen
+        by (simp only: Let_def)
+    qed
+
+
     show ?thesis
       unfolding system_invariant_def
       using Simulate_PC_s' TypeOK_s'
@@ -6940,18 +8763,16 @@ have hI21_Ret_Implies_Call_s': "hI21_Ret_Implies_Call s'"
         hI9_Deq_Ret_Unique_s' hI10_Enq_Call_Existence_s' hI11_Enq_Ret_Existence_s' hI12_D_Phase_Pending_Deq_s' hI13_Qback_Deq_Sync_s' hI14_Pending_Enq_Qback_Exclusivity_s' hI15_Deq_Result_Exclusivity_s' hI16_BO_BT_No_HB_s' hI17_BT_BT_No_HB_s' hI18_Idx_Order_No_Rev_HB_s' hI19_Scanner_Catches_Later_Enq_s'
         hI20_Enq_Val_Valid_s' hI21_Ret_Implies_Call_s' hI22_Deq_Local_Pattern_s' hI23_Deq_Call_Ret_Balanced_s' hI24_HB_Implies_Idx_Order_s' hI25_Enq_Call_Ret_Balanced_s' hI26_DeqRet_D4_Mutex_s'
         hI27_Pending_PC_Sync_s' hI28_Fresh_Enq_Immunity_s' hI29_E2_Scanner_Immunity_s' hI30_Ticket_HB_Immunity_s'
-        lI1_Op_Sets_Equivalence_s' lI2_Op_Cardinality_s' lI3_HB_Ret_Lin_Sync_s' lI4_FIFO_Semantics_s' lI5_SA_Prefix_s' lI6_D4_Deq_Linearized_s' lI7_D4_Deq_Deq_HB_s' lI8_D3_Deq_Returned_s' lI9_D1_D2_Deq_Returned_s' lI10_D4_Enq_Deq_HB_s' lI11_D4_Deq_Unique_s' di_s'
+        lI1_Op_Sets_Equivalence_s' lI2_Op_Cardinality_s' lI3_HB_Ret_Lin_Sync_s' lI4_FIFO_Semantics_s' lI5_SA_Prefix_s' lI6_D4_Deq_Linearized_s' lI7_D4_Deq_Deq_HB_s' lI8_D3_Deq_Returned_s' lI9_D1_D2_Deq_Returned_s' lI10_D4_Enq_Deq_HB_s' lI11_D4_Deq_Unique_s' uI1_USpec_EffOps_Lin_s' uI2_USpec_E1UE2_s' uI3_USpec_D3UD2_s' di_s'
       by blast
 qed
 
-(* ========================================================== *)
-(* Interface lemmas extracted from the branch-preservation      *)
-(* proofs, so that L0Proof can keep a compact outer skeleton.  *)
-(* ========================================================== *)
 
-(* ========================================================== *)
-(* Interface lemmas exported back to L0Proof                  *)
-(* ========================================================== *)
+
+(* ================================================================== *)
+(* Use the relevant invariant, lemma, or hypothesis. Related symbols: L0, L0Proof. *)
+(* Prove the required intermediate property. *)
+(* ================================================================== *)
 
 lemma L0_E1_preserves_rest:
   fixes s s' :: SysState and p :: nat
@@ -7057,6 +8878,27 @@ lemma L0_D1_preserves_rest:
      lI10_D4_Enq_Deq_HB s' \<and>
      lI11_D4_Deq_Unique s' \<and>
      data_independent (lin_seq s')"
+  using L0_D1_preserves_invariant_branch[OF INV STEP D1]
+  unfolding system_invariant_def
+  by auto
+
+
+lemma L0_E1_preserves_uspec_invs_rest:
+  fixes s s' :: SysState and p :: nat
+  assumes INV: "system_invariant s"
+  assumes STEP: "L0 p s s'"
+  assumes E1: "program_counter s' p = ''E1''"
+  shows "uI1_USpec_EffOps_Lin s' \<and> uI2_USpec_E1UE2 s' \<and> uI3_USpec_D3UD2 s'"
+  using L0_E1_preserves_invariant_branch[OF INV STEP E1]
+  unfolding system_invariant_def
+  by auto
+
+lemma L0_D1_preserves_uspec_invs_rest:
+  fixes s s' :: SysState and p :: nat
+  assumes INV: "system_invariant s"
+  assumes STEP: "L0 p s s'"
+  assumes D1: "program_counter s' p = ''D1''"
+  shows "uI1_USpec_EffOps_Lin s' \<and> uI2_USpec_E1UE2 s' \<and> uI3_USpec_D3UD2 s'"
   using L0_D1_preserves_invariant_branch[OF INV STEP D1]
   unfolding system_invariant_def
   by auto

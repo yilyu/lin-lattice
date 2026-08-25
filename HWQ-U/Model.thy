@@ -1,6 +1,6 @@
 theory Model
-  imports 
-    Main 
+  imports
+    Main
     "HOL-Library.Multiset"
 begin
 
@@ -9,12 +9,12 @@ datatype mname = enq | deq
 datatype cr_type = call | ret
 
 (* ========================================================== *)
-(* Action and operation records with SSN (Session Sequence Number) *)
+(* Refactored version: introduce SSN (Session Sequence Number) to remove temporal ambiguity. *)
 (* ========================================================== *)
 type_synonym ActRec = "mname \<times> nat \<times> nat \<times> nat \<times> cr_type"
 type_synonym OpRec = "mname \<times> nat \<times> nat \<times> nat"
 
-(* Accessors for tuple fields *)
+(* Helper functions for accessing tuple fields. *)
 definition act_name :: "ActRec \<Rightarrow> mname" where "act_name e = fst e"
 definition act_val :: "ActRec \<Rightarrow> nat" where "act_val e = fst (snd e)"
 definition act_pid :: "ActRec \<Rightarrow> nat" where "act_pid e = fst (snd (snd e))"
@@ -26,7 +26,7 @@ definition op_val :: "OpRec \<Rightarrow> nat" where "op_val a = fst (snd a)"
 definition op_pid :: "OpRec \<Rightarrow> nat" where "op_pid a = fst (snd (snd a))"
 definition op_ssn :: "OpRec \<Rightarrow> nat" where "op_ssn a = snd (snd (snd a))"
 
-(* Constructors *)
+(* Constructor functions. *)
 definition mk_act :: "mname \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> cr_type \<Rightarrow> ActRec" where
   "mk_act m v p sn cr = (m, v, p, sn, cr)"
 
@@ -38,11 +38,11 @@ definition BOT :: nat where "BOT = 0"
 
 (* definition ProcSet :: "nat set" where "ProcSet = UNIV" *)
 
-axiomatization N_Procs :: nat where 
+axiomatization N_Procs :: nat where
   N_Procs_gt_0: "N_Procs > 0"
 
-(* The process set is the bounded natural interval [0, N_Procs). *)
-definition ProcSet :: "nat set" where 
+(* Define the process pool as the bounded natural interval [0, N_Procs). *)
+definition ProcSet :: "nat set" where
   "ProcSet = {0..<N_Procs}"
 
 lemma finite_ProcSet [simp]: "finite ProcSet"
@@ -61,7 +61,7 @@ definition Val :: "nat set" where "Val = {n. n > 0}"
 
 
 (* ========================================================== *)
-(* 1. State decomposition: concrete vs. abstract components   *)
+(* Separate concrete and abstract state records. *)
 (* ========================================================== *)
 
 record CState =
@@ -73,7 +73,7 @@ record CState =
   l_var :: "nat \<Rightarrow> nat"
   x_var :: "nat \<Rightarrow> nat"
   v_var :: "nat \<Rightarrow> nat"
-  (* Auxiliary variables maintained in the concrete state *)
+  (* Auxiliary proof variables and concrete state variables. *)
   Qback_arr :: "nat \<Rightarrow> nat"
   V_var :: nat
 
@@ -81,14 +81,16 @@ record UState =
   u_program_counter :: "nat \<Rightarrow> string"
   u_lin_seq :: "OpRec list"
   u_his_seq :: "ActRec list"
-  (* Abstract-state variables *)
+  (* Set of operations that have already taken effect. *)
+  u_eff_ops :: "OpRec set"
+  (* Abstract state variables. *)
   S_var :: "nat \<Rightarrow> nat"
 
 
 type_synonym SysState = "CState \<times> UState"
 
 (* ========================================================== *)
-(* 2. Accessor bridge from SysState to its components         *)
+(* Accessor bridge layer. *)
 (* ========================================================== *)
 
 definition program_counter :: "SysState \<Rightarrow> nat \<Rightarrow> string" where "program_counter s p = c_program_counter (fst s) p"
@@ -105,40 +107,41 @@ definition s_var :: "SysState \<Rightarrow> nat \<Rightarrow> nat" where "s_var 
 
 definition lin_seq :: "SysState \<Rightarrow> OpRec list" where "lin_seq s = u_lin_seq (snd s)"
 definition his_seq :: "SysState \<Rightarrow> ActRec list" where "his_seq s = u_his_seq (snd s)"
-
+(* Accessor for the set of operations that have already taken effect. *)
+definition uspec_effOps :: "SysState \<Rightarrow> OpRec set" where "uspec_effOps s = u_eff_ops (snd s)"
 
 definition Simulate_PC :: "SysState \<Rightarrow> bool" where
   "Simulate_PC s \<equiv> (\<forall>p.
-    (c_program_counter (fst s) p = ''L0'' \<longleftrightarrow> u_program_counter (snd s) p = ''UL0'') \<and>    
-    (c_program_counter (fst s) p = ''E1'' \<longleftrightarrow> u_program_counter (snd s) p = ''UE2'') \<and>
-    (c_program_counter (fst s) p \<in> {''E2'', ''E3''} \<longleftrightarrow> u_program_counter (snd s) p = ''UE3'') \<and>    
+    (c_program_counter (fst s) p = ''L0'' \<longleftrightarrow> u_program_counter (snd s) p = ''UL0'') \<and>
+    (c_program_counter (fst s) p \<in> {''E1'', ''E2''} \<longleftrightarrow> u_program_counter (snd s) p = ''UE2'') \<and>
+    (c_program_counter (fst s) p = ''E3'' \<longleftrightarrow> u_program_counter (snd s) p = ''UE3'') \<and>
     (c_program_counter (fst s) p \<in> {''D1'', ''D2'', ''D3''} \<longleftrightarrow> u_program_counter (snd s) p = ''UD2'') \<and>
     (c_program_counter (fst s) p = ''D4'' \<longleftrightarrow> u_program_counter (snd s) p = ''UD3'')
   )"
 
 definition data_independent :: "OpRec list \<Rightarrow> bool" where
-  "data_independent L \<equiv> 
+  "data_independent L \<equiv>
    (\<forall>v. card {i. i < length L \<and> op_name (L ! i) = enq \<and> op_val (L ! i) = v} \<le> 1) \<and>
    (\<forall>v. card {i. i < length L \<and> op_name (L ! i) = deq \<and> op_val (L ! i) = v} \<le> 1)"
 
 
 (* ========================================================== *)
-(* Core happens-before definitions based on SSN matching      *)
+(* Core happens-before definition based on SSN. *)
 (* ========================================================== *)
 
 definition match_call :: "ActRec list \<Rightarrow> nat \<Rightarrow> OpRec \<Rightarrow> bool" where
-  "match_call H k act \<equiv> 
+  "match_call H k act \<equiv>
     k < length H \<and>
     (let e = H ! k in
-     act_name e = op_name act \<and> act_pid e = op_pid act \<and> 
-     act_ssn e = op_ssn act \<and> act_val e = (if op_name act = deq then BOT else op_val act) \<and> 
+     act_name e = op_name act \<and> act_pid e = op_pid act \<and>
+     act_ssn e = op_ssn act \<and> act_val e = (if op_name act = deq then BOT else op_val act) \<and>
      act_cr e = call)"
 
 definition match_ret :: "ActRec list \<Rightarrow> nat \<Rightarrow> OpRec \<Rightarrow> bool" where
-  "match_ret H k act \<equiv> 
+  "match_ret H k act \<equiv>
     k < length H \<and>
     (let e = H ! k in
-     act_name e = op_name act \<and> act_pid e = op_pid act \<and> 
+     act_name e = op_name act \<and> act_pid e = op_pid act \<and>
      act_ssn e = op_ssn act \<and> act_val e = op_val act \<and> act_cr e = ret)"
 
 definition HB :: "ActRec list \<Rightarrow> OpRec \<Rightarrow> OpRec \<Rightarrow> bool" where
@@ -152,12 +155,12 @@ abbreviation happens_before :: "OpRec \<Rightarrow> OpRec \<Rightarrow> ActRec l
 definition HB_Act :: "SysState \<Rightarrow> OpRec \<Rightarrow> OpRec \<Rightarrow> bool" where
   "HB_Act s a b \<equiv> HB (his_seq s) a b"
 
-definition HB_consistent :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> bool" where 
-  "HB_consistent L H \<equiv> (\<forall>k1 k2. k1 < length L \<and> k2 < length L \<and> 
+definition HB_consistent :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> bool" where
+  "HB_consistent L H \<equiv> (\<forall>k1 k2. k1 < length L \<and> k2 < length L \<and>
     HB H (L!k1) (L!k2) \<longrightarrow> k1 < k2)"
 
 
-(* ========== Distance measure and modify_lin ========== *)
+(* Definitions and lemmas for distance and modify_lin. Related symbols: modify_lin. *)
 
 definition find_indices :: "(OpRec \<Rightarrow> bool) \<Rightarrow> OpRec list \<Rightarrow> nat list" where
   "find_indices P L = [i \<leftarrow> [0..<length L]. P (L ! i)]"
@@ -223,15 +226,15 @@ definition should_modify :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> 
     (let last_sa_pos = find_last_SA L in
      let remaining = drop (nat (last_sa_pos + 1)) L in
      case find_unique_index (\<lambda>a. op_name a = enq \<and> op_val a = bt_val) remaining of
-       None \<Rightarrow> False 
+       None \<Rightarrow> False
      | Some bt_idx \<Rightarrow>
          let l2 = take bt_idx remaining in
-         l2 \<noteq> [] \<and> 
+         l2 \<noteq> [] \<and>
          (let l2_last = last l2 in
-          op_name l2_last = enq \<or> 
+          op_name l2_last = enq \<or>
           (case find_last_enq l2 of
              None \<Rightarrow> False
-           | Some (l21, b_act, l22) \<Rightarrow> l22 \<noteq> [] 
+           | Some (l21, b_act, l22) \<Rightarrow> l22 \<noteq> []
           )
          )
     )
@@ -250,7 +253,7 @@ function modify_lin :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> nat \
       let l2 = take bt_idx remaining in
       let l3 = drop (bt_idx + 1) remaining in
       let l2_last = last l2 in
-      
+
       if op_name l2_last = enq then
         let ll2 = butlast l2 in
         let new_L = l1 @ ll2 @ [bt_act] @ [l2_last] @ l3 in
@@ -259,7 +262,7 @@ function modify_lin :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> nat \
         let (l21, b_act, l22) = the (find_last_enq l2) in
         let o1 = hd l22 in
         let ou = last l22 in
-        
+
         if happens_before o1 bt_act H then
           let new_l22 = tl l22 in
           let new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3 in
@@ -267,7 +270,7 @@ function modify_lin :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> nat \
         else if happens_before b_act o1 H then
           let new_L = l1 @ l21 @ [bt_act] @ [b_act] @ l22 @ l3 in
           modify_lin new_L H bt_val
-        else 
+        else
           let new_l22 = tl l22 in
           let new_L = l1 @ l21 @ [o1] @ [b_act] @ new_l22 @ [bt_act] @ l3 in
           modify_lin new_L H bt_val
@@ -276,56 +279,56 @@ by pat_completeness auto
 
 
 (* ========================================================================= *)
-(* Auxiliary definitions based on SSN and set-based characterizations        *)
+(* Set, cardinality, and uniqueness reasoning. Related symbols: SSN. *)
 (* ========================================================================= *)
 
-definition QHas :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where 
+definition QHas :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "QHas s a = (\<exists>k. Q_arr s k = a)"
 
-definition InQBack :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where 
+definition InQBack :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "InQBack s a = (\<exists>k. Qback_arr s k = a)"
 
-definition TypeA :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where 
+definition TypeA :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "TypeA s a = (InQBack s a \<and> \<not> QHas s a)"
 
-definition TypeB :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where 
-  "TypeB s a = (QHas s a \<or> (\<exists>p. program_counter s p = ''E2'' \<and> v_var s p = a))"
+definition TypeB :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
+  "TypeB s a = QHas s a"
 
-definition AtIdx :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where 
+definition AtIdx :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "AtIdx s a k = (Qback_arr s k = a)"
 
-definition Idx :: "SysState \<Rightarrow> nat \<Rightarrow> nat" where 
-  "Idx s a = (SOME k. AtIdx s a k)"  
+definition Idx :: "SysState \<Rightarrow> nat \<Rightarrow> nat" where
+  "Idx s a = (SOME k. AtIdx s a k)"
 
 definition TypeBT :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "TypeBT s a = (
-    TypeB s a \<and> 
+    TypeB s a \<and>
     InQBack s a \<and>
     ( (\<forall>k. k < Idx s a \<longrightarrow> Q_arr s k = BOT) \<or>
       (\<exists>p. program_counter s p = ''D3'' \<and>
-           j_var s p \<le> Idx s a \<and> 
+           j_var s p \<le> Idx s a \<and>
            Idx s a < l_var s p \<and>
            (\<forall>k. j_var s p \<le> k \<and> k < Idx s a \<longrightarrow> Q_arr s k = BOT)) )
   )"
 
-definition TypeBO :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where 
+definition TypeBO :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "TypeBO s a = (TypeB s a \<and> \<not> TypeBT s a)"
 
-definition SetA :: "SysState \<Rightarrow> nat set" where 
+definition SetA :: "SysState \<Rightarrow> nat set" where
   "SetA s = {a \<in> Val. TypeA s a}"
 
-definition SetB :: "SysState \<Rightarrow> nat set" where 
+definition SetB :: "SysState \<Rightarrow> nat set" where
   "SetB s = {a \<in> Val. TypeB s a}"
 
-definition SetBT :: "SysState \<Rightarrow> nat set" where 
+definition SetBT :: "SysState \<Rightarrow> nat set" where
   "SetBT s = {a \<in> Val. TypeBT s a}"
 
-definition SetBO :: "SysState \<Rightarrow> nat set" where 
+definition SetBO :: "SysState \<Rightarrow> nat set" where
   "SetBO s = {a \<in> Val. TypeBO s a}"
 
-(* --- History-existence predicates --- *)
+(* History-existence checks based on SSN and set mappings. *)
 
-(* Number of enqueue operations among the first n linearized actions *)
+(* Count the number of enqueue operations among the first n operations of lin_seq. *)
 definition LinEnqCount :: "SysState \<Rightarrow> nat \<Rightarrow> nat" where
   "LinEnqCount s n = (
     let sub_lin = take n (lin_seq s) in
@@ -334,50 +337,50 @@ definition LinEnqCount :: "SysState \<Rightarrow> nat \<Rightarrow> nat" where
 
 definition EnqCallInHis :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "EnqCallInHis s p a sn = (
-    \<exists>e \<in> set (his_seq s). 
+    \<exists>e \<in> set (his_seq s).
       act_pid e = p \<and> act_ssn e = sn \<and> act_name e = enq \<and> act_cr e = call \<and> act_val e = a
   )"
 
 definition EnqRetInHis :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "EnqRetInHis s p a sn = (
-    \<exists>e \<in> set (his_seq s). 
+    \<exists>e \<in> set (his_seq s).
       act_pid e = p \<and> act_ssn e = sn \<and> act_name e = enq \<and> act_cr e = ret \<and> act_val e = a
   )"
 
 definition DeqCallInHis :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "DeqCallInHis s p sn = (
-    \<exists>e \<in> set (his_seq s). 
+    \<exists>e \<in> set (his_seq s).
       act_pid e = p \<and> act_ssn e = sn \<and> act_name e = deq \<and> act_cr e = call \<and> act_val e = BOT
   )"
 
 definition DeqRetInHis :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "DeqRetInHis s p a sn = (
-    \<exists>e \<in> set (his_seq s). 
+    \<exists>e \<in> set (his_seq s).
       act_pid e = p \<and> act_ssn e = sn \<and> act_name e = deq \<and> act_cr e = ret \<and> act_val e = a
   )"
 
-(* --- Pending-operation predicates --- *)
+(* Pending-state definitions. *)
 
 definition HasPendingEnq :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
   "HasPendingEnq s p a = (
     let cur_sn = s_var s p in
-    EnqCallInHis s p a cur_sn \<and> 
+    EnqCallInHis s p a cur_sn \<and>
     (\<forall>e \<in> set (his_seq s). \<not> (act_pid e = p \<and> act_ssn e = cur_sn \<and> act_cr e = ret))
   )"
 
 definition HasPendingDeq :: "SysState \<Rightarrow> nat \<Rightarrow> bool" where
   "HasPendingDeq s p = (
     let cur_sn = s_var s p in
-    DeqCallInHis s p cur_sn \<and> 
+    DeqCallInHis s p cur_sn \<and>
     (\<forall>e \<in> set (his_seq s). \<not> (act_pid e = p \<and> act_ssn e = cur_sn \<and> act_cr e = ret))
   )"
 
-(* --- Auxiliary happens-before checks for SSN-identified operations --- *)
-definition HB_EnqRetCall :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where 
-  "HB_EnqRetCall s v1 v2 \<equiv> 
+(* Happens-before reasoning. *)
+definition HB_EnqRetCall :: "SysState \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
+  "HB_EnqRetCall s v1 v2 \<equiv>
     \<exists>p1 p2 sn1 sn2. HB_Act s (mk_op enq v1 p1 sn1) (mk_op enq v2 p2 sn2)"
 
-(* ========== Linearization sets and operation classes ========== *)
+(* Definitions for linearization-sequence sets and classifications. *)
 
 definition EnqIdxs :: "SysState \<Rightarrow> nat \<Rightarrow> nat set" where
   "EnqIdxs s a = {k. k < length (lin_seq s) \<and> op_name (lin_seq s ! k) = enq \<and> op_val (lin_seq s ! k) = a}"
@@ -385,13 +388,13 @@ definition EnqIdxs :: "SysState \<Rightarrow> nat \<Rightarrow> nat set" where
 definition DeqIdxs :: "SysState \<Rightarrow> nat \<Rightarrow> nat set" where
   "DeqIdxs s a = {k. k < length (lin_seq s) \<and> op_name (lin_seq s ! k) = deq \<and> op_val (lin_seq s ! k) = a}"
 
-definition OPLin :: "SysState \<Rightarrow> OpRec set" where 
+definition OPLin :: "SysState \<Rightarrow> OpRec set" where
   "OPLin s = set (lin_seq s)"
 
-(* Alternative characterization of operation sets using SSN-based identifiers *)
+(* Reconstruct the Action set accurately with SSN to avoid operation ambiguity. *)
 (*
 definition OP_A_enq :: "SysState \<Rightarrow> OpRec set" where
-  "OP_A_enq s = {mk_op enq a p sn | p a sn. 
+  "OP_A_enq s = {mk_op enq a p sn | p a sn.
     a \<in> SetA s \<and> EnqCallInHis s p a sn \<and> EnqRetInHis s p a sn
   }"
 *)
@@ -399,39 +402,28 @@ definition OP_A_enq :: "SysState \<Rightarrow> OpRec set" where
   "OP_A_enq s = {mk_op enq a p sn | p a sn. a \<in> SetA s \<and> EnqCallInHis s p a sn}"
 
 definition OP_A_deq :: "SysState \<Rightarrow> OpRec set" where
-  "OP_A_deq s = {act \<in> OPLin s. 
-    op_name act = deq \<and> op_val act \<in> SetA s \<and> 
+  "OP_A_deq s = {act \<in> OPLin s.
+    op_name act = deq \<and> op_val act \<in> SetA s \<and>
     DeqCallInHis s (op_pid act) (op_ssn act)
   }"
 
 definition OP_B_enq :: "SysState \<Rightarrow> OpRec set" where
-  "OP_B_enq s = {mk_op enq b p sn | p b sn. 
+  "OP_B_enq s = {mk_op enq b p sn | p b sn.
     b \<in> SetB s \<and> EnqCallInHis s p b sn
   }"
 
-definition active_enqs :: "SysState \<Rightarrow> OpRec set" where 
+definition active_enqs :: "SysState \<Rightarrow> OpRec set" where
   "active_enqs s = OP_B_enq s"
 
 
-
-(* ========================================================== *)
-(* Invariants for the HWQ-to-U^s_Queue simulation             *)
-(* They are organized into three classes:                     *)
-(*   1. state invariants,                                     *)
-(*   2. history invariants, and                               *)
-(*   3. linearization-sequence invariants.                    *)
-(* ========================================================== *)
-
 (* ========================================================================= *)
-(* State invariants                                                          *)
-(* This class includes type/range constraints and structural invariants      *)
-(* over the HWQ state used in the simulation relation.                       *)
+(* Basic type and range invariants. *)
 (* ========================================================================= *)
 
 definition TypeOK :: "SysState \<Rightarrow> bool" where
   "TypeOK s = (
     (\<forall>p. program_counter s p \<in> {''L0'', ''E1'', ''E2'', ''E3'', ''D1'', ''D2'', ''D3'', ''D4''}) \<and>
-    X_var s \<in> Val \<and> 
+    X_var s \<in> Val \<and>
     V_var s \<in> Val \<and>
     (\<forall>idx. Q_arr s idx \<in> Val \<union> {BOT}) \<and>
     (\<forall>idx. Qback_arr s idx \<in> Val \<union> {BOT}) \<and>
@@ -440,26 +432,29 @@ definition TypeOK :: "SysState \<Rightarrow> bool" where
     (\<forall>p. l_var s p \<in> Val \<union> {BOT}) \<and>
     (\<forall>p. x_var s p \<in> Val \<union> {BOT}) \<and>
     (\<forall>p. v_var s p \<in> Val \<union> {BOT}) \<and>
-    (\<forall>p. s_var s p \<in> Val) 
+    (\<forall>p. s_var s p \<in> Val)
   )"
 
 
+(* ========================================================================= *)
+(* Concrete-state invariants. *)
+(* ========================================================================= *)
 
-definition sI1_Zero_Index_BOT :: "SysState \<Rightarrow> bool" where 
+definition sI1_Zero_Index_BOT :: "SysState \<Rightarrow> bool" where
   "sI1_Zero_Index_BOT s = (Q_arr s 0 = BOT \<and> Qback_arr s 0 = BOT)"
 
-definition sI2_X_var_Upper_Bound :: "SysState \<Rightarrow> bool" where 
+definition sI2_X_var_Upper_Bound :: "SysState \<Rightarrow> bool" where
   "sI2_X_var_Upper_Bound s = (
-    X_var s \<in> Val \<and> 
+    X_var s \<in> Val \<and>
     (\<forall>k. k \<ge> X_var s \<longrightarrow> Q_arr s k = BOT \<and> Qback_arr s k = BOT)
   )"
 
 definition sI3_E2_Slot_Exclusive :: "SysState \<Rightarrow> bool" where
   "sI3_E2_Slot_Exclusive s \<equiv> (
     \<forall>p. program_counter s p = ''E2'' \<longrightarrow>
-      (i_var s p \<in> Val \<and> 
-       i_var s p < X_var s \<and> 
-       Q_arr s (i_var s p) = BOT \<and> 
+      (i_var s p \<in> Val \<and>
+       i_var s p < X_var s \<and>
+       Q_arr s (i_var s p) = BOT \<and>
        Qback_arr s (i_var s p) = BOT \<and>
        (\<forall>q. q \<noteq> p \<and> program_counter s q \<in> {''E2'', ''E3''} \<longrightarrow> i_var s p \<noteq> i_var s q))
   )"
@@ -467,88 +462,90 @@ definition sI3_E2_Slot_Exclusive :: "SysState \<Rightarrow> bool" where
 definition sI4_E3_Qback_Written :: "SysState \<Rightarrow> bool" where
   "sI4_E3_Qback_Written s \<equiv> (
     \<forall>p. program_counter s p = ''E3'' \<longrightarrow>
-      (i_var s p \<in> Val \<and> 
-       i_var s p < X_var s \<and> 
-       (Q_arr s (i_var s p) = v_var s p \<or> Q_arr s (i_var s p) = BOT) \<and> 
-       Qback_arr s (i_var s p) = v_var s p \<and> 
+      (i_var s p \<in> Val \<and>
+       i_var s p < X_var s \<and>
+       (Q_arr s (i_var s p) = v_var s p \<or> Q_arr s (i_var s p) = BOT) \<and>
+       Qback_arr s (i_var s p) = v_var s p \<and>
        (\<forall>q. q \<noteq> p \<and> program_counter s q \<in> {''E2'', ''E3''} \<longrightarrow> i_var s p \<noteq> i_var s q))
   )"
 
-definition sI5_D2_Local_Bound :: "SysState \<Rightarrow> bool" where 
+definition sI5_D2_Local_Bound :: "SysState \<Rightarrow> bool" where
   "sI5_D2_Local_Bound s = (
-    \<forall>p. program_counter s p = ''D2'' \<longrightarrow> 
-      l_var s p \<in> Val \<and> 
-      1 \<le> l_var s p \<and> 
+    \<forall>p. program_counter s p = ''D2'' \<longrightarrow>
+      l_var s p \<in> Val \<and>
+      1 \<le> l_var s p \<and>
       l_var s p \<le> X_var s
   )"
 
-definition sI6_D3_Scan_Pointers :: "SysState \<Rightarrow> bool" where 
+definition sI6_D3_Scan_Pointers :: "SysState \<Rightarrow> bool" where
   "sI6_D3_Scan_Pointers s = (
-    \<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
-      j_var s p \<in> Val \<and> 
-      l_var s p \<in> Val \<and> 
-      1 \<le> j_var s p \<and> 
-      j_var s p < l_var s p \<and> 
+    \<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+      j_var s p \<in> Val \<and>
+      l_var s p \<in> Val \<and>
+      1 \<le> j_var s p \<and>
+      j_var s p < l_var s p \<and>
       l_var s p \<le> X_var s
   )"
 
-definition sI7_D4_Deq_Result :: "SysState \<Rightarrow> bool" where 
+definition sI7_D4_Deq_Result :: "SysState \<Rightarrow> bool" where
   "sI7_D4_Deq_Result s = (
-    \<forall>p. program_counter s p = ''D4'' \<longrightarrow> 
-      j_var s p \<in> Val \<and> 
-      Q_arr s (j_var s p) = BOT \<and> 
-      Qback_arr s (j_var s p) = x_var s p \<and> 
+    \<forall>p. program_counter s p = ''D4'' \<longrightarrow>
+      j_var s p \<in> Val \<and>
+      Q_arr s (j_var s p) = BOT \<and>
+      Qback_arr s (j_var s p) = x_var s p \<and>
       x_var s p \<noteq> BOT
   )"
 
 
-definition sI8_Q_Qback_Sync :: "SysState \<Rightarrow> bool" where 
+definition sI8_Q_Qback_Sync :: "SysState \<Rightarrow> bool" where
   "sI8_Q_Qback_Sync s = (\<forall>k. (Q_arr s k = Qback_arr s k) \<or> (Q_arr s k = BOT))"
 
-definition sI9_Qback_Discrepancy_E3 :: "SysState \<Rightarrow> bool" where 
+definition sI9_Qback_Discrepancy_E3 :: "SysState \<Rightarrow> bool" where
   "sI9_Qback_Discrepancy_E3 s = (
-    \<forall>k. (Q_arr s k = BOT \<and> Qback_arr s k \<noteq> BOT) \<longrightarrow> 
+    \<forall>k. (Q_arr s k = BOT \<and> Qback_arr s k \<noteq> BOT) \<longrightarrow>
         (\<forall>p. (program_counter s p \<in> {''E3''} \<and> i_var s p = k) \<longrightarrow> v_var s p = Qback_arr s k)
   )"
 
-definition sI10_Qback_Unique_Vals :: "SysState \<Rightarrow> bool" where 
+definition sI10_Qback_Unique_Vals :: "SysState \<Rightarrow> bool" where
   "sI10_Qback_Unique_Vals s = (
-    \<forall>k1 k2. k1 \<noteq> k2 \<and> Qback_arr s k1 \<noteq> BOT \<and> Qback_arr s k2 \<noteq> BOT 
+    \<forall>k1 k2. k1 \<noteq> k2 \<and> Qback_arr s k1 \<noteq> BOT \<and> Qback_arr s k2 \<noteq> BOT
             \<longrightarrow> Qback_arr s k1 \<noteq> Qback_arr s k2
   )"
 
-definition sI11_x_var_Scope :: "SysState \<Rightarrow> bool" where 
+definition sI11_x_var_Scope :: "SysState \<Rightarrow> bool" where
   "sI11_x_var_Scope s = (\<forall>p. program_counter s p \<noteq> ''D4'' \<longrightarrow> x_var s p = BOT)"
 
 
-definition sI12_D3_Scanned_Prefix :: "SysState \<Rightarrow> bool" where 
+definition sI12_D3_Scanned_Prefix :: "SysState \<Rightarrow> bool" where
   "sI12_D3_Scanned_Prefix s = (
-    \<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
+    \<forall>p. program_counter s p = ''D3'' \<longrightarrow>
       (\<forall>k < j_var s p. Q_arr s k = BOT \<or> TypeB s (Q_arr s k))
   )"
 
+
+
+
+
 (* ========================================================================= *)
-(* History invariants                                                        *)
-(* This class constrains the history sequence and its relation to the        *)
-(* current HWQ/U state.                                                      *)
+(* History-level invariants. *)
 (* ========================================================================= *)
 
-definition hI1_E_Phase_Pending_Enq :: "SysState \<Rightarrow> bool" where 
+definition hI1_E_Phase_Pending_Enq :: "SysState \<Rightarrow> bool" where
   "hI1_E_Phase_Pending_Enq s = (
     \<forall>p. program_counter s p \<in> {''E1'', ''E2'', ''E3''} \<longrightarrow> HasPendingEnq s p (v_var s p)
   )"
 
 definition hI2_SSN_Bounds :: "SysState \<Rightarrow> bool" where
   "hI2_SSN_Bounds s = (
-    \<forall>p. \<forall>e \<in> set (his_seq s). act_pid e = p \<longrightarrow> 
-      (act_ssn e \<le> s_var s p \<and> 
+    \<forall>p. \<forall>e \<in> set (his_seq s). act_pid e = p \<longrightarrow>
+      (act_ssn e \<le> s_var s p \<and>
       (program_counter s p = ''L0'' \<longrightarrow> act_ssn e < s_var s p))
   )"
 
 (* ========================================================================= *)
-(* hI3_L0_E_Phase_Bounds: idle-state cleanliness and enqueue-value freshness  *)
-(* Idle processes have no pending operations, while active enqueue values     *)
-(* and recorded enqueue calls remain below the current V_var bound.           *)
+(* Ticket-counter freshness and ordering reasoning. Related symbols: hI3_L0_E_Phase_Bounds, L0. *)
+(* Proof note. *)
+(* Enqueue-side reasoning. Related symbols: V_var. *)
 (* ========================================================================= *)
 definition hI3_L0_E_Phase_Bounds :: "SysState \<Rightarrow> bool" where
   "hI3_L0_E_Phase_Bounds s \<equiv>
@@ -563,17 +560,39 @@ definition hI3_L0_E_Phase_Bounds :: "SysState \<Rightarrow> bool" where
      (\<forall>k. Qback_arr s k = BOT \<or> Qback_arr s k < V_var s)"
 
 (* ========================================================================= *)
-(* hI4_X_var_Lin_Sync: X_var matches the number of linearized enqueues        *)
-(* The next concrete enqueue index equals the number of linearized enqueue    *)
-(* operations plus one.                                                       *)
+(* Ticket-counter freshness and ordering reasoning. Related symbols: hI4_X_var_Lin_Sync. *)
+(* Enqueue-side reasoning. Related symbols: X_var. *)
+(* Enqueue-side reasoning. *)
 (* ========================================================================= *)
 
-definition hI4_X_var_Lin_Sync :: "SysState \<Rightarrow> bool" where 
-  "hI4_X_var_Lin_Sync s = (X_var s = LinEnqCount s (length (lin_seq s)) + 1)"
+definition E2SlotCount :: "SysState \<Rightarrow> nat" where
+  "E2SlotCount s = card {i. i < X_var s \<and>
+      (\<exists>p. program_counter s p = ''E2'' \<and> i_var s p = i)}"
+
+lemma E2SlotCount_cong:
+  assumes X: "X_var s' = X_var s"
+      and PC: "\<And>p. program_counter s' p = ''E2'' \<longleftrightarrow>
+                    program_counter s p = ''E2''"
+      and I: "\<And>p. program_counter s p = ''E2'' \<Longrightarrow>
+                   i_var s' p = i_var s p"
+  shows "E2SlotCount s' = E2SlotCount s"
+proof -
+  have "{i. i < X_var s' \<and>
+           (\<exists>p. program_counter s' p = ''E2'' \<and> i_var s' p = i)} =
+        {i. i < X_var s \<and>
+           (\<exists>p. program_counter s p = ''E2'' \<and> i_var s p = i)}"
+    using X PC I by auto
+  then show ?thesis
+    unfolding E2SlotCount_def by simp
+qed
+
+definition hI4_X_var_Lin_Sync :: "SysState \<Rightarrow> bool" where
+  "hI4_X_var_Lin_Sync s =
+     (X_var s = LinEnqCount s (length (lin_seq s)) + E2SlotCount s + 1)"
 
 
 (* ========================================================================= *)
-(* Additional history invariants derived from SSN ordering                    *)
+(* History well-formedness and call/return reasoning. Related symbols: SSN_Order, H15, H17, H19. *)
 (* ========================================================================= *)
 
 definition hI5_SSN_Unique :: "SysState \<Rightarrow> bool" where
@@ -581,17 +600,17 @@ definition hI5_SSN_Unique :: "SysState \<Rightarrow> bool" where
     \<forall>i < length (his_seq s). \<forall>j < length (his_seq s).
       act_pid (his_seq s ! i) = act_pid (his_seq s ! j) \<and>
       act_ssn (his_seq s ! i) = act_ssn (his_seq s ! j) \<and>
-      act_cr (his_seq s ! i) = act_cr (his_seq s ! j) 
+      act_cr (his_seq s ! i) = act_cr (his_seq s ! j)
       \<longrightarrow> i = j
   )"
 
 definition hI6_SSN_Order :: "SysState \<Rightarrow> bool" where
   "hI6_SSN_Order s = (
     \<forall>i < length (his_seq s). \<forall>j < length (his_seq s).
-      i < j \<and> act_pid (his_seq s ! i) = act_pid (his_seq s ! j) 
-      \<longrightarrow> 
-      (act_ssn (his_seq s ! i) < act_ssn (his_seq s ! j) \<or> 
-      (act_ssn (his_seq s ! i) = act_ssn (his_seq s ! j) \<and> 
+      i < j \<and> act_pid (his_seq s ! i) = act_pid (his_seq s ! j)
+      \<longrightarrow>
+      (act_ssn (his_seq s ! i) < act_ssn (his_seq s ! j) \<or>
+      (act_ssn (his_seq s ! i) = act_ssn (his_seq s ! j) \<and>
        act_cr (his_seq s ! i) = call \<and> act_cr (his_seq s ! j) = ret))
   )"
 
@@ -606,8 +625,8 @@ definition hI7_His_WF :: "SysState \<Rightarrow> bool" where
          act_ssn e_call = act_ssn e_ret \<and>
          act_name e_call = act_name e_ret \<and>
          act_cr e_call = call \<and>
-         (if act_name e_ret = enq 
-          then act_val e_call = act_val e_ret 
+         (if act_name e_ret = enq
+          then act_val e_call = act_val e_ret
           else act_val e_call = BOT))
   )"
 
@@ -619,103 +638,103 @@ definition hI8_Val_Unique :: "SysState \<Rightarrow> bool" where
      \<longrightarrow> i = j
   )"
 
-definition hI9_Deq_Ret_Unique :: "SysState \<Rightarrow> bool" where 
+definition hI9_Deq_Ret_Unique :: "SysState \<Rightarrow> bool" where
   "hI9_Deq_Ret_Unique s = (
-    \<forall>i < length (his_seq s). \<forall>j < length (his_seq s). 
-      act_name (his_seq s ! i) = deq \<and> 
-      act_name (his_seq s ! j) = deq \<and> 
-      act_cr (his_seq s ! i) = ret \<and> 
-      act_cr (his_seq s ! j) = ret \<and> 
-      act_val (his_seq s ! i) \<noteq> BOT \<and> 
-      act_val (his_seq s ! i) = act_val (his_seq s ! j) 
+    \<forall>i < length (his_seq s). \<forall>j < length (his_seq s).
+      act_name (his_seq s ! i) = deq \<and>
+      act_name (his_seq s ! j) = deq \<and>
+      act_cr (his_seq s ! i) = ret \<and>
+      act_cr (his_seq s ! j) = ret \<and>
+      act_val (his_seq s ! i) \<noteq> BOT \<and>
+      act_val (his_seq s ! i) = act_val (his_seq s ! j)
       \<longrightarrow> i = j
   )"
 
-definition hI10_Enq_Call_Existence :: "SysState \<Rightarrow> bool" where 
+definition hI10_Enq_Call_Existence :: "SysState \<Rightarrow> bool" where
   "hI10_Enq_Call_Existence s = (
-    (\<forall>p a. (program_counter s p \<in> {''E1'', ''E2'', ''E3''} \<and> v_var s p = a) \<longrightarrow> EnqCallInHis s p a (s_var s p)) \<and> 
-    (\<forall>a. (\<exists>k. Qback_arr s k = a) \<longrightarrow> (\<exists>q sn. EnqCallInHis s q a sn))
+    (\<forall>p a. (program_counter s p \<in> {''E1'', ''E2'', ''E3''} \<and> v_var s p = a) \<longrightarrow> EnqCallInHis s p a (s_var s p)) \<and>
+    (\<forall>a. a \<in> Val \<and> (\<exists>k. Qback_arr s k = a) \<longrightarrow>
+          (\<exists>q sn. EnqCallInHis s q a sn))
   )"
 
-definition hI11_Enq_Ret_Existence :: "SysState \<Rightarrow> bool" where 
+definition hI11_Enq_Ret_Existence :: "SysState \<Rightarrow> bool" where
   "hI11_Enq_Ret_Existence s = (
-    \<forall>p a sn. 
-      (program_counter s p \<notin> {''E1'', ''E2'', ''E3''} \<or> v_var s p \<noteq> a \<or> s_var s p \<noteq> sn) \<and> 
-      (\<exists>k. Qback_arr s k = a) \<and> 
-      EnqCallInHis s p a sn 
+    \<forall>p a sn.
+      (program_counter s p \<notin> {''E1'', ''E2'', ''E3''} \<or> v_var s p \<noteq> a \<or> s_var s p \<noteq> sn) \<and>
+      (\<exists>k. Qback_arr s k = a) \<and>
+      EnqCallInHis s p a sn
       \<longrightarrow> EnqRetInHis s p a sn
   )"
 
-definition hI12_D_Phase_Pending_Deq :: "SysState \<Rightarrow> bool" where 
+definition hI12_D_Phase_Pending_Deq :: "SysState \<Rightarrow> bool" where
   "hI12_D_Phase_Pending_Deq s = (
     \<forall>p. program_counter s p \<in> {''D1'', ''D2'', ''D3'', ''D4''} \<longrightarrow> HasPendingDeq s p
   )"
 
-definition hI13_Qback_Deq_Sync :: "SysState \<Rightarrow> bool" where 
+definition hI13_Qback_Deq_Sync :: "SysState \<Rightarrow> bool" where
   "hI13_Qback_Deq_Sync s \<equiv> (
-    \<forall>a. a \<noteq> BOT \<longrightarrow> 
-        (\<exists>k. Q_arr s k = BOT \<and> Qback_arr s k = a) \<longrightarrow> 
+    \<forall>a. a \<noteq> BOT \<longrightarrow>
+        (\<exists>k. Q_arr s k = BOT \<and> Qback_arr s k = a) \<longrightarrow>
         (\<exists>p. (program_counter s p = ''D4'' \<and> x_var s p = a) \<or> (\<exists>sn. DeqRetInHis s p a sn))
   )"
 
-definition hI14_Pending_Enq_Qback_Exclusivity :: "SysState \<Rightarrow> bool" where 
+definition hI14_Pending_Enq_Qback_Exclusivity :: "SysState \<Rightarrow> bool" where
   "hI14_Pending_Enq_Qback_Exclusivity s = (
-    (\<forall>p a. (HasPendingEnq s p a \<and> program_counter s p \<in> {''E2'', ''E3''}) \<longrightarrow> 
-           \<not> (\<exists>k. Qback_arr s k = a \<and> k \<noteq> i_var s p)) \<and> 
-    (\<forall>p a. (HasPendingEnq s p a \<and> program_counter s p = ''E1'') \<longrightarrow> 
+    (\<forall>p a. (HasPendingEnq s p a \<and> program_counter s p \<in> {''E2'', ''E3''}) \<longrightarrow>
+           \<not> (\<exists>k. Qback_arr s k = a \<and> k \<noteq> i_var s p)) \<and>
+    (\<forall>p a. (HasPendingEnq s p a \<and> program_counter s p = ''E1'') \<longrightarrow>
            \<not> (\<exists>k. Qback_arr s k = a))
   )"
 
-definition hI15_Deq_Result_Exclusivity :: "SysState \<Rightarrow> bool" where 
+definition hI15_Deq_Result_Exclusivity :: "SysState \<Rightarrow> bool" where
   "hI15_Deq_Result_Exclusivity s = (
-    (\<forall>a p1 p2. a \<in> Val \<longrightarrow> p1 \<noteq> p2 \<longrightarrow> 
-       \<not> (((\<exists>sn1. DeqRetInHis s p1 a sn1) \<or> (program_counter s p1 = ''D4'' \<and> x_var s p1 = a)) \<and> 
-          ((\<exists>sn2. DeqRetInHis s p2 a sn2) \<or> (program_counter s p2 = ''D4'' \<and> x_var s p2 = a)))) \<and> 
-    (\<forall>p a k. a \<in> Val \<longrightarrow> HasPendingDeq s p \<longrightarrow> \<not> (x_var s p = a \<and> Q_arr s k = a)) \<and> 
+    (\<forall>a p1 p2. a \<in> Val \<longrightarrow> p1 \<noteq> p2 \<longrightarrow>
+       \<not> (((\<exists>sn1. DeqRetInHis s p1 a sn1) \<or> (program_counter s p1 = ''D4'' \<and> x_var s p1 = a)) \<and>
+          ((\<exists>sn2. DeqRetInHis s p2 a sn2) \<or> (program_counter s p2 = ''D4'' \<and> x_var s p2 = a)))) \<and>
+    (\<forall>p a k. a \<in> Val \<longrightarrow> HasPendingDeq s p \<longrightarrow> \<not> (x_var s p = a \<and> Q_arr s k = a)) \<and>
     (\<forall>p a. a \<in> Val \<longrightarrow> (\<exists>sn. DeqRetInHis s p a sn) \<longrightarrow> (\<forall>k. Q_arr s k \<noteq> a))
   )"
 
-definition hI16_BO_BT_No_HB :: "SysState \<Rightarrow> bool" where 
+definition hI16_BO_BT_No_HB :: "SysState \<Rightarrow> bool" where
   "hI16_BO_BT_No_HB s = (
     \<forall>a b. a \<in> SetBO s \<and> b \<in> SetBT s \<longrightarrow> \<not> HB_EnqRetCall s a b
   )"
 
-definition hI17_BT_BT_No_HB :: "SysState \<Rightarrow> bool" where 
+definition hI17_BT_BT_No_HB :: "SysState \<Rightarrow> bool" where
   "hI17_BT_BT_No_HB s = (
     \<forall>a b. a \<in> SetBT s \<and> b \<in> SetBT s \<longrightarrow> \<not> HB_EnqRetCall s a b
   )"
 
-definition hI18_Idx_Order_No_Rev_HB :: "SysState \<Rightarrow> bool" where 
+definition hI18_Idx_Order_No_Rev_HB :: "SysState \<Rightarrow> bool" where
   "hI18_Idx_Order_No_Rev_HB s = (
     \<forall>a b. InQBack s a \<and> InQBack s b \<and> Idx s a < Idx s b \<longrightarrow> \<not> HB_EnqRetCall s b a
   )"
 
 definition hI19_Scanner_Catches_Later_Enq :: "SysState \<Rightarrow> bool" where
-"hI19_Scanner_Catches_Later_Enq s \<equiv> \<forall>a b. InQBack s a \<and> InQBack s b \<and> TypeB s a \<and> TypeB s b \<and> Idx s a < Idx s b \<and> 
-               (\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
-                    Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q) 
+"hI19_Scanner_Catches_Later_Enq s \<equiv> \<forall>a b. InQBack s a \<and> InQBack s b \<and> TypeB s a \<and> TypeB s b \<and> Idx s a < Idx s b \<and>
+               (\<exists>q. HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
+                    Idx s a < j_var s q \<and> j_var s q \<le> Idx s b \<and> Idx s b < l_var s q)
                \<longrightarrow> \<not> HB_EnqRetCall s a b"
 
-definition hI20_Enq_Val_Valid :: "SysState \<Rightarrow> bool" where 
+definition hI20_Enq_Val_Valid :: "SysState \<Rightarrow> bool" where
   "hI20_Enq_Val_Valid s = (
-    \<forall>k < length (his_seq s). 
+    \<forall>k < length (his_seq s).
       act_name (his_seq s ! k) = enq \<longrightarrow> act_val (his_seq s ! k) \<in> Val
   )"
 
-definition hI21_Ret_Implies_Call :: "SysState \<Rightarrow> bool" where 
-  "hI21_Ret_Implies_Call s \<equiv> 
+definition hI21_Ret_Implies_Call :: "SysState \<Rightarrow> bool" where
+  "hI21_Ret_Implies_Call s \<equiv>
     \<forall>k < length (his_seq s). act_cr (his_seq s ! k) = ret \<longrightarrow>
       (\<exists>tm<k. act_pid (his_seq s ! tm) = act_pid (his_seq s ! k) \<and>
               act_name (his_seq s ! tm) = act_name (his_seq s ! k) \<and>
               act_cr (his_seq s ! tm) = call \<and>
-              (if act_name (his_seq s ! k) = enq 
-               then act_val (his_seq s ! tm) = act_val (his_seq s ! k) 
+              (if act_name (his_seq s ! k) = enq
+               then act_val (his_seq s ! tm) = act_val (his_seq s ! k)
                else act_val (his_seq s ! tm) = BOT))"
 
 (* ========================================================================= *)
-(* hI22_Deq_Local_Pattern: local history shape of dequeue operations          *)
-(* A successful dequeue is represented by a matching call(BOT) and ret(a)     *)
-(* pair with the same SSN.                                                     *)
+(* History well-formedness and call/return reasoning. Related symbols: hI22_Deq_Local_Pattern. *)
+(* History well-formedness and call/return reasoning. Related symbols: BOT, SSN. *)
 (* ========================================================================= *)
 definition hI22_Deq_Local_Pattern :: "SysState \<Rightarrow> bool" where
   "hI22_Deq_Local_Pattern s = (
@@ -723,29 +742,29 @@ definition hI22_Deq_Local_Pattern :: "SysState \<Rightarrow> bool" where
       ((\<exists>k. Q_arr s k = BOT \<and> Qback_arr s k = a \<and> (\<forall>q. x_var s q \<noteq> a)) \<and>
       DeqRetInHis s p a sn) \<longrightarrow>
       (let p_his = filter (\<lambda>e. act_pid e = p) (his_seq s) in
-      \<exists>i < length p_his. 
-          p_his ! i = mk_act deq a p sn ret \<and>        
-         (i > 0 \<and> p_his ! (i - 1) = mk_act deq BOT p sn call)) 
+      \<exists>i < length p_his.
+          p_his ! i = mk_act deq a p sn ret \<and>
+         (i > 0 \<and> p_his ! (i - 1) = mk_act deq BOT p sn call))
   )"
 
 definition hI23_Deq_Call_Ret_Balanced :: "SysState \<Rightarrow> bool" where
-  "hI23_Deq_Call_Ret_Balanced s = (\<forall>q. \<forall>k \<le> length (his_seq s). 
+  "hI23_Deq_Call_Ret_Balanced s = (\<forall>q. \<forall>k \<le> length (his_seq s).
     let q_his = filter (\<lambda>e. act_pid e = q) (take k (his_seq s)) in
-    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = ret) q_his) \<le> 
-    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) \<and>    
-    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) - 
-    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = ret) q_his) \<le> 1 \<and>    
-    (q_his \<noteq> [] \<and> act_cr (last q_his) = call \<and> act_name (last q_his) \<noteq> deq \<longrightarrow> 
-     length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) = 
+    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = ret) q_his) \<le>
+    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) \<and>
+    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) -
+    length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = ret) q_his) \<le> 1 \<and>
+    (q_his \<noteq> [] \<and> act_cr (last q_his) = call \<and> act_name (last q_his) \<noteq> deq \<longrightarrow>
+     length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = call) q_his) =
      length (filter (\<lambda>e. act_name e = deq \<and> act_cr e = ret) q_his))
   )"
 
-definition hI24_HB_Implies_Idx_Order :: "SysState \<Rightarrow> bool" where 
+definition hI24_HB_Implies_Idx_Order :: "SysState \<Rightarrow> bool" where
   "hI24_HB_Implies_Idx_Order s = (
-    \<forall>u1 u2 v1 v2 idx1 idx2 sn1 sn2. 
-      HB_Act s (mk_op enq v2 u2 sn2) (mk_op enq v1 u1 sn1) \<and> 
-      CState.Q_arr (fst s) idx1 = v1 \<and> 
-      CState.Q_arr (fst s) idx2 = v2 
+    \<forall>u1 u2 v1 v2 idx1 idx2 sn1 sn2.
+      HB_Act s (mk_op enq v2 u2 sn2) (mk_op enq v1 u1 sn1) \<and>
+      CState.Q_arr (fst s) idx1 = v1 \<and>
+      CState.Q_arr (fst s) idx2 = v2
       \<longrightarrow> idx2 < idx1
   )"
 
@@ -758,51 +777,47 @@ definition hI25_Enq_Call_Ret_Balanced :: "SysState \<Rightarrow> bool" where
     (k = length (his_seq s) \<longrightarrow> (program_counter s p \<in> {''E1'', ''E2'', ''E3''} \<longleftrightarrow> n_call - n_ret = 1))
   )"
 
-definition hI26_DeqRet_D4_Mutex :: "SysState \<Rightarrow> bool" where 
+definition hI26_DeqRet_D4_Mutex :: "SysState \<Rightarrow> bool" where
   "hI26_DeqRet_D4_Mutex s = (
     \<forall>p a. a \<in> Val \<longrightarrow> \<not> ((\<exists>sn. DeqRetInHis s p a sn) \<and> program_counter s p = ''D4'' \<and> x_var s p = a)
   )"
 
-definition hI27_Pending_PC_Sync :: "SysState \<Rightarrow> bool" where 
+definition hI27_Pending_PC_Sync :: "SysState \<Rightarrow> bool" where
   "hI27_Pending_PC_Sync s = (
     (\<forall>p. HasPendingDeq s p \<longrightarrow> program_counter s p \<in> {''D1'', ''D2'', ''D3'', ''D4''}) \<and>
     (\<forall>p. HasPendingEnq s p (v_var s p) \<longrightarrow> program_counter s p \<in> {''E1'', ''E2'', ''E3''})
   )"
 
-definition hI28_Fresh_Enq_Immunity :: "SysState \<Rightarrow> bool" where 
+definition hI28_Fresh_Enq_Immunity :: "SysState \<Rightarrow> bool" where
   "hI28_Fresh_Enq_Immunity s = (
-    \<forall>p q a sn. 
-      program_counter s p \<in> {''E1'', ''E2''} \<and> v_var s p = a \<and> a \<noteq> BOT 
+    \<forall>p q a sn.
+      program_counter s p \<in> {''E1'', ''E2''} \<and> v_var s p = a \<and> a \<noteq> BOT
       \<longrightarrow> \<not> DeqRetInHis s q a sn
   )"
 
-definition hI29_E2_Scanner_Immunity :: "SysState \<Rightarrow> bool" where 
+definition hI29_E2_Scanner_Immunity :: "SysState \<Rightarrow> bool" where
   "hI29_E2_Scanner_Immunity s = (
-    \<forall>p a q. program_counter s p = ''E2'' \<and> 
-            InQBack s a \<and> TypeB s a \<and> 
-            HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and> 
-            Idx s a < j_var s q \<and> j_var s q \<le> i_var s p \<and> i_var s p < l_var s q 
+    \<forall>p a q. program_counter s p = ''E2'' \<and>
+            InQBack s a \<and> TypeB s a \<and>
+            HasPendingDeq s q \<and> program_counter s q = ''D3'' \<and>
+            Idx s a < j_var s q \<and> j_var s q \<le> i_var s p \<and> i_var s p < l_var s q
             \<longrightarrow> \<not> HB_EnqRetCall s a (v_var s p)
   )"
 
 (* ========================================================================= *)
-(* hI30_Ticket_HB_Immunity: ticket-order compatibility with happens-before    *)
-(* This invariant avoids over-constraining TypeB and only relates             *)
-(* happens-before information to the index order in Qback.                     *)
+(* Happens-before reasoning. Related symbols: hI22, HB. *)
+(* History well-formedness and call/return reasoning. Related symbols: TypeB. *)
 (* ========================================================================= *)
 definition hI30_Ticket_HB_Immunity :: "SysState \<Rightarrow> bool" where
-  "hI30_Ticket_HB_Immunity s \<equiv> 
-    \<forall>b p. program_counter s p \<in> {''E2'', ''E3''} \<and> 
-          InQBack s b \<and> b \<noteq> BOT \<and>  
-          b \<noteq> v_var s p \<and> HB_EnqRetCall s b (v_var s p) 
+  "hI30_Ticket_HB_Immunity s \<equiv>
+    \<forall>b p. program_counter s p \<in> {''E2'', ''E3''} \<and>
+          InQBack s b \<and> b \<noteq> BOT \<and>
+          b \<noteq> v_var s p \<and> HB_EnqRetCall s b (v_var s p)
     \<longrightarrow> Idx s b < i_var s p"
 
-(* ========================================================================= *)
-(* Linearization-sequence invariants                                         *)
-(* This class constrains the linearization sequence maintained in U^s_Queue. *)
-(* ========================================================================= *)
+(* Linearizability invariants. *)
 
-definition lI1_Op_Sets_Equivalence :: "SysState \<Rightarrow> bool" where 
+definition lI1_Op_Sets_Equivalence :: "SysState \<Rightarrow> bool" where
   "lI1_Op_Sets_Equivalence s = (OPLin s = OP_A_enq s \<union> OP_A_deq s \<union> OP_B_enq s)"
 
 definition lI2_Op_Cardinality :: "SysState \<Rightarrow> bool" where
@@ -823,14 +838,14 @@ definition lI3_HB_Ret_Lin_Sync :: "SysState \<Rightarrow> bool" where
 
 definition lI4_FIFO_Semantics_list :: "OpRec list \<Rightarrow> bool" where
   "lI4_FIFO_Semantics_list L \<equiv> (
-    \<forall>k1 < length L. 
-      let act1 = L ! k1 in 
+    \<forall>k1 < length L.
+      let act1 = L ! k1 in
       op_name act1 = deq \<longrightarrow>
       (let a = op_val act1 in
-       \<exists>k2 < k1. 
+       \<exists>k2 < k1.
          let act2 = L ! k2 in
          op_name act2 = enq \<and> op_val act2 = a \<and>
-         (\<forall>k3 < k2. 
+         (\<forall>k3 < k2.
             let act3 = L ! k3 in
             op_name act3 = enq \<longrightarrow>
             (\<exists>k4. k3 < k4 \<and> k4 < k1 \<and>
@@ -838,71 +853,71 @@ definition lI4_FIFO_Semantics_list :: "OpRec list \<Rightarrow> bool" where
                    op_name act4 = deq \<and> op_val act4 = op_val act3))))
   )"
 
-definition lI4_FIFO_Semantics :: "SysState \<Rightarrow> bool" where 
+definition lI4_FIFO_Semantics :: "SysState \<Rightarrow> bool" where
   "lI4_FIFO_Semantics s = lI4_FIFO_Semantics_list (lin_seq s)"
 
 definition lI5_SA_Prefix_list :: "OpRec list \<Rightarrow> bool" where
   "lI5_SA_Prefix_list L \<equiv> (
-    \<forall>k < length L. 
-      op_name (L ! k) = enq \<longrightarrow> 
+    \<forall>k < length L.
+      op_name (L ! k) = enq \<longrightarrow>
       (in_SA (op_val (L ! k)) L \<longleftrightarrow> int k \<le> find_last_SA L)
   )"
 
-definition lI5_SA_Prefix :: "SysState \<Rightarrow> bool" where 
+definition lI5_SA_Prefix :: "SysState \<Rightarrow> bool" where
   "lI5_SA_Prefix s \<equiv> lI5_SA_Prefix_list (lin_seq s)"
 
 definition lI6_D4_Deq_Linearized :: "SysState \<Rightarrow> bool" where
   "lI6_D4_Deq_Linearized s = (
-    \<forall>p. program_counter s p = ''D4'' \<longrightarrow> 
+    \<forall>p. program_counter s p = ''D4'' \<longrightarrow>
       mk_op deq (x_var s p) p (s_var s p) \<in> set (lin_seq s)
   )"
 
-(* Use SSN-exact matching when expressing dequeue-to-dequeue happens-before constraints. *)
+(* Happens-before reasoning. Related symbols: HB, SSN. *)
 definition lI7_D4_Deq_Deq_HB_list :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> (nat \<Rightarrow> string) \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> bool" where
   "lI7_D4_Deq_Deq_HB_list L H pc xv sv = (
     \<forall>k1 k2 p.
       k1 < length L \<and> k2 < length L \<and>
-      op_name (L ! k1) = deq \<and> 
+      op_name (L ! k1) = deq \<and>
       L ! k2 = mk_op deq (xv p) p (sv p) \<and>
-      (\<forall>k3>k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p) \<and> 
+      (\<forall>k3>k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p) \<and>
       pc p = ''D4'' \<and>
       HB H (L ! k1) (L ! k2)
       \<longrightarrow> k1 < k2
   )"
 
-definition lI7_D4_Deq_Deq_HB :: "SysState \<Rightarrow> bool" where 
+definition lI7_D4_Deq_Deq_HB :: "SysState \<Rightarrow> bool" where
   "lI7_D4_Deq_Deq_HB s = lI7_D4_Deq_Deq_HB_list (lin_seq s) (his_seq s) (\<lambda>p. program_counter s p) (\<lambda>p. x_var s p) (\<lambda>p. s_var s p)"
 
 definition lI8_D3_Deq_Returned :: "SysState \<Rightarrow> bool" where
   "lI8_D3_Deq_Returned s \<equiv> (
-    \<forall>p. program_counter s p = ''D3'' \<longrightarrow> 
-      (\<forall>k < length (lin_seq s). 
-        (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow> 
+    \<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+      (\<forall>k < length (lin_seq s).
+        (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow>
         DeqRetInHis s p (op_val (lin_seq s ! k)) (op_ssn (lin_seq s ! k)))
   )"
 
 definition lI9_D1_D2_Deq_Returned :: "SysState \<Rightarrow> bool" where
   "lI9_D1_D2_Deq_Returned s \<equiv> (
     \<forall>p. (program_counter s p = ''D1'' \<or> program_counter s p = ''D2'') \<longrightarrow>
-      (\<forall>k < length (lin_seq s). 
+      (\<forall>k < length (lin_seq s).
         (op_name (lin_seq s ! k) = deq \<and> op_pid (lin_seq s ! k) = p) \<longrightarrow>
         DeqRetInHis s p (op_val (lin_seq s ! k)) (op_ssn (lin_seq s ! k)))
   )"
 
-(* Analogous to lI7, but for enqueue-to-dequeue happens-before constraints. *)
+(* Original source location: approximately lines 7, 4. *)
 definition lI10_D4_Enq_Deq_HB_list :: "OpRec list \<Rightarrow> ActRec list \<Rightarrow> (nat \<Rightarrow> string) \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> bool" where
   "lI10_D4_Enq_Deq_HB_list L H pc xv sv = (
     \<forall>k1 k2 p.
       k1 < length L \<and> k2 < length L \<and>
-      op_name (L ! k1) = enq \<and> 
+      op_name (L ! k1) = enq \<and>
       L ! k2 = mk_op deq (xv p) p (sv p) \<and>
-      (\<forall>k3>k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p) \<and> 
+      (\<forall>k3>k2. k3 < length L \<longrightarrow> op_name (L ! k3) \<noteq> deq \<or> op_pid (L ! k3) \<noteq> p) \<and>
       pc p = ''D4'' \<and>
       HB H (L ! k1) (L ! k2)
       \<longrightarrow> k1 < k2
   )"
 
-definition lI10_D4_Enq_Deq_HB :: "SysState \<Rightarrow> bool" where 
+definition lI10_D4_Enq_Deq_HB :: "SysState \<Rightarrow> bool" where
   "lI10_D4_Enq_Deq_HB s = lI10_D4_Enq_Deq_HB_list (lin_seq s) (his_seq s) (\<lambda>p. program_counter s p) (\<lambda>p. x_var s p) (\<lambda>p. s_var s p)"
 
 definition lI11_D4_Deq_Unique :: "SysState \<Rightarrow> bool" where
@@ -910,39 +925,96 @@ definition lI11_D4_Deq_Unique :: "SysState \<Rightarrow> bool" where
     \<forall>p. program_counter s p = ''D4'' \<longrightarrow>
       (\<exists>k2 < length (lin_seq s).
          lin_seq s ! k2 = mk_op deq (x_var s p) p (s_var s p) \<and>
-         (\<forall>k3 < length (lin_seq s). 
+         (\<forall>k3 < length (lin_seq s).
             op_name (lin_seq s ! k3) = deq \<and> op_pid (lin_seq s ! k3) = p \<and> k3 \<noteq> k2 \<longrightarrow>
             k3 < k2 \<and> DeqRetInHis s p (op_val (lin_seq s ! k3)) (op_ssn (lin_seq s ! k3))))
   )"
 
-(* ========================================================================= *)
-(* Global system invariant                                                   *)
-(* It is defined as the conjunction of the state invariants, history         *)
-(* invariants, and linearization-sequence invariants above.                  *)
-(* ========================================================================= *)
+(* Definition of genLin as a relation and related material. *)
+definition OpCalledInHis :: "ActRec list \<Rightarrow> OpRec \<Rightarrow> bool" where
+  "OpCalledInHis H a \<equiv> (\<exists>k. match_call H k a)"
 
+definition QueueSpecLin :: "OpRec list \<Rightarrow> bool" where
+  "QueueSpecLin L \<equiv> lI4_FIFO_Semantics_list L"
+
+definition USpec_GenLin :: "ActRec list \<Rightarrow> OpRec set \<Rightarrow> OpRec \<Rightarrow> OpRec list \<Rightarrow> bool" where
+  "USpec_GenLin H S oid L \<equiv>
+     finite S \<and>
+     S \<subseteq> set L \<and>
+     oid \<in> set L \<and>
+     (\<forall>a \<in> set L. OpCalledInHis H a) \<and>
+     HB_consistent L H \<and>
+     QueueSpecLin L \<and>
+     data_independent L"
+
+
+
+(* Invariant: eff_ops agrees with the operation set represented by lin_seq. *)
+definition uI1_USpec_EffOps_Lin :: "SysState \<Rightarrow> bool" where
+  "uI1_USpec_EffOps_Lin s \<equiv> uspec_effOps s = set (lin_seq s)"
+
+
+
+(* Invariant: while a concrete enqueue is in E1/E2 and the abstract PC is UE2,
+   appending that enqueue yields a USpec_GenLin candidate; the actual abstract
+   enqueue update is performed by Sys_E2 via U_E2. *)
+definition uI2_USpec_E1UE2 :: "SysState \<Rightarrow> bool" where
+  "uI2_USpec_E1UE2 s \<equiv>
+     (\<forall>p.  program_counter s p \<in> {''E1'', ''E2''}  \<longrightarrow>
+           u_program_counter (snd s) p = ''UE2'' \<longrightarrow>
+           USpec_GenLin   (u_his_seq (snd s))
+                          (u_eff_ops (snd s))
+                          (mk_op enq (v_var s p) p (s_var s p))
+                          (u_lin_seq (snd s) @ [mk_op enq (v_var s p) p (s_var s p)]))"
+
+
+(* Invariant: the sequence produced when process p can execute satisfies USpec_GenLin. *)
+definition uI3_USpec_D3UD2 :: "SysState \<Rightarrow> bool" where
+  "uI3_USpec_D3UD2 s \<equiv>
+     (\<forall>p. program_counter s p = ''D3'' \<longrightarrow>
+          Q_arr s (j_var s p) \<noteq> BOT \<longrightarrow>
+          u_program_counter (snd s) p = ''UD2'' \<longrightarrow>
+          (let cur_lin = lin_seq s;
+               cur_his = his_seq s;
+               x_val = Q_arr s (j_var s p);
+               op = mk_op deq x_val p (s_var s p);
+               new_lin =
+                 (if should_modify cur_lin cur_his x_val
+                  then modify_lin cur_lin cur_his x_val
+                  else cur_lin) @ [op]
+           in
+               USpec_GenLin cur_his
+                            (uspec_effOps s)
+                            op
+                            new_lin))"
+
+
+(* Proof note. *)
+(* Add sI13_USpec_EffOps_Lin to the global invariant. *)
 definition system_invariant :: "SysState \<Rightarrow> bool" where
   "system_invariant s \<equiv> (
     Simulate_PC s \<and>
     TypeOK s \<and>
-    sI1_Zero_Index_BOT s \<and> sI2_X_var_Upper_Bound s \<and> sI3_E2_Slot_Exclusive s \<and> sI4_E3_Qback_Written s \<and> sI5_D2_Local_Bound s \<and> sI6_D3_Scan_Pointers s \<and> sI7_D4_Deq_Result s \<and>  hI3_L0_E_Phase_Bounds s \<and> 
-    sI8_Q_Qback_Sync s \<and> sI9_Qback_Discrepancy_E3 s \<and> sI10_Qback_Unique_Vals s \<and> hI2_SSN_Bounds s \<and> sI11_x_var_Scope s \<and> hI1_E_Phase_Pending_Enq s \<and> sI12_D3_Scanned_Prefix s \<and> hI4_X_var_Lin_Sync s \<and>
+    sI1_Zero_Index_BOT s \<and> sI2_X_var_Upper_Bound s \<and> sI3_E2_Slot_Exclusive s \<and> sI4_E3_Qback_Written s \<and> sI5_D2_Local_Bound s \<and> sI6_D3_Scan_Pointers s \<and> sI7_D4_Deq_Result s \<and>  hI3_L0_E_Phase_Bounds s \<and>
+    sI8_Q_Qback_Sync s \<and> sI9_Qback_Discrepancy_E3 s \<and> sI10_Qback_Unique_Vals s \<and> hI2_SSN_Bounds s \<and> sI11_x_var_Scope s \<and> hI1_E_Phase_Pending_Enq s \<and> sI12_D3_Scanned_Prefix s \<and>
+    uI1_USpec_EffOps_Lin s \<and> uI2_USpec_E1UE2 s \<and> uI3_USpec_D3UD2 s \<and>
+    hI4_X_var_Lin_Sync s \<and>
     hI7_His_WF s \<and> hI5_SSN_Unique s \<and> hI6_SSN_Order s \<and> hI8_Val_Unique s \<and>
-    hI9_Deq_Ret_Unique s \<and> hI10_Enq_Call_Existence s \<and> hI11_Enq_Ret_Existence s \<and> hI12_D_Phase_Pending_Deq s \<and> hI13_Qback_Deq_Sync s \<and> hI14_Pending_Enq_Qback_Exclusivity s \<and> hI15_Deq_Result_Exclusivity s \<and> 
+    hI9_Deq_Ret_Unique s \<and> hI10_Enq_Call_Existence s \<and> hI11_Enq_Ret_Existence s \<and> hI12_D_Phase_Pending_Deq s \<and> hI13_Qback_Deq_Sync s \<and> hI14_Pending_Enq_Qback_Exclusivity s \<and> hI15_Deq_Result_Exclusivity s \<and>
     hI16_BO_BT_No_HB s \<and> hI17_BT_BT_No_HB s \<and> hI18_Idx_Order_No_Rev_HB s \<and> hI19_Scanner_Catches_Later_Enq s \<and> hI20_Enq_Val_Valid s \<and> hI21_Ret_Implies_Call s \<and> hI22_Deq_Local_Pattern s \<and>
     hI23_Deq_Call_Ret_Balanced s \<and> hI24_HB_Implies_Idx_Order s \<and> hI25_Enq_Call_Ret_Balanced s \<and> hI26_DeqRet_D4_Mutex s \<and>
     hI27_Pending_PC_Sync s \<and> hI28_Fresh_Enq_Immunity s \<and> hI29_E2_Scanner_Immunity s \<and>
     hI30_Ticket_HB_Immunity s \<and>
-    lI1_Op_Sets_Equivalence s \<and> lI2_Op_Cardinality s \<and> lI3_HB_Ret_Lin_Sync s \<and> lI4_FIFO_Semantics s \<and> lI5_SA_Prefix s \<and> lI6_D4_Deq_Linearized s \<and> 
+    lI1_Op_Sets_Equivalence s \<and> lI2_Op_Cardinality s \<and> lI3_HB_Ret_Lin_Sync s \<and> lI4_FIFO_Semantics s \<and> lI5_SA_Prefix s \<and> lI6_D4_Deq_Linearized s \<and>
     lI7_D4_Deq_Deq_HB s \<and> lI8_D3_Deq_Returned s \<and> lI9_D1_D2_Deq_Returned s \<and> lI10_D4_Enq_Deq_HB s \<and> lI11_D4_Deq_Unique s \<and>
-    data_independent (lin_seq s) 
+    data_independent (lin_seq s)
   )"
 
 (* ========================================================== *)
-(* System transition rules with SSN synchronization           *)
+(* System transition rules with SSN synchronization. *)
 (* ========================================================== *)
 
-(* --- Concrete transitions --- *)
+(* Concrete transitions. *)
 
 definition C_L0 :: "nat \<Rightarrow> CState \<Rightarrow> CState \<Rightarrow> bool" where
   "C_L0 p cs cs' = (
@@ -950,8 +1022,8 @@ definition C_L0 :: "nat \<Rightarrow> CState \<Rightarrow> CState \<Rightarrow> 
     (\<exists>new_line \<in> {''E1'', ''D1''}.
       (let new_pc = (\<lambda>x. if x = p then new_line else CState.c_program_counter cs x) in
        if new_line = ''E1'' then
-         cs' = cs\<lparr> c_program_counter := new_pc, 
-                   V_var := CState.V_var cs + 1, 
+         cs' = cs\<lparr> c_program_counter := new_pc,
+                   V_var := CState.V_var cs + 1,
                    v_var := (\<lambda>x. if x = p then CState.V_var cs else CState.v_var cs x) \<rparr>
        else
          cs' = cs\<lparr> c_program_counter := new_pc \<rparr>))
@@ -1021,23 +1093,33 @@ definition C_D4 :: "nat \<Rightarrow> CState \<Rightarrow> CState \<Rightarrow> 
   )"
 
 
-(* --- Abstract transitions with internal SSN synchronization --- *)
+(* Abstract transitions with internal SSN injection. *)
 
 definition U_L0_E :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
   "U_L0_E p us us' = (u_program_counter us p = ''UL0'' \<and> us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE1'' else u_program_counter us x) \<rparr>)"
 
 definition U_E1 :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_E1 p v_val sn us us' = (u_program_counter us p = ''UE1'' \<and> 
+  "U_E1 p v_val sn us us' = (u_program_counter us p = ''UE1'' \<and>
     us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE2'' else u_program_counter us x),
               u_his_seq := u_his_seq us @ [mk_act enq v_val p sn call] \<rparr>)"
 
+(* The enqueue abstract step updates eff_ops together with lin. *)
 definition U_E2 :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_E2 p v_val sn us us' = (u_program_counter us p = ''UE2'' \<and> 
+  "U_E2 p v_val sn us us' = (u_program_counter us p = ''UE2'' \<and>
     us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE3'' else u_program_counter us x),
-              u_lin_seq := u_lin_seq us @ [mk_op enq v_val p sn] \<rparr>)"
+              u_lin_seq := u_lin_seq us @ [mk_op enq v_val p sn],
+              u_eff_ops := insert (mk_op enq v_val p sn)  (u_eff_ops us) \<rparr>)"
+
+lemma U_E2_his_seq [simp]:
+  "U_E2 p v sn us us' \<Longrightarrow> u_his_seq us' = u_his_seq us"
+  unfolding U_E2_def by simp
+
+lemma U_E2_S_var [simp]:
+  "U_E2 p v sn us us' \<Longrightarrow> S_var us' = S_var us"
+  unfolding U_E2_def by simp
 
 definition U_E3 :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_E3 p v_val sn us us' = (u_program_counter us p = ''UE3'' \<and> 
+  "U_E3 p v_val sn us us' = (u_program_counter us p = ''UE3'' \<and>
     us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UE4'' else u_program_counter us x),
               u_his_seq := u_his_seq us @ [mk_act enq v_val p sn ret] \<rparr>)"
 
@@ -1045,8 +1127,16 @@ definition U_E4 :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> 
   "U_E4 p us us' = (
     u_program_counter us p = ''UE4'' \<and>
     us' = us\<lparr>
-      u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us x),
+      u_program_counter := (\<lambda>x. if x = p then ''UE5'' else u_program_counter us x),
       S_var := (\<lambda>x. if x = p then S_var us p + 1 else S_var us x)
+    \<rparr>
+  )"
+
+definition U_E5 :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
+  "U_E5 p us us' = (
+    u_program_counter us p = ''UE5'' \<and>
+    us' = us\<lparr>
+      u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us x)
     \<rparr>
   )"
 
@@ -1054,19 +1144,22 @@ definition U_L0_D :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow
   "U_L0_D p us us' = (u_program_counter us p = ''UL0'' \<and> us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD1'' else u_program_counter us x) \<rparr>)"
 
 definition U_D1 :: "nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_D1 p sn us us' = (u_program_counter us p = ''UD1'' \<and> 
+  "U_D1 p sn us us' = (u_program_counter us p = ''UD1'' \<and>
     us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD2'' else u_program_counter us x),
               u_his_seq := u_his_seq us @ [mk_act deq BOT p sn call] \<rparr>)"
 
+(* The dequeue abstract step updates eff_ops together with lin. *)
 definition U_D2 :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_D2 p x_val sn us us' = (u_program_counter us p = ''UD2'' \<and> 
-    (let cur_lin = u_lin_seq us; cur_his = u_his_seq us;
-         new_lin = (if should_modify cur_lin cur_his x_val then modify_lin cur_lin cur_his x_val else cur_lin) @ [mk_op deq x_val p sn]
+  "U_D2 p x_val sn us us' = (u_program_counter us p = ''UD2'' \<and>
+    (let cur_lin = u_lin_seq us; cur_his = u_his_seq us; cur_eff_ops = u_eff_ops us;
+         new_lin = (if should_modify cur_lin cur_his x_val then modify_lin cur_lin cur_his x_val else cur_lin) @ [mk_op deq x_val p sn];
+         new_eff_ops = insert (mk_op deq x_val p sn)  (u_eff_ops us)
      in us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD3'' else u_program_counter us x),
-                  u_lin_seq := new_lin \<rparr>))"
+                  u_lin_seq := new_lin,
+                  u_eff_ops := new_eff_ops \<rparr>))"
 
 definition U_D3 :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
-  "U_D3 p x_val sn us us' = (u_program_counter us p = ''UD3'' \<and> 
+  "U_D3 p x_val sn us us' = (u_program_counter us p = ''UD3'' \<and>
     us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD4'' else u_program_counter us x),
               u_his_seq := u_his_seq us @ [mk_act deq x_val p sn ret] \<rparr>)"
 
@@ -1074,12 +1167,20 @@ definition U_D4 :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> 
   "U_D4 p us us' = (
     u_program_counter us p = ''UD4'' \<and>
     us' = us\<lparr>
-      u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us x),
+      u_program_counter := (\<lambda>x. if x = p then ''UD5'' else u_program_counter us x),
       S_var := (\<lambda>x. if x = p then S_var us p + 1 else S_var us x)
     \<rparr>
   )"
 
-(* --- Combined system transitions (Sys_ rules) --- *)
+definition U_D5 :: "nat \<Rightarrow> UState \<Rightarrow> UState \<Rightarrow> bool" where
+  "U_D5 p us us' = (
+    u_program_counter us p = ''UD5'' \<and>
+    us' = us\<lparr>
+      u_program_counter := (\<lambda>x. if x = p then ''UL0'' else u_program_counter us x)
+    \<rparr>
+  )"
+
+(* Combined transition system. *)
 
 definition Sys_L0 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "Sys_L0 p s s' = (
@@ -1094,21 +1195,21 @@ definition Sys_L0 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Righta
 definition Sys_E1 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "Sys_E1 p s s' = (
     system_invariant s \<and> C_E1 p (fst s) (fst s') \<and>
-    U_E2 p (CState.v_var (fst s) p) (s_var s p) (snd s) (snd s') \<and>
+    snd s' = snd s \<and>
     Simulate_PC s'
   )"
 
 definition Sys_E2 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "Sys_E2 p s s' = (
     system_invariant s \<and> C_E2 p (fst s) (fst s') \<and>
-    snd s' = snd s \<and>
+    U_E2 p (CState.v_var (fst s) p) (s_var s p) (snd s) (snd s') \<and>
     Simulate_PC s'
   )"
 
 definition Sys_E3 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "Sys_E3 p s s' = (
     system_invariant s \<and> C_E3 p (fst s) (fst s') \<and>
-    (\<exists>us_mid. U_E3 p (CState.v_var (fst s) p) (s_var s p) (snd s) us_mid \<and> U_E4 p us_mid (snd s')) \<and>
+    (\<exists>us_mid us_ret. U_E3 p (CState.v_var (fst s) p) (s_var s p) (snd s) us_mid \<and> U_E4 p us_mid us_ret \<and> U_E5 p us_ret (snd s')) \<and>
     Simulate_PC s'
   )"
 
@@ -1122,35 +1223,36 @@ definition Sys_D3 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Righta
   "Sys_D3 p s s' = (
     system_invariant s \<and> C_D3 p (fst s) (fst s') \<and>
     (let q_val = CState.Q_arr (fst s) (CState.j_var (fst s) p) in
-     if q_val = BOT then snd s' = snd s 
+     if q_val = BOT then snd s' = snd s
      else U_D2 p q_val (s_var s p) (snd s) (snd s')) \<and>
     Simulate_PC s'
   )"
 
 definition Sys_D3_success_update :: "SysState \<Rightarrow> nat \<Rightarrow> SysState" where
-  "Sys_D3_success_update s p \<equiv> 
+  "Sys_D3_success_update s p \<equiv>
     (let cs = fst s; us = snd s; jp = CState.j_var cs p; val = CState.Q_arr cs jp;
-         sn = UState.S_var us p; 
-         cur_lin = u_lin_seq us; cur_his = u_his_seq us;         
+         sn = UState.S_var us p;
+         cur_lin = u_lin_seq us; cur_his = u_his_seq us;
          base_lin = (if should_modify cur_lin cur_his val then modify_lin cur_lin cur_his val else cur_lin);
-         new_lin = base_lin @ [mk_op deq val p sn];         
+         new_lin = base_lin @ [mk_op deq val p sn];
          cs' = cs\<lparr> c_program_counter := (\<lambda>x. if x = p then ''D4'' else CState.c_program_counter cs x),
                    Q_arr := (\<lambda>x. if x = jp then BOT else CState.Q_arr cs x),
                    x_var := (\<lambda>x. if x = p then val else CState.x_var cs x) \<rparr>;
          us' = us\<lparr> u_program_counter := (\<lambda>x. if x = p then ''UD3'' else u_program_counter us x),
-                   u_lin_seq := new_lin \<rparr>
+                   u_lin_seq := new_lin,
+                   u_eff_ops := insert (mk_op deq val p sn) (u_eff_ops us) \<rparr>
      in (cs', us'))"
 
 definition Sys_D4 :: "nat \<Rightarrow> SysState \<Rightarrow> SysState \<Rightarrow> bool" where
   "Sys_D4 p s s' = (
     system_invariant s \<and> C_D4 p (fst s) (fst s') \<and>
-    (\<exists>us_mid. U_D3 p (CState.x_var (fst s) p) (s_var s p) (snd s) us_mid \<and> U_D4 p us_mid (snd s')) \<and>
+    (\<exists>us_mid us_ret. U_D3 p (CState.x_var (fst s) p) (s_var s p) (snd s) us_mid \<and> U_D4 p us_mid us_ret \<and> U_D5 p us_ret (snd s')) \<and>
     Simulate_PC s'
   )"
 
 
 (* ========================================================== *)
-(* 7. System execution and initial states                     *)
+(* System driver and initial state. *)
 (* ========================================================== *)
 
 definition Next :: "SysState \<Rightarrow> SysState \<Rightarrow> bool" where
@@ -1158,16 +1260,18 @@ definition Next :: "SysState \<Rightarrow> SysState \<Rightarrow> bool" where
     Sys_L0 p s s' \<or> Sys_E1 p s s' \<or> Sys_E2 p s s' \<or> Sys_E3 p s s' \<or>
     Sys_D1 p s s' \<or> Sys_D2 p s s' \<or> Sys_D3 p s s' \<or> Sys_D4 p s s')"
 
+(* Initialization also initializes u_eff_ops. *)
 definition Init :: "SysState \<Rightarrow> bool" where
   "Init s = (
     (\<forall>p. c_program_counter (fst s) p = ''L0'') \<and>
     (\<forall>p. u_program_counter (snd s) p = ''UL0'') \<and>
-    X_var s = 1 \<and> V_var s = 1 \<and> 
+    X_var s = 1 \<and> V_var s = 1 \<and>
     (\<forall>idx. Q_arr s idx = BOT) \<and> (\<forall>idx. Qback_arr s idx = BOT) \<and>
     (\<forall>p. i_var s p > 0) \<and> (\<forall>p. j_var s p > 0) \<and> (\<forall>p. l_var s p > 0) \<and> (\<forall>p. x_var s p \<ge> 0) \<and> (\<forall>p. v_var s p > 0) \<and>
-    (\<forall>p. UState.S_var (snd s) p = 1) \<and> 
+    (\<forall>p. UState.S_var (snd s) p = 1) \<and>
     u_lin_seq (snd s) = [] \<and>
     u_his_seq (snd s) = [] \<and>
+    u_eff_ops (snd s) = {} \<and>
     Simulate_PC s \<and>
     system_invariant s
   )"
@@ -1177,9 +1281,11 @@ lemma system_invariant_Init:
   shows "system_invariant s"
   using assms unfolding Init_def by blast
 
-(* Reachability of the concrete-to-abstract system *)
+(* Concrete-system reachability. *)
 inductive Reachable_Sys :: "SysState \<Rightarrow> bool" where
   init: "Init s \<Longrightarrow> Reachable_Sys s"
 | step: "Reachable_Sys s \<Longrightarrow> Next s s' \<Longrightarrow> Reachable_Sys s'"
+
+
 
 end

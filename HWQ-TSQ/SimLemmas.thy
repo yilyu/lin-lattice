@@ -658,25 +658,61 @@ qed
 (* Helper lemma 1: global uniqueness of the active scan cursor  *)
 (* ========================================================== *)
 lemma i_var_uniqueness:
-  assumes "system_invariant (cs, us)"
-      and "c_program_counter cs k \<in> {''E2'', ''E3''}"
-      and "c_program_counter cs v \<in> {''E2'', ''E3''}"
-      and "CState.i_var cs k = CState.i_var cs v"
+  assumes INV: "system_invariant (cs, us)"
+      and PC_K: "c_program_counter cs k \<in> {''E2'', ''E3''}"
+      and PC_V: "c_program_counter cs v \<in> {''E2'', ''E3''}"
+      and SAME_I: "CState.i_var cs k = CState.i_var cs v"
   shows "k = v"
 proof (rule ccontr)
-  assume "k \<noteq> v"
-  have "CState.i_var cs k \<noteq> CState.i_var cs v"
+  assume NE: "k \<noteq> v"
+
+  have SI3: "sI3_E2_Slot_Exclusive (cs, us)"
+    using INV unfolding system_invariant_def by blast
+  have SI4: "sI4_E3_Qback_Written (cs, us)"
+    using INV unfolding system_invariant_def by blast
+
+  have DIFF: "CState.i_var cs k \<noteq> CState.i_var cs v"
   proof (cases "c_program_counter cs k = ''E2''")
     case True
-    with assms `k \<noteq> v` show ?thesis unfolding system_invariant_def sI3_E2_Slot_Exclusive_def
-      by (simp add: Model.i_var_def program_counter_def) 
+    have EXCL:
+      "\<forall>q. q \<noteq> k \<and> c_program_counter cs q \<in> {''E2'', ''E3''}
+            \<longrightarrow> CState.i_var cs k \<noteq> CState.i_var cs q"
+      using SI3 True
+      unfolding sI3_E2_Slot_Exclusive_def program_counter_def Model.i_var_def
+      by auto
+    have VK: "v \<noteq> k"
+      using NE by auto
+
+    have EXCL_V:
+      "v \<noteq> k \<and> c_program_counter cs v \<in> {''E2'', ''E3''}
+       \<longrightarrow> CState.i_var cs k \<noteq> CState.i_var cs v"
+      using EXCL by blast
+
+    show ?thesis
+      using EXCL_V VK PC_V by auto
   next
     case False
-    with assms(2) have "c_program_counter cs k = ''E3''" by simp
-    with assms `k \<noteq> v` show ?thesis unfolding system_invariant_def sI4_E3_Qback_Written_def
-      by (metis Model.i_var_def fst_conv program_counter_def)
+    from PC_K False have PC_K_E3: "c_program_counter cs k = ''E3''"
+      by auto
+    have EXCL:
+      "\<forall>q. q \<noteq> k \<and> c_program_counter cs q \<in> {''E2'', ''E3''}
+            \<longrightarrow> CState.i_var cs k \<noteq> CState.i_var cs q"
+      using SI4 PC_K_E3
+      unfolding sI4_E3_Qback_Written_def program_counter_def Model.i_var_def
+      by auto
+    have VK: "v \<noteq> k"
+      using NE by auto
+
+    have EXCL_V:
+      "v \<noteq> k \<and> c_program_counter cs v \<in> {''E2'', ''E3''}
+       \<longrightarrow> CState.i_var cs k \<noteq> CState.i_var cs v"
+      using EXCL by blast
+
+    show ?thesis
+      using EXCL_V VK PC_V by auto
   qed
-  with assms(4) show False by simp
+
+  from DIFF SAME_I show False by contradiction
 qed
 
 (* ========================================================== *)
@@ -4132,19 +4168,23 @@ qed
       have i_eq_idx_cs: "CState.i_var cs u = idx" using i_eq_idx_cs' cs'_eq u_neq_p by auto
       have v_var_eq: "CState.v_var cs' u = CState.v_var cs u" using cs'_eq u_neq_p by simp
       
+      have SI3: "sI3_E2_Slot_Exclusive (cs, us)"
+        using inv_sys
+        unfolding system_invariant_def
+        by simp
+
+      have q_bot_at_i:
+        "CState.Q_arr cs (CState.i_var cs u) = BOT"
+        using SI3 pc_E2_cs
+        unfolding sI3_E2_Slot_Exclusive_def
+                  program_counter_def
+                  Model.i_var_def
+                  Model.Q_arr_def
+        by auto
+
       have q_bot_cs: "CState.Q_arr cs idx = BOT"
-      proof (cases "idx = ?j")
-        case True
-        then have "CState.i_var cs u = ?j" using i_eq_idx_cs by simp
-        with inv_s have q_bot_j: "CState.Q_arr cs ?j = BOT" 
-          unfolding system_invariant_def sI3_E2_Slot_Exclusive_def s_def using ProcSet_def finite_ProcSet
-          by (metis Model.Q_arr_def Model.i_var_def fst_eqD pc_E2_cs
-              program_counter_def) 
-        show ?thesis using q_bot_j q_not_bot by blast
-      next
-        case False
-        then show ?thesis using q_bot_cs' cs'_eq by auto
-      qed
+        using q_bot_at_i i_eq_idx_cs
+        by simp
 
       from sim q_bot_cs pc_E2_cs i_eq_idx_cs
       obtain nid where old_in: "(nid, CState.v_var cs u, TOP) \<in> set (pools ts u)" 
@@ -4375,16 +4415,52 @@ qed
           then have u_neq_p: "u \<noteq> p" using cs'_eq by force
           
           have idx_neq_j: "idx \<noteq> ?j"
-          proof (rule notI) 
-            assume "idx = ?j"
-            with hyp u_neq_p have "c_program_counter cs u = ''E2'' \<and> CState.i_var cs u = ?j" 
-              using cs'_eq by auto
-            hence "CState.Q_arr cs ?j = BOT" 
-              using inv_s unfolding system_invariant_def sI3_E2_Slot_Exclusive_def s_def
-              by (metis Model.Q_arr_def Model.i_var_def fst_conv program_counter_def) 
-            with q_not_bot show False by simp
+          proof (rule notI)
+            assume IDX_EQ: "idx = ?j"
+
+            from hyp have pc_u_new:
+              "c_program_counter cs' u = ''E2''"
+              by simp
+
+            from hyp have i_u_new:
+              "CState.i_var cs' u = idx"
+              by simp
+
+            have pc_u_old:
+              "c_program_counter cs u = ''E2''"
+              using pc_u_new u_neq_p cs'_eq
+              by auto
+
+            have i_u_old:
+              "CState.i_var cs u = ?j"
+              using i_u_new IDX_EQ cs'_eq
+              by auto
+
+            have SI3:
+              "sI3_E2_Slot_Exclusive (cs, us)"
+              using inv_sys
+              unfolding system_invariant_def
+              by simp
+
+            have slot_empty:
+              "CState.Q_arr cs (CState.i_var cs u) = BOT"
+              using SI3 pc_u_old
+              unfolding sI3_E2_Slot_Exclusive_def
+                        program_counter_def
+                        Model.i_var_def
+                        Model.Q_arr_def
+              by auto
+
+            have q_bot_j:
+              "CState.Q_arr cs ?j = BOT"
+              using slot_empty i_u_old
+              by simp
+
+            show False
+              using q_bot_j q_not_bot
+              by simp
           qed
-          
+
           from hyp idx_neq_j u_neq_p have "CState.Q_arr cs idx = BOT \<and> c_program_counter cs u = ''E2'' \<and> CState.i_var cs u = idx" 
             using cs'_eq by auto
           with sim pc_q_old idx_less l_eq show "t_ts ts' u <\<^sub>t\<^sub>s t_startTs ts' q"
